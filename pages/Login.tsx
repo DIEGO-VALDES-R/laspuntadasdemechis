@@ -1,40 +1,91 @@
+// pages/Login.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, ArrowRight } from 'lucide-react';
+import { supabase } from '../services/supabaseClient'; // Oñemboguejypa upe .ts
+import { Database } from '../types'; // Ejesareko upe ruta oĩ porãha
+
+// El email del administrador es crucial para la validación RLS y la redirección
+const ADMIN_EMAIL = 'puntadasdemechis@gmail.com';
+
+// Define el tipo para la tabla 'clients'
+type Client = Database['public']['Tables']['clients']['Row'];
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Función auxiliar para registrar o actualizar el cliente en la tabla 'clients'
+  const ensureClientInDb = async (userEmail: string) => {
+    // 1. Verificar si el cliente ya existe
+    const { data: existingClient } = await supabase
+      .from('clients')
+      .select('id, name')
+      .eq('email', userEmail)
+      .limit(1)
+      .single();
+
+    if (!existingClient) {
+      // 2. Si no existe, crearlo (Solo para clientes, no para el admin)
+      if (userEmail !== ADMIN_EMAIL) {
+        const { error: insertError } = await supabase
+          .from('clients')
+          .insert([{ 
+              email: userEmail,
+              name: userEmail.split('@')[0], // Nombre básico por defecto
+              is_admin: false,
+              created_at: new Date().toISOString()
+           }]);
+
+        if (insertError) {
+          console.error("Error al insertar cliente:", insertError);
+        }
+      }
+    }
+  };
+
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // Admin Authentication Check
-    if (email === 'puntadasdemechis@gmail.com' && password === 'Lashijasdemechis') {
-      localStorage.setItem('puntadas_user', email);
-      localStorage.setItem('puntadas_role', 'admin');
-      // Trigger storage event for Layout update
-      window.dispatchEvent(new Event('storage'));
-      navigate('/admin');
+    // 1. Autenticación real con Supabase
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    setLoading(false);
+
+    if (authError) {
+      // 1.1 Si hay error, mostrar mensaje
+      setError('Credenciales inválidas. Verifica tu correo y contraseña.');
       return;
-    }
+    } 
 
-    // Default Client Login (Demo purposes: allows any email)
-    if (email) {
-      if (email === 'puntadasdemechis@gmail.com') {
-         // Prevent admin email from logging in as client if password was wrong
-         setError('Contraseña incorrecta para cuenta administrativa');
-         return;
-      }
+    // 2. Éxito en la autenticación: Gestionar el rol y el almacenamiento local
+    await ensureClientInDb(email);
 
-      localStorage.setItem('puntadas_user', email);
-      localStorage.setItem('puntadas_role', 'client');
-      // Trigger storage event for Layout update
-      window.dispatchEvent(new Event('storage'));
-      navigate('/dashboard');
+    const role = (email === ADMIN_EMAIL) ? 'admin' : 'client';
+    
+    // Almacenamiento local (Temporal, para que el Layout sepa quién es)
+    // Nota: Aunque ya no es la fuente de verdad, es necesario para el flujo de tu aplicación.
+    localStorage.setItem('puntadas_user', email);
+    localStorage.setItem('puntadas_role', role);
+    window.dispatchEvent(new Event('storage'));
+
+    // 3. Redirección
+    if (role === 'admin') {
+      navigate('/admin');
+    } else {
+      // Nota: Redirecciono a /client-dashboard según el código anterior,
+      // pero tu código original usaba '/dashboard'. Usaré '/client-dashboard' si existe.
+      // Si solo tienes '/dashboard', por favor ajústalo después.
+      navigate('/client-dashboard'); 
     }
   };
 
@@ -84,9 +135,14 @@ const Login: React.FC = () => {
 
           <button 
             type="submit" 
-            className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2"
+            disabled={loading}
+            className={`w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-3 rounded-xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            Ingresar <ArrowRight size={20} />
+            {loading ? 'Verificando...' : (
+              <>
+                Ingresar <ArrowRight size={20} />
+              </>
+            )}
           </button>
         </form>
 
