@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, ArrowRight } from 'lucide-react';
 import { supabase } from '../services/supabaseClient'; // Oñemboguejypa upe .ts
-import { Database } from '../types'; // Ejesareko upe ruta oĩ porãha
+
 
 // El email del administrador es crucial para la validación RLS y la redirección
 const ADMIN_EMAIL = 'puntadasdemechis@gmail.com';
 
 // Define el tipo para la tabla 'clients'
-type Client = Database['public']['Tables']['clients']['Row'];
+
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -85,7 +85,7 @@ const Login: React.FC = () => {
       // Nota: Redirecciono a /client-dashboard según el código anterior,
       // pero tu código original usaba '/dashboard'. Usaré '/client-dashboard' si existe.
       // Si solo tienes '/dashboard', por favor ajústalo después.
-      navigate('/client-dashboard'); 
+      navigate('/dashboard');
     }
   };
 

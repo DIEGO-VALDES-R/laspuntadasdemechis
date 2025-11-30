@@ -279,8 +279,8 @@ const RequestForm: React.FC = () => {
   const total = subtotal - discount;
   
   // Logic from Global Config
-  const canPayPartial = total > globalConfig.limite_pago_completo;
-  const abonoFijo = globalConfig.abono_minimo_fijo;
+  const canPayPartial = total > (globalConfig?.limite_pago_completo || 0);
+  const abonoFijo = globalConfig?.abono_minimo_fijo || 0;
 
   const montoAPagar = formData.paymentOption === 'total' || !canPayPartial 
     ? total 
@@ -731,7 +731,7 @@ Detalle: ${order.descripcion}`;
                     ) : (
                         <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 p-2 rounded">
                             <AlertCircle size={14}/>
-                            Pedidos menores a ${globalConfig.limite_pago_completo.toLocaleString()} requieren pago completo.
+                            Pedidos menores a ${globalConfig?.limite_pago_completo?.toLocaleString() || '0'} requieren pago completo.
                         </div>
                     )}
                 </div>

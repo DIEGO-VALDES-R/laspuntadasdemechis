@@ -1,54 +1,9 @@
-
 import { supabase } from './supabaseClient';
 import { Order, Client, InventoryItem, ProductConfig, GlobalConfig, GalleryItem, DEFAULT_CONFIG, Tejedora, HomeConfig, Post, Challenge, Supply, Expense, ReturnRecord } from '../types';
-import { mockOrders, mockClient, mockGallery, mockGlobalConfig, mockPosts, mockChallenges, mockSupplies, mockExpenses, mockReturns } from './mockData';
 
-// --- MAPPING HELPERS (Snake_case DB to CamelCase TS) ---
-const mapHomeConfig = (data: any): HomeConfig => ({
-  heroImage1: data.hero_image1,
-  heroImage2: data.hero_image2
-});
-
-const mapTejedora = (data: any): Tejedora => ({
-  id: data.id,
-  nombre: data.nombre,
-  especialidad: data.especialidad,
-  imageUrl: data.image_url
-});
-
-const mapGallery = (data: any): GalleryItem => ({
-  id: data.id,
-  title: data.title,
-  description: data.description,
-  imageUrl: data.image_url,
-  price: data.price
-});
-
-const mapPost = (data: any): Post => ({
-  id: data.id,
-  userId: data.user_id,
-  userName: data.user_name,
-  userAvatar: data.user_avatar,
-  topic: data.topic,
-  imageUrl: data.image_url,
-  description: data.description,
-  likes: data.likes,
-  likedBy: data.liked_by || [],
-  timestamp: data.timestamp
-});
-
-const mapChallenge = (data: any): Challenge => ({
-  id: data.id,
-  title: data.title,
-  description: data.description,
-  imageUrl: data.image_url,
-  startDate: data.start_date,
-  endDate: data.end_date,
-  difficulty: data.difficulty,
-  reward: data.reward,
-  participants: data.participants,
-  status: data.status
-});
+// =====================================================
+// MAPPING HELPERS (Database to TypeScript)
+// =====================================================
 
 const mapOrder = (o: any): Order => ({
   id: o.id,
@@ -57,13 +12,16 @@ const mapOrder = (o: any): Order => ({
   nombre_producto: o.nombre_producto,
   estado: o.estado,
   fecha_solicitud: o.fecha_solicitud,
+  fecha_entrega: o.fecha_entrega,
   total_final: o.total_final,
   monto_pagado: o.monto_pagado,
   saldo_pendiente: o.saldo_pendiente,
   imagen_url: o.imagen_url,
   descripcion: o.descripcion,
   desglose: o.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
-  guia_transportadora: o.guia_transportadora
+  guia_transportadora: o.guia_transportadora,
+  puede_reordenar: o.puede_reordenar,
+  puede_calificar: o.puede_calificar
 });
 
 const mapClient = (c: any): Client => ({
@@ -81,13 +39,12 @@ const mapClient = (c: any): Client => ({
   nivel: c.nivel || 'Nuevo',
   total_invertido: c.total_invertido || 0,
   saldos_pendientes: c.saldos_pendientes || 0,
-  // Campos calculados o no persistidos en BD para UI
-  ahorro_historico: 0,
-  compras_para_siguiente: 5 - (c.compras_totales || 0),
-  progreso_porcentaje: ((c.compras_totales || 0) / 5) * 100,
-  promedio_por_pedido: c.compras_totales > 0 ? (c.total_invertido / c.compras_totales) : 0,
-  ahorro_descuentos: 0,
-  porcentaje_ahorro: 0
+  ahorro_historico: c.ahorro_historico || 0,
+  compras_para_siguiente: c.compras_para_siguiente || 5,
+  progreso_porcentaje: c.progreso_porcentaje || 0,
+  promedio_por_pedido: c.promedio_por_pedido || 0,
+  ahorro_descuentos: c.ahorro_descuentos || 0,
+  porcentaje_ahorro: c.porcentaje_ahorro || 0
 });
 
 const mapSupply = (s: any): Supply => ({
@@ -120,23 +77,378 @@ const mapReturn = (r: any): ReturnRecord => ({
   status: r.status
 });
 
-// --- ASYNC DB SERVICE ---
+const mapGallery = (g: any): GalleryItem => ({
+  id: g.id,
+  title: g.title,
+  description: g.description,
+  imageUrl: g.image_url,
+  price: g.price
+});
+
+const mapTejedora = (t: any): Tejedora => ({
+  id: t.id,
+  nombre: t.nombre,
+  especialidad: t.especialidad,
+  imageUrl: t.image_url
+});
+
+const mapPost = (p: any): Post => ({
+  id: p.id,
+  userId: p.user_id,
+  userName: p.user_name,
+  userAvatar: p.user_avatar,
+  topic: p.topic,
+  imageUrl: p.image_url,
+  description: p.description,
+  likes: p.likes,
+  likedBy: p.liked_by || [],
+  timestamp: p.timestamp
+});
+
+const mapChallenge = (c: any): Challenge => ({
+  id: c.id,
+  title: c.title,
+  description: c.description,
+  imageUrl: c.image_url,
+  startDate: c.start_date,
+  endDate: c.end_date,
+  difficulty: c.difficulty,
+  reward: c.reward,
+  participants: c.participants,
+  status: c.status
+});
+
+// =====================================================
+// DATABASE SERVICE
+// =====================================================
 
 export const db = {
+  // --- ORDERS ---
+  getOrders: async (): Promise<Order[]> => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching orders:', error);
+      return [];
+    }
+    return (data || []).map(mapOrder);
+  },
+
+  addOrder: async (order: Omit<Order, 'id'>) => {
+    const { error } = await supabase.from('orders').insert({
+      numero_seguimiento: order.numero_seguimiento,
+      client_email: order.clientEmail,
+      nombre_producto: order.nombre_producto,
+      estado: order.estado,
+      fecha_solicitud: order.fecha_solicitud,
+      total_final: order.total_final,
+      monto_pagado: order.monto_pagado,
+      saldo_pendiente: order.saldo_pendiente,
+      imagen_url: order.imagen_url,
+      descripcion: order.descripcion,
+      desglose: order.desglose,
+      guia_transportadora: order.guia_transportadora
+    });
+    
+    if (error) console.error('Error adding order:', error);
+  },
+
+  updateOrder: async (orderId: string, updates: Partial<Order>) => {
+    const dbUpdates: any = {};
+    if (updates.estado) dbUpdates.estado = updates.estado;
+    if (updates.guia_transportadora) dbUpdates.guia_transportadora = updates.guia_transportadora;
+    if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
+    if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
+
+    const { error } = await supabase
+      .from('orders')
+      .update(dbUpdates)
+      .eq('id', orderId);
+    
+    if (error) console.error('Error updating order:', error);
+  },
+
+  deleteOrder: async (orderId: string) => {
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId);
+    
+    if (error) console.error('Error deleting order:', error);
+  },
+
+  // --- CLIENTS ---
+  getAllClients: async (): Promise<Client[]> => {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching clients:', error);
+      return [];
+    }
+    return (data || []).map(mapClient);
+  },
+
+  getClient: async (email: string): Promise<Client | null> => {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error || !data) return null;
+    return mapClient(data);
+  },
+
+  registerClient: async (clientData: any) => {
+    const code = (clientData.nombre.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
+    
+    const { error } = await supabase.from('clients').insert({
+      nombre_completo: clientData.nombre,
+      email: clientData.email,
+      cedula: clientData.cedula,
+      telefono: clientData.telefono,
+      direccion: clientData.direccion,
+      password: clientData.password,
+      codigo_referido: code
+    });
+    
+    if (error) {
+      console.error('Error registering client:', error);
+      throw error;
+    }
+    
+    localStorage.setItem('puntadas_user', clientData.email);
+    localStorage.setItem('puntadas_role', 'client');
+  },
+
+  deleteClient: async (clientId: string) => {
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', clientId);
+    
+    if (error) console.error('Error deleting client:', error);
+  },
+
+  // --- SUPPLIES ---
+  getSupplies: async (): Promise<Supply[]> => {
+    const { data, error } = await supabase
+      .from('supplies')
+      .select('*')
+      .order('name', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching supplies:', error);
+      return [];
+    }
+    return (data || []).map(mapSupply);
+  },
+
+  addSupply: async (supply: Omit<Supply, 'id'>) => {
+    const { error } = await supabase.from('supplies').insert({
+      name: supply.name,
+      reference: supply.reference,
+      unit_value: supply.unitValue,
+      quantity: supply.quantity,
+      color: supply.color,
+      number: supply.number,
+      low_stock_threshold: supply.lowStockThreshold
+    });
+    
+    if (error) console.error('Error adding supply:', error);
+  },
+
+  updateSupply: async (supply: Supply) => {
+    const { error } = await supabase
+      .from('supplies')
+      .update({
+        name: supply.name,
+        reference: supply.reference,
+        unit_value: supply.unitValue,
+        quantity: supply.quantity,
+        color: supply.color,
+        number: supply.number,
+        low_stock_threshold: supply.lowStockThreshold
+      })
+      .eq('id', supply.id);
+    
+    if (error) console.error('Error updating supply:', error);
+  },
+
+  deleteSupply: async (id: string) => {
+    const { error } = await supabase
+      .from('supplies')
+      .delete()
+      .eq('id', id);
+    
+    if (error) console.error('Error deleting supply:', error);
+  },
+
+  // --- EXPENSES ---
+  getExpenses: async (): Promise<Expense[]> => {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching expenses:', error);
+      return [];
+    }
+    return (data || []).map(mapExpense);
+  },
+
+  addExpense: async (expense: Omit<Expense, 'id'>) => {
+    const { error } = await supabase.from('expenses').insert({
+      date: expense.date,
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount,
+      provider: expense.provider
+    });
+    
+    if (error) console.error('Error adding expense:', error);
+  },
+
+  // --- RETURNS ---
+  getReturns: async (): Promise<ReturnRecord[]> => {
+    const { data, error } = await supabase
+      .from('returns')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching returns:', error);
+      return [];
+    }
+    return (data || []).map(mapReturn);
+  },
+
+  // --- INVENTORY (Product Config) ---
+  getAllInventoryItems: async (): Promise<InventoryItem[]> => {
+    // Esta función devuelve los items del catálogo (sizes, packaging, accessories)
+    // Por ahora usamos DEFAULT_CONFIG, pero puedes crear una tabla en Supabase si quieres
+    return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
+  },
+
+  getInventory: (): ProductConfig => {
+    return DEFAULT_CONFIG;
+  },
+
+  // --- GALLERY ---
+  getGallery: async (): Promise<GalleryItem[]> => {
+    const { data, error } = await supabase
+      .from('gallery_items')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching gallery:', error);
+      return [];
+    }
+    return (data || []).map(mapGallery);
+  },
+
+  addGalleryItem: async (item: Omit<GalleryItem, 'id'>) => {
+    const { error } = await supabase.from('gallery_items').insert({
+      title: item.title,
+      description: item.description,
+      image_url: item.imageUrl,
+      price: item.price
+    });
+    
+    if (error) console.error('Error adding gallery item:', error);
+  },
+
+  updateGalleryItem: async (item: GalleryItem) => {
+    const { error } = await supabase
+      .from('gallery_items')
+      .update({
+        title: item.title,
+        description: item.description,
+        image_url: item.imageUrl,
+        price: item.price
+      })
+      .eq('id', item.id);
+    
+    if (error) console.error('Error updating gallery item:', error);
+  },
+
+  deleteGalleryItem: async (id: string) => {
+    const { error } = await supabase
+      .from('gallery_items')
+      .delete()
+      .eq('id', id);
+    
+    if (error) console.error('Error deleting gallery item:', error);
+  },
+
+  // --- CONFIG ---
+  getConfig: async (): Promise<GlobalConfig> => {
+    const { data, error } = await supabase
+      .from('global_config')
+      .select('*')
+      .eq('id', 1)
+      .single();
+    
+    if (error || !data) {
+      return {
+        limite_pago_completo: 70000,
+        abono_minimo_fijo: 50000,
+        descuento_referido: 10
+      };
+    }
+    
+    return {
+      limite_pago_completo: data.limite_pago_completo,
+      abono_minimo_fijo: data.abono_minimo_fijo,
+      descuento_referido: data.descuento_referido
+    };
+  },
+
+  saveConfig: async (config: GlobalConfig) => {
+    const { error } = await supabase
+      .from('global_config')
+      .update({
+        limite_pago_completo: config.limite_pago_completo,
+        abono_minimo_fijo: config.abono_minimo_fijo,
+        descuento_referido: config.descuento_referido
+      })
+      .eq('id', 1);
+    
+    if (error) console.error('Error saving config:', error);
+  },
+
   // --- HOME CONFIG ---
   getHomeConfig: async (): Promise<HomeConfig> => {
-    const { data, error } = await supabase.from('home_config').select('*').limit(1).single();
+    const { data, error } = await supabase
+      .from('home_config')
+      .select('*')
+      .limit(1)
+      .single();
+    
     if (error || !data) {
       return {
         heroImage1: 'https://images.unsplash.com/photo-1618331835717-801e976710b2?auto=format&fit=crop&w=600&q=80',
         heroImage2: 'https://images.unsplash.com/photo-1615486511484-92e172cc416d?auto=format&fit=crop&w=600&q=80'
       };
     }
-    return mapHomeConfig(data);
+    
+    return {
+      heroImage1: data.hero_image1,
+      heroImage2: data.hero_image2
+    };
   },
 
   saveHomeConfig: async (config: HomeConfig) => {
     const { data } = await supabase.from('home_config').select('id').limit(1);
+    
     if (data && data.length > 0) {
       await supabase.from('home_config').update({
         hero_image1: config.heroImage1,
@@ -152,111 +464,55 @@ export const db = {
 
   // --- TEJEDORAS ---
   getTejedoras: async (): Promise<Tejedora[]> => {
-    const { data } = await supabase.from('tejedoras').select('*');
+    const { data, error } = await supabase
+      .from('tejedoras')
+      .select('*')
+      .order('nombre', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching tejedoras:', error);
+      return [];
+    }
     return (data || []).map(mapTejedora);
   },
 
-  addTejedora: async (tejedora: Tejedora) => {
-    await supabase.from('tejedoras').insert({
-      nombre: tejedora.nombre,
-      especialidad: tejedora.especialidad,
-      image_url: tejedora.imageUrl
-    });
-  },
-
   saveTejedoras: async (tejedoras: Tejedora[]) => {
-      // Método simplificado para upsert en lote
-      for (const t of tejedoras) {
-          // Si el ID parece ser temporal (creado con Date.now()), dejamos que Supabase genere uno
-          const idToUse = t.id.startsWith('tej-') ? undefined : t.id;
-          const { error } = await supabase.from('tejedoras').upsert({
-              id: idToUse, 
-              nombre: t.nombre,
-              especialidad: t.especialidad,
-              image_url: t.imageUrl
-          });
-          if (error) console.error('Error saving tejedora', error);
-      }
+    for (const t of tejedoras) {
+      const { error } = await supabase.from('tejedoras').upsert({
+        id: t.id,
+        nombre: t.nombre,
+        especialidad: t.especialidad,
+        image_url: t.imageUrl
+      });
+      if (error) console.error('Error saving tejedora:', error);
+    }
   },
 
   deleteTejedora: async (id: string) => {
-    await supabase.from('tejedoras').delete().eq('id', id);
-  },
-
-  // --- GALLERY ---
-  getGallery: async (): Promise<GalleryItem[]> => {
-    const { data } = await supabase.from('gallery_items').select('*');
-    return (data || []).map(mapGallery);
-  },
-
-  addGalleryItem: async (item: GalleryItem) => {
-    await supabase.from('gallery_items').insert({
-      title: item.title,
-      description: item.description,
-      image_url: item.imageUrl,
-      price: item.price
-    });
-  },
-
-  updateGalleryItem: async (item: GalleryItem) => {
-    await supabase.from('gallery_items').update({
-      title: item.title,
-      description: item.description,
-      image_url: item.imageUrl,
-      price: item.price
-    }).eq('id', item.id);
-  },
-
-  deleteGalleryItem: async (id: string) => {
-    await supabase.from('gallery_items').delete().eq('id', id);
-  },
-
-  // --- CHALLENGES ---
-  getChallenges: async (): Promise<Challenge[]> => {
-    const { data } = await supabase.from('challenges').select('*');
-    return (data || []).map(mapChallenge);
-  },
-
-  addChallenge: async (ch: Challenge) => {
-    await supabase.from('challenges').insert({
-      title: ch.title,
-      description: ch.description,
-      image_url: ch.imageUrl,
-      start_date: ch.startDate,
-      end_date: ch.endDate,
-      difficulty: ch.difficulty,
-      reward: ch.reward,
-      participants: ch.participants,
-      status: ch.status
-    });
-  },
-
-  updateChallenge: async (ch: Challenge) => {
-    await supabase.from('challenges').update({
-      title: ch.title,
-      description: ch.description,
-      image_url: ch.imageUrl,
-      start_date: ch.startDate,
-      end_date: ch.endDate,
-      difficulty: ch.difficulty,
-      reward: ch.reward,
-      participants: ch.participants,
-      status: ch.status
-    }).eq('id', ch.id);
-  },
-
-  deleteChallenge: async (id: string) => {
-    await supabase.from('challenges').delete().eq('id', id);
+    const { error } = await supabase
+      .from('tejedoras')
+      .delete()
+      .eq('id', id);
+    
+    if (error) console.error('Error deleting tejedora:', error);
   },
 
   // --- POSTS ---
   getPosts: async (): Promise<Post[]> => {
-    const { data } = await supabase.from('posts').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching posts:', error);
+      return [];
+    }
     return (data || []).map(mapPost);
   },
 
-  addPost: async (post: Post) => {
-    await supabase.from('posts').insert({
+  addPost: async (post: Omit<Post, 'id'>) => {
+    const { error } = await supabase.from('posts').insert({
       user_id: post.userId,
       user_name: post.userName,
       user_avatar: post.userAvatar,
@@ -264,26 +520,44 @@ export const db = {
       image_url: post.imageUrl,
       description: post.description,
       likes: post.likes,
+      liked_by: post.likedBy,
       timestamp: post.timestamp
     });
+    
+    if (error) console.error('Error adding post:', error);
   },
 
   updatePost: async (post: Post) => {
-    await supabase.from('posts').update({
-      topic: post.topic,
-      image_url: post.imageUrl,
-      description: post.description,
-      user_name: post.userName
-    }).eq('id', post.id);
+    const { error } = await supabase
+      .from('posts')
+      .update({
+        topic: post.topic,
+        image_url: post.imageUrl,
+        description: post.description,
+        user_name: post.userName
+      })
+      .eq('id', post.id);
+    
+    if (error) console.error('Error updating post:', error);
   },
 
   deletePost: async (id: string) => {
-    await supabase.from('posts').delete().eq('id', id);
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', id);
+    
+    if (error) console.error('Error deleting post:', error);
   },
 
   toggleLikePost: async (postId: string, userEmail: string): Promise<Post[]> => {
-    const { data: current } = await supabase.from('posts').select('*').eq('id', postId).single();
-    if (!current) return [];
+    const { data: current } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('id', postId)
+      .single();
+    
+    if (!current) return db.getPosts();
 
     let likedBy = current.liked_by || [];
     let likes = current.likes || 0;
@@ -300,143 +574,61 @@ export const db = {
     return db.getPosts();
   },
 
-  // --- ORDERS ---
-  getOrders: async (): Promise<Order[]> => {
-    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-    if (!data || data.length === 0) return mockOrders;
-    return data.map(mapOrder);
+  // --- CHALLENGES ---
+  getChallenges: async (): Promise<Challenge[]> => {
+    const { data, error } = await supabase
+      .from('challenges')
+      .select('*')
+      .order('start_date', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching challenges:', error);
+      return [];
+    }
+    return (data || []).map(mapChallenge);
   },
 
-  addOrder: async (order: Order) => {
-    await supabase.from('orders').insert({
-      numero_seguimiento: order.numero_seguimiento,
-      client_email: order.clientEmail,
-      nombre_producto: order.nombre_producto,
-      estado: order.estado,
-      fecha_solicitud: order.fecha_solicitud,
-      total_final: order.total_final,
-      monto_pagado: order.monto_pagado,
-      saldo_pendiente: order.saldo_pendiente,
-      imagen_url: order.imagen_url,
-      descripcion: order.descripcion,
-      desglose: order.desglose
+  addChallenge: async (challenge: Omit<Challenge, 'id'>) => {
+    const { error } = await supabase.from('challenges').insert({
+      title: challenge.title,
+      description: challenge.description,
+      image_url: challenge.imageUrl,
+      start_date: challenge.startDate,
+      end_date: challenge.endDate,
+      difficulty: challenge.difficulty,
+      reward: challenge.reward,
+      participants: challenge.participants,
+      status: challenge.status
     });
+    
+    if (error) console.error('Error adding challenge:', error);
   },
 
-  updateOrder: async (id: string, updates: Partial<Order>) => {
-      const dbUpdates: any = {};
-      if (updates.estado) dbUpdates.estado = updates.estado;
-      if (updates.guia_transportadora) dbUpdates.guia_transportadora = updates.guia_transportadora;
-      if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
-      if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
-      
-      await supabase.from('orders').update(dbUpdates).eq('id', id);
+  updateChallenge: async (challenge: Challenge) => {
+    const { error } = await supabase
+      .from('challenges')
+      .update({
+        title: challenge.title,
+        description: challenge.description,
+        image_url: challenge.imageUrl,
+        start_date: challenge.startDate,
+        end_date: challenge.endDate,
+        difficulty: challenge.difficulty,
+        reward: challenge.reward,
+        participants: challenge.participants,
+        status: challenge.status
+      })
+      .eq('id', challenge.id);
+    
+    if (error) console.error('Error updating challenge:', error);
   },
 
-  deleteOrder: async (id: string) => {
-      await supabase.from('orders').delete().eq('id', id);
-  },
-
-  // --- CLIENTS ---
-  getAllClients: async (): Promise<Client[]> => {
-      const { data } = await supabase.from('clients').select('*');
-      if (!data || data.length === 0) return [mockClient];
-      return data.map(mapClient);
-  },
-
-  registerClient: async (clientData: any) => {
-      const code = (clientData.nombre.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
-      await supabase.from('clients').insert({
-          nombre_completo: clientData.nombre,
-          email: clientData.email,
-          cedula: clientData.cedula,
-          telefono: clientData.telefono,
-          direccion: clientData.direccion,
-          password: clientData.password,
-          codigo_referido: code
-      });
-      // Simulamos login en localStorage para mantener la sesión
-      localStorage.setItem('puntadas_user', clientData.email);
-      localStorage.setItem('puntadas_role', 'client');
-  },
-
-  deleteClient: async (id: string) => {
-      await supabase.from('clients').delete().eq('id', id);
-  },
-
-  // --- EXPENSES ---
-  getExpenses: async (): Promise<Expense[]> => {
-      const { data } = await supabase.from('expenses').select('*');
-      if (!data || data.length === 0) return mockExpenses;
-      return data.map(mapExpense);
-  },
-
-  addExpense: async (e: Expense) => {
-      await supabase.from('expenses').insert({
-          date: e.date,
-          category: e.category,
-          description: e.description,
-          amount: e.amount,
-          provider: e.provider
-      });
-  },
-
-  // --- RETURNS ---
-  getReturns: async (): Promise<ReturnRecord[]> => {
-      const { data } = await supabase.from('returns').select('*');
-      if (!data || data.length === 0) return mockReturns;
-      return data.map(mapReturn);
-  },
-
-  // --- SUPPLIES ---
-  getSupplies: async (): Promise<Supply[]> => {
-      const { data } = await supabase.from('supplies').select('*');
-      if (!data || data.length === 0) return mockSupplies;
-      return data.map(mapSupply);
-  },
-
-  addSupply: async (s: Supply) => {
-      await supabase.from('supplies').insert({
-          name: s.name,
-          reference: s.reference,
-          unit_value: s.unitValue,
-          quantity: s.quantity,
-          color: s.color,
-          number: s.number,
-          low_stock_threshold: s.lowStockThreshold
-      });
-  },
-
-  updateSupply: async (s: Supply) => {
-      await supabase.from('supplies').update({
-          name: s.name,
-          reference: s.reference,
-          unit_value: s.unitValue,
-          quantity: s.quantity,
-          color: s.color,
-          number: s.number,
-          low_stock_threshold: s.lowStockThreshold
-      }).eq('id', s.id);
-  },
-
-  // --- INVENTORY (Product Config - Static/Mock for now as it wasn't in SQL) ---
-  getAllInventoryItems: async (): Promise<InventoryItem[]> => {
-      return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
-  },
-  
-  addInventoryItem: async (item: InventoryItem) => { 
-      console.log("Added to inventory (local only for now)", item);
-  },
-  
-  updateInventoryItem: async (item: InventoryItem) => {
-      console.log("Updated inventory (local only for now)", item);
-  },
-
-  // --- SYNC HELPERS FOR LEGACY COMPONENTS ---
-  // These provide fallbacks or cached data for components not yet fully async
-  getConfig: (): GlobalConfig => mockGlobalConfig,
-  
-  getClient: (): Client => mockClient,
-
-  getInventory: (): ProductConfig => DEFAULT_CONFIG
+  deleteChallenge: async (id: string) => {
+    const { error } = await supabase
+      .from('challenges')
+      .delete()
+      .eq('id', id);
+    
+    if (error) console.error('Error deleting challenge:', error);
+  }
 };

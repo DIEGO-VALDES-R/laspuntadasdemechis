@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Lock, Phone, MapPin, Mail, CreditCard, ArrowRight } from 'lucide-react';
 import { db } from '../services/db';
+import { supabase } from '../services/supabaseClient';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -13,26 +14,56 @@ const Register: React.FC = () => {
     email: '',
     password: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (Object.values(formData).some(val => val === '')) {
       alert("Por favor completa todos los campos.");
       return;
     }
 
-    // Register user in mock DB
-    db.registerClient(formData);
-    
-    // Trigger update in Layout
-    window.dispatchEvent(new Event('storage'));
-    
-    // Redirect
-    navigate('/dashboard');
+    setError('');
+    setLoading(true);
+
+    try {
+      // 1. Registrar en Supabase Auth
+      const { error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (authError) throw authError;
+
+      // 2. Registrar en la tabla clients
+      await db.registerClient({
+  email: formData.email,
+  nombre: formData.nombre,  // ← Cambiar aquí
+  telefono: formData.telefono,
+  direccion: formData.direccion,
+  cedula: formData.cedula,
+  password: formData.password  // ← Agregar password
+});
+
+      alert('Cuenta creada exitosamente. Revisa tu email para confirmar.');
+      navigate('/login');
+    } catch (error: any) {
+      setLoading(false);
+      if (error.code === '23505') {
+        setError('Este correo ya está registrado. Intenta con otro o inicia sesión.');
+      } else if (error.message) {
+        setError(error.message);
+      } else {
+        setError('Error al crear la cuenta. Intenta de nuevo.');
+      }
+      console.error('Error al registrar:', error);
+    }
   };
 
   return (
@@ -45,6 +76,12 @@ const Register: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
+          {error && (
+            <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nombres Completos</label>
             <div className="relative">
@@ -148,10 +185,15 @@ const Register: React.FC = () => {
           </div>
 
           <button 
-            type="submit" 
-            className="w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-4 rounded-xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-lg mt-4"
+            type="submit"
+            disabled={loading}
+            className={`w-full bg-gradient-to-r from-pink-500 to-purple-600 text-white py-4 rounded-xl font-bold hover:opacity-90 transition flex items-center justify-center gap-2 shadow-lg mt-4 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            Completar Registro <ArrowRight size={20} />
+            {loading ? 'Creando cuenta...' : (
+              <>
+                Completar Registro <ArrowRight size={20} />
+              </>
+            )}
           </button>
         </form>
 

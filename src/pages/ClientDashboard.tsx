@@ -12,7 +12,18 @@ const ClientDashboard: React.FC = () => {
   
   // State for persistent data
   const [orders, setOrders] = useState<Order[]>([]);
-  const [clientData, setClientData] = useState<Client>(db.getClient());
+ const [clientData, setClientData] = useState<Client | null>(null);
+
+useEffect(() => {
+  const fetchClient = async () => {
+    const email = localStorage.getItem('puntadas_user');
+    if (email) {
+      const data = await db.getClient(email);
+      setClientData(data);
+    }
+  };
+  fetchClient();
+}, []);
   
   // Auth Check & Data Load
   useEffect(() => {
@@ -27,7 +38,6 @@ const ClientDashboard: React.FC = () => {
         try {
           const fetchedOrders = await db.getOrders();
           setOrders(fetchedOrders || []); // Ensure it's an array
-          setClientData(db.getClient()); // Keep sync for now if getClient is sync
         } catch (error) {
           console.error("Error loading dashboard data:", error);
           setOrders([]);
@@ -43,9 +53,9 @@ const ClientDashboard: React.FC = () => {
 
   // Determine display name
   const getDisplayName = () => {
-     if (userEmail === clientData.email) return clientData.nombre_completo;
-     return userEmail.split('@')[0] || clientData.nombre_completo;
-  };
+   if (clientData && userEmail === clientData?.email) return clientData?.nombre_completo;
+   return userEmail.split('@')[0] || clientData?.nombre_completo || 'Usuario';
+};
 
   const displayName = getDisplayName();
 
@@ -120,16 +130,16 @@ Adjunto comprobante`;
 
   // --- Referral Functions ---
   const handleCopyCode = () => {
-    if (clientData.codigo_referido) {
-      navigator.clipboard.writeText(clientData.codigo_referido)
-        .then(() => alert(`¡Código ${clientData.codigo_referido} copiado al portapapeles!`))
+    if (clientData?.codigo_referido) {
+      navigator.clipboard.writeText(clientData?.codigo_referido)
+        .then(() => alert(`¡Código ${clientData?.codigo_referido} copiado al portapapeles!`))
         .catch(() => alert("No se pudo copiar el código."));
     }
   };
 
   const handleShareWhatsApp = () => {
-    if (clientData.codigo_referido) {
-      const text = `¡Hola! Te recomiendo *Puntadas de Mechis* para pedir tus amigurumis personalizados 🧶✨. \n\nUsa mi código de referido *${clientData.codigo_referido}* para recibir un descuento especial en tu primer pedido.`;
+    if (clientData?.codigo_referido) {
+      const text = `¡Hola! Te recomiendo *Puntadas de Mechis* para pedir tus amigurumis personalizados 🧶✨. \n\nUsa mi código de referido *${clientData?.codigo_referido}* para recibir un descuento especial en tu primer pedido.`;
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     }
   };
@@ -143,22 +153,22 @@ Adjunto comprobante`;
         <div className="bg-white rounded-2xl shadow-sm border border-purple-100 overflow-hidden">
             <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 border-b border-purple-100 flex justify-between items-center">
                 <h2 className="font-bold text-gray-800 flex items-center gap-2"><Gift className="text-pink-500" /> Tus Beneficios</h2>
-                <span className="text-sm bg-white px-3 py-1 rounded-full border border-purple-100 text-purple-600 font-bold">Nivel {clientData.nivel}</span>
+                <span className="text-sm bg-white px-3 py-1 rounded-full border border-purple-100 text-purple-600 font-bold">Nivel {clientData?.nivel || 'Bronce'}</span>
             </div>
             
             <div className="p-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                     <div>
                         <p className="text-sm text-gray-500 mb-1">🛍️ Compras</p>
-                        <p className="text-2xl font-bold text-gray-900">{clientData.compras_totales}</p>
+                        <p className="text-2xl font-bold text-gray-900">{clientData?.compras_totales}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500 mb-1">Descuento activo</p>
-                        <p className="text-2xl font-bold text-gray-900">{clientData.descuento_activo}% <span className="text-xs align-top">⭐⭐⭐</span></p>
+                        <p className="text-2xl font-bold text-gray-900">{clientData?.descuento_activo}% <span className="text-xs align-top">⭐⭐⭐</span></p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500 mb-1">👥 Referidos</p>
-                        <p className="text-2xl font-bold text-gray-900">{clientData.cantidad_referidos}</p>
+                        <p className="text-2xl font-bold text-gray-900">{clientData?.cantidad_referidos}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-500 mb-1">Descuento por referidos</p>
@@ -169,17 +179,17 @@ Adjunto comprobante`;
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-gray-100">
                     <div>
                         <p className="text-sm text-gray-500 mb-1">💎 Ahorro total</p>
-                        <p className="text-xl font-bold text-green-600">${clientData.ahorro_historico.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-green-600">${clientData?.ahorro_historico.toLocaleString()}</p>
                     </div>
                     <div>
                         <div className="flex justify-between text-sm mb-2">
                             <span className="text-gray-600">Progreso al siguiente nivel:</span>
-                            <span className="font-bold">{clientData.progreso_porcentaje}%</span>
+                            <span className="font-bold">{clientData?.progreso_porcentaje}%</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-3">
-                            <div className="bg-gray-800 h-3 rounded-full" style={{ width: `${clientData.progreso_porcentaje}%` }}></div>
+                            <div className="bg-gray-800 h-3 rounded-full" style={{ width: `${clientData?.progreso_porcentaje}%` }}></div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 text-right">({clientData.compras_para_siguiente} compras faltantes)</p>
+                        <p className="text-xs text-gray-500 mt-1 text-right">({clientData?.compras_para_siguiente} compras faltantes)</p>
                     </div>
                 </div>
             </div>
@@ -229,22 +239,22 @@ Adjunto comprobante`;
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-gray-100">
                   <div className="text-center pb-4 md:pb-0">
                       <p className="text-gray-500 text-sm mb-1">Total invertido</p>
-                      <p className="text-2xl font-bold text-gray-900">${clientData.total_invertido.toLocaleString()}</p>
-                      <p className="text-xs text-gray-400 mt-1">Pedidos completados: {clientData.compras_totales}</p>
+                      <p className="text-2xl font-bold text-gray-900">${clientData?.total_invertido.toLocaleString()}</p>
+                      <p className="text-xs text-gray-400 mt-1">Pedidos completados: {clientData?.compras_totales}</p>
                   </div>
                   <div className="text-center py-4 md:py-0">
                       <p className="text-gray-500 text-sm mb-1">Promedio por pedido</p>
-                      <p className="text-2xl font-bold text-gray-900">${(clientData.total_invertido / Math.max(1, clientData.compras_totales)).toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-gray-900">${(clientData?.total_invertido / Math.max(1, clientData?.compras_totales)).toLocaleString()}</p>
                   </div>
                   <div className="text-center pt-4 md:pt-0">
                       <p className="text-gray-500 text-sm mb-1">Ahorro por descuentos</p>
-                      <p className="text-2xl font-bold text-green-600">${clientData.ahorro_descuentos.toLocaleString()}</p>
-                      <p className="text-xs text-green-600 mt-1 bg-green-50 inline-block px-2 py-0.5 rounded-full">{clientData.porcentaje_ahorro}% ahorro efectivo</p>
+                      <p className="text-2xl font-bold text-green-600">${clientData?.ahorro_descuentos.toLocaleString()}</p>
+                      <p className="text-xs text-green-600 mt-1 bg-green-50 inline-block px-2 py-0.5 rounded-full">{clientData?.porcentaje_ahorro}% ahorro efectivo</p>
                   </div>
               </div>
               <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
                    <span className="text-gray-600 text-sm">Saldos pendientes totales:</span>
-                   <span className="text-xl font-bold text-gray-900">${clientData.saldos_pendientes.toLocaleString()}</span>
+                   <span className="text-xl font-bold text-gray-900">${clientData?.saldos_pendientes.toLocaleString()}</span>
               </div>
           </div>
       </section>
@@ -372,7 +382,7 @@ Adjunto comprobante`;
               
               <div className="bg-blue-50 rounded-xl p-4 flex flex-col md:flex-row justify-between items-center gap-4">
                   <div>
-                      <p className="text-sm font-bold text-blue-900">Tu código: <span className="text-lg font-mono ml-2">{clientData.codigo_referido}</span></p>
+                      <p className="text-sm font-bold text-blue-900">Tu código: <span className="text-lg font-mono ml-2">{clientData?.codigo_referido}</span></p>
                       <p className="text-xs text-blue-700">Cada referido = 10% de descuento</p>
                   </div>
                   <div className="flex gap-2">

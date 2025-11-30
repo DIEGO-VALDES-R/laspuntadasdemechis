@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
-import { Post } from '../types';
+import { Post, Client } from '../types';
 import { Heart, MessageCircle, Share2, X, Tag, Plus, Loader } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ImageUploader from '../components/ImageUploader';
@@ -20,6 +19,7 @@ const Community: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<Client | null>(null);
   const navigate = useNavigate();
 
   // New Post State
@@ -46,6 +46,16 @@ const Community: React.FC = () => {
     setCurrentUser(user);
   }, []);
 
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (currentUser) {
+        const profile = await db.getClient(currentUser);
+        setUserProfile(profile);
+      }
+    };
+    fetchProfile();
+  }, [currentUser]);
+
   const handleLike = async (postId: string) => {
     if (!currentUser) {
       alert("Inicia sesión para dar 'me gusta'");
@@ -60,13 +70,10 @@ const Community: React.FC = () => {
     if(!newPostImage || !newPostDesc) return;
     
     const finalTopic = isCustomTopic ? (customTopic.trim() || 'General') : newPostTopic;
-
-    // In a real app, we'd fetch user profile to get proper name/avatar
-    const userProfile = db.getClient(); // This gets current logged in user details from mock
-    const userName = currentUser === userProfile.email ? userProfile.nombre_completo : currentUser?.split('@')[0] || 'Usuario';
+    const userName = userProfile?.nombre_completo || currentUser?.split('@')[0] || 'Usuario';
 
     const newPost: Post = {
-      id: `post-${Date.now()}`, // ID will be ignored by supabase insert, generated there
+      id: `post-${Date.now()}`,
       userId: currentUser || 'anon',
       userName: userName,
       userAvatar: `https://ui-avatars.com/api/?name=${userName}&background=random`,
@@ -80,11 +87,9 @@ const Community: React.FC = () => {
 
     try {
         await db.addPost(newPost);
-        // Refresh feed
         const updated = await db.getPosts();
         setPosts(updated);
         setIsModalOpen(false);
-        // Reset form
         setNewPostImage('');
         setNewPostDesc('');
         setNewPostTopic('Exhibición');
@@ -109,7 +114,6 @@ const Community: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
-      {/* Hero */}
       <div className="bg-pink-600 text-white py-12 px-4 text-center">
         <h1 className="text-4xl font-bold mb-2">Comunidad Tejedora</h1>
         <p className="opacity-90 max-w-xl mx-auto mb-6">Comparte tus creaciones, inspírate con otros y celebra el arte del amigurumi.</p>
@@ -123,15 +127,12 @@ const Community: React.FC = () => {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 mt-8">
-        
-        {/* Feed */}
         <div className="space-y-6">
           {posts.map(post => {
             const isLiked = currentUser && post.likedBy.includes(currentUser);
             
             return (
               <div key={post.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in relative">
-                {/* Header */}
                 <div className="p-4 flex items-center gap-3">
                   <img src={post.userAvatar || 'https://via.placeholder.com/40'} alt="avatar" className="w-10 h-10 rounded-full"/>
                   <div>
@@ -145,10 +146,8 @@ const Community: React.FC = () => {
                   )}
                 </div>
 
-                {/* Image */}
                 <img src={post.imageUrl} alt="post" className="w-full h-auto max-h-[500px] object-cover"/>
 
-                {/* Actions */}
                 <div className="p-4">
                   <div className="flex gap-4 mb-3">
                     <button 
@@ -180,7 +179,6 @@ const Community: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
