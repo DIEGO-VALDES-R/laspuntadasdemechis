@@ -56,7 +56,7 @@ const mapSupply = (s: any): Supply => ({
   color: s.color,
   number: s.number,
   lowStockThreshold: s.low_stock_threshold,
-  imageUrl: s.image_URL
+  imageUrl: s.image_url
 });
 
 const mapExpense = (e: any): Expense => ({
@@ -238,21 +238,51 @@ export const db = {
   },
 
   // --- SUPPLIES ---
-  getSupplies: async (): Promise<Supply[]> => {
-    const { data, error } = await supabase
-      .from('supplies')
-      .select('*')
-      .order('name', { ascending: true });
-    
-    if (error) {
-      console.error('Error fetching supplies:', error);
-      return [];
-    }
-    return (data || []).map(mapSupply);
-  },
+// --- SUPPLIES ---
+getSupplies: async (): Promise<Supply[]> => {
+  const { data, error } = await supabase
+    .from('supplies')
+    .select('*')
+    .order('name', { ascending: true });
+  
+  if (error) {
+    console.error('Error fetching supplies:', error);
+    return [];
+  }
+  
+  // ✅ Mapeo explícito aquí mismo
+  return (data || []).map(s => ({
+    id: s.id,
+    name: s.name || '',
+    reference: s.reference || '',
+    unitValue: s.unit_value || 0,
+    quantity: s.quantity || 0,
+    color: s.color || '',
+    number: s.number || '',
+    lowStockThreshold: s.low_stock_threshold || 5,
+    imageUrl: s.image_url || ''  // ✅ USAR MINÚSCULA
+  }));
+},
 
-  addSupply: async (supply: Omit<Supply, 'id'>) => {
-    const { error } = await supabase.from('supplies').insert({
+addSupply: async (supply: Omit<Supply, 'id'>) => {
+  const { error } = await supabase.from('supplies').insert({
+    name: supply.name,
+    reference: supply.reference,
+    unit_value: supply.unitValue,
+    quantity: supply.quantity,
+    color: supply.color,
+    number: supply.number,
+    low_stock_threshold: supply.lowStockThreshold,
+    image_url: supply.imageurl  // ✅ CAMBIAR A MINÚSCULA
+  });
+  
+  if (error) console.error('Error adding supply:', error);
+},
+
+updateSupply: async (supply: Supply) => {
+  const { error } = await supabase
+    .from('supplies')
+    .update({
       name: supply.name,
       reference: supply.reference,
       unit_value: supply.unitValue,
@@ -260,39 +290,21 @@ export const db = {
       color: supply.color,
       number: supply.number,
       low_stock_threshold: supply.lowStockThreshold,
-      image_URL: supply.imageUrl
-    });
-    
-    if (error) console.error('Error adding supply:', error);
-  },
+      image_url: supply.imageUrl 
+    })
+    .eq('id', supply.id);
+  
+  if (error) console.error('Error updating supply:', error);
+},
 
-  updateSupply: async (supply: Supply) => {
-    const { error } = await supabase
-      .from('supplies')
-      .update({
-        name: supply.name,
-        reference: supply.reference,
-        unit_value: supply.unitValue,
-        quantity: supply.quantity,
-        color: supply.color,
-        number: supply.number,
-        low_stock_threshold: supply.lowStockThreshold,
-        image_URL: supply.imageUrl
-      })
-      .eq('id', supply.id);
-    
-    if (error) console.error('Error updating supply:', error);
-  },
-
-  deleteSupply: async (id: string) => {
-    const { error } = await supabase
-      .from('supplies')
-      .delete()
-      .eq('id', id);
-    
-    if (error) console.error('Error deleting supply:', error);
-  },
-
+deleteSupply: async (id: string) => {
+  const { error } = await supabase
+    .from('supplies')
+    .delete()
+    .eq('id', id);
+  
+  if (error) console.error('Error deleting supply:', error);
+},
   // --- EXPENSES ---
   getExpenses: async (): Promise<Expense[]> => {
     const { data, error } = await supabase
