@@ -273,7 +273,7 @@ addSupply: async (supply: Omit<Supply, 'id'>) => {
     color: supply.color,
     number: supply.number,
     low_stock_threshold: supply.lowStockThreshold,
-    image_url: supply.imageurl  // ✅ CAMBIAR A MINÚSCULA
+    image_url: supply.imageUrl 
   });
   
   if (error) console.error('Error adding supply:', error);
