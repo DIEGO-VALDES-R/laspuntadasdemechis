@@ -143,6 +143,7 @@ export interface Supply {
   color: string;
   number: string; // Calibre o número de lote
   lowStockThreshold: number; // Cantidad mínima para alerta
+  imageUrl?: string;
 }
 
 // Accounting Types

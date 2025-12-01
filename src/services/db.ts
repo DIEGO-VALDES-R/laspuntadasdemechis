@@ -55,7 +55,8 @@ const mapSupply = (s: any): Supply => ({
   quantity: s.quantity,
   color: s.color,
   number: s.number,
-  lowStockThreshold: s.low_stock_threshold
+  lowStockThreshold: s.low_stock_threshold,
+  imageUrl: s.image_URL
 });
 
 const mapExpense = (e: any): Expense => ({
@@ -258,7 +259,8 @@ export const db = {
       quantity: supply.quantity,
       color: supply.color,
       number: supply.number,
-      low_stock_threshold: supply.lowStockThreshold
+      low_stock_threshold: supply.lowStockThreshold,
+      image_URL: supply.imageUrl
     });
     
     if (error) console.error('Error adding supply:', error);
@@ -274,7 +276,8 @@ export const db = {
         quantity: supply.quantity,
         color: supply.color,
         number: supply.number,
-        low_stock_threshold: supply.lowStockThreshold
+        low_stock_threshold: supply.lowStockThreshold,
+        image_URL: supply.imageUrl
       })
       .eq('id', supply.id);
     
