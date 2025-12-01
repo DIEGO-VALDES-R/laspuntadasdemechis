@@ -214,6 +214,7 @@ const AdminDashboard: React.FC = () => {
       color: '',
       number: '',
       lowStockThreshold: 5
+      imageUrl: ''
     });
     setIsSupplyModalOpen(true);
   };
@@ -483,7 +484,8 @@ const AdminDashboard: React.FC = () => {
       <table className="w-full text-left text-sm">
         <thead className="bg-gray-50 text-gray-600">
           <tr>
-            <th className="p-4">Producto</th>
+            <th className="p-4">Imagen</th>
+              <th className="p-4">Producto</th>
             <th className="p-4">Ref. / Detalles</th>
             <th className="p-4 text-center">Cantidad</th>
             <th className="p-4 text-right">Valor Unit.</th>
@@ -497,21 +499,25 @@ const AdminDashboard: React.FC = () => {
             const isLowStock = sup.quantity <= sup.lowStockThreshold;
             return (
               <tr key={sup.id} className={`hover:bg-gray-50 ${isLowStock ? 'bg-red-50' : ''}`}>
-                <td className="p-4">
-                  <div className="flex items-center gap-3">
-                    {sup.imageUrl && (
-                      <img 
-                        src={sup.imageUrl} 
+                  <td className="p-4">
+                    {sup.imageUrl ? (
+                      <img
+                        src={sup.imageUrl}
                         alt={sup.name}
-                        className="w-12 h-12 object-cover rounded-lg border"
+                        className="w-16 h-16 object-cover rounded-lg border"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
+                    ) : (
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <Box size={24} className="text-gray-400"/>
+                      </div>
                     )}
+                  </td>
+                  <td className="p-4">
                     <span className="font-bold text-gray-800">{sup.name}</span>
-                  </div>
-                </td>
+                  </td>
                 <td className="p-4">
                   <div className="flex flex-col">
                     <span className="text-xs font-bold text-gray-500 uppercase">{sup.reference}</span>
