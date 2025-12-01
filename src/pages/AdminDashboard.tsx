@@ -470,58 +470,72 @@ const AdminDashboard: React.FC = () => {
   );
 
   const SuppliesView = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Box className="text-amber-600"/> Insumos / Materia Prima
-        </h2>
-        <button onClick={openNewSupply} className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-amber-700">
-          <Plus size={18}/> Nuevo Insumo
-        </button>
-      </div>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="p-4">Producto</th>
-              <th className="p-4">Ref. / Detalles</th>
-              <th className="p-4 text-center">Cantidad</th>
-              <th className="p-4 text-right">Valor Unit.</th>
-              <th className="p-4 text-right">Valor Total</th>
-              <th className="p-4 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {supplies.map(sup => {
-              const totalValue = sup.unitValue * sup.quantity;
-              const isLowStock = sup.quantity <= sup.lowStockThreshold;
-              return (
-                <tr key={sup.id} className={`hover:bg-gray-50 ${isLowStock ? 'bg-red-50' : ''}`}>
-                  <td className="p-4 font-bold text-gray-800">{sup.name}</td>
-                  <td className="p-4">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-gray-500 uppercase">{sup.reference}</span>
-                      <span className="text-xs text-gray-600">Color: {sup.color}</span>
-                      <span className="text-xs text-gray-600">Num: {sup.number}</span>
-                    </div>
-                  </td>
-                  <td className="p-4 text-center">
-                    <span className={`font-bold ${isLowStock ? 'text-red-600' : 'text-gray-800'}`}>{sup.quantity}</span>
-                  </td>
-                  <td className="p-4 text-right text-gray-600">${sup.unitValue.toLocaleString()}</td>
-                  <td className="p-4 text-right font-bold text-gray-800">${totalValue.toLocaleString()}</td>
-                  <td className="p-4 text-center flex justify-center gap-2">
-                    <button onClick={() => { setEditingSupply(sup); setIsSupplyModalOpen(true); }} className="text-blue-500 p-1 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
-                    <button onClick={() => handleDeleteSupply(sup.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+  <div className="space-y-6 animate-fade-in">
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+        <Box className="text-amber-600"/> Insumos / Materia Prima
+      </h2>
+      <button onClick={openNewSupply} className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-amber-700">
+        <Plus size={18}/> Nuevo Insumo
+      </button>
     </div>
-  );
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-gray-50 text-gray-600">
+          <tr>
+            <th className="p-4">Producto</th>
+            <th className="p-4">Ref. / Detalles</th>
+            <th className="p-4 text-center">Cantidad</th>
+            <th className="p-4 text-right">Valor Unit.</th>
+            <th className="p-4 text-right">Valor Total</th>
+            <th className="p-4 text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {supplies.map(sup => {
+            const totalValue = sup.unitValue * sup.quantity;
+            const isLowStock = sup.quantity <= sup.lowStockThreshold;
+            return (
+              <tr key={sup.id} className={`hover:bg-gray-50 ${isLowStock ? 'bg-red-50' : ''}`}>
+                <td className="p-4">
+                  <div className="flex items-center gap-3">
+                    {sup.imageUrl && (
+                      <img 
+                        src={sup.imageUrl} 
+                        alt={sup.name}
+                        className="w-12 h-12 object-cover rounded-lg border"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    )}
+                    <span className="font-bold text-gray-800">{sup.name}</span>
+                  </div>
+                </td>
+                <td className="p-4">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-gray-500 uppercase">{sup.reference}</span>
+                    <span className="text-xs text-gray-600">Color: {sup.color}</span>
+                    <span className="text-xs text-gray-600">Num: {sup.number}</span>
+                  </div>
+                </td>
+                <td className="p-4 text-center">
+                  <span className={`font-bold ${isLowStock ? 'text-red-600' : 'text-gray-800'}`}>{sup.quantity}</span>
+                </td>
+                <td className="p-4 text-right text-gray-600">${sup.unitValue.toLocaleString()}</td>
+                <td className="p-4 text-right font-bold text-gray-800">${totalValue.toLocaleString()}</td>
+                <td className="p-4 text-center flex justify-center gap-2">
+                  <button onClick={() => { setEditingSupply(sup); setIsSupplyModalOpen(true); }} className="text-blue-500 p-1 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
+                  <button onClick={() => handleDeleteSupply(sup.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
   // CLIENTS VIEW
   const ClientsView = () => (
@@ -920,6 +934,16 @@ const AdminDashboard: React.FC = () => {
                   <label className="text-sm font-bold">Alerta Stock Bajo</label>
                   <input type="number" className="w-full border p-2 rounded-lg" value={editingSupply.lowStockThreshold} onChange={e => setEditingSupply({...editingSupply, lowStockThreshold: Number(e.target.value)})} required/>
                 </div>
+              </div>
+              <div>
+                <label className="text-sm font-bold">URL de Imagen</label>
+                <input 
+                  type="text" 
+                  className="w-full border p-2 rounded-lg" 
+                  value={editingSupply.imageUrl || ''} 
+                  onChange={e => setEditingSupply({...editingSupply, imageUrl: e.target.value})}
+                  placeholder="https://ejemplo.com/imagen.jpg"
+                />
               </div>
               <button type="submit" className="w-full bg-amber-600 text-white p-2 rounded-lg font-bold">Guardar</button>
             </form>
