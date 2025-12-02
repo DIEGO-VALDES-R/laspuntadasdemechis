@@ -930,7 +930,7 @@ const handleDeleteSupply = async (id: string) => {
         </div>
       )}
 
-      // MODAL DE SUPPLY ACTUALIZADO
+      {/* Supply Modal - Versión Limpia */}
 {isSupplyModalOpen && editingSupply && (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
     <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -1023,7 +1023,7 @@ const handleDeleteSupply = async (id: string) => {
           </div>
         </div>
 
-        {/* IMAGEN - OPCIÓN DUAL */}
+        {/* IMAGEN - Versión simplificada con solo input de archivo */}
         <div className="border-t pt-4">
           <label className="text-sm font-bold block mb-2">Imagen del Producto</label>
           
@@ -1045,41 +1045,40 @@ const handleDeleteSupply = async (id: string) => {
             </div>
           )}
 
-          {/* Tabs para elegir método */}
-          <div className="flex gap-2 mb-3">
-            <button
-              type="button"
-              className="flex-1 py-2 px-4 rounded-lg font-medium bg-amber-100 text-amber-800 border-2 border-amber-300"
-            >
-              <Upload size={16} className="inline mr-2"/>
-              Subir Archivo
-            </button>
-            <button
-              type="button"
-              className="flex-1 py-2 px-4 rounded-lg font-medium bg-gray-100 text-gray-600 border-2 border-gray-200"
-              onClick={() => {
-                const url = prompt('Ingresa la URL de la imagen:');
-                if (url) setEditingSupply({...editingSupply, imageUrl: url});
-              }}
-            >
-              🔗 Desde URL
-            </button>
-          </div>
+          {/* Input de URL o archivo */}
+          <div className="space-y-3">
+            {/* Opción 1: URL directa */}
+            <div>
+              <input
+                type="text"
+                placeholder="O pega una URL de imagen..."
+                className="w-full border p-2 rounded-lg text-sm"
+                value={editingSupply.imageUrl || ''}
+                onChange={e => setEditingSupply({...editingSupply, imageUrl: e.target.value})}
+              />
+            </div>
 
-          {/* Input de archivo */}
-          <div className="relative">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleSupplyImageUpload}
-              disabled={uploadingImage}
-              className="w-full border-2 border-dashed border-amber-300 rounded-lg p-4 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 disabled:opacity-50"
-            />
-            {uploadingImage && (
-              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
-              </div>
-            )}
+            {/* Opción 2: Subir archivo */}
+            <div className="relative">
+              <label className="w-full border-2 border-dashed border-amber-300 rounded-lg p-4 text-sm cursor-pointer hover:bg-amber-50 flex flex-col items-center gap-2">
+                <Upload size={24} className="text-amber-600" />
+                <span className="font-medium text-amber-700">
+                  {uploadingImage ? 'Subiendo...' : 'Click para subir archivo'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSupplyImageUpload}
+                  disabled={uploadingImage}
+                  className="hidden"
+                />
+              </label>
+              {uploadingImage && (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+                </div>
+              )}
+            </div>
           </div>
           
           <p className="text-xs text-gray-500 mt-2">
@@ -1099,17 +1098,13 @@ const handleDeleteSupply = async (id: string) => {
               Subiendo imagen...
             </>
           ) : (
-            <>
-              <Save size={18}/>
-              Guardar Insumo
-            </>
+            'Guardar Insumo'
           )}
         </button>
       </form>
     </div>
   </div>
 )}
-
       {/* Gallery Modal */}
 {isGalleryModalOpen && editingGallery && (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
