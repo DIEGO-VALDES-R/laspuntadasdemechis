@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { Order, Client, Supply, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
 
-type Tab = 'dashboard' | 'orders' | 'supplies' | 'clients' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings';
+// Agregamos 'referrals' al tipo Tab
+type Tab = 'dashboard' | 'orders' | 'supplies' | 'clients' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'referrals';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -26,10 +27,14 @@ const AdminDashboard: React.FC = () => {
   const [tejedoras, setTejedoras] = useState<Tejedora[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  // Nuevo estado para referidos
+  const [referrals, setReferrals] = useState<any[]>([]);
 
   // Modal States
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  // Nuevo estado para el cliente del pedido
+  const [orderClient, setOrderClient] = useState<Client | null>(null);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
@@ -67,7 +72,8 @@ const AdminDashboard: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [ordersData, clientsData, suppliesData, galleryData, configData, homeData, tejedorasData, postsData, challengesData] = await Promise.all([
+      // Agregamos referrals a la carga de datos
+      const [ordersData, clientsData, suppliesData, galleryData, configData, homeData, tejedorasData, postsData, challengesData, referralsData] = await Promise.all([
         db.getOrders(),
         db.getAllClients(),
         db.getSupplies(),
@@ -76,7 +82,8 @@ const AdminDashboard: React.FC = () => {
         db.getHomeConfig(),
         db.getTejedoras(),
         db.getPosts(),
-        db.getChallenges()
+        db.getChallenges(),
+        db.getAllReferrals() // Nueva función que necesitarás implementar en tu servicio db
       ]);
 
       setOrders(ordersData);
@@ -88,6 +95,7 @@ const AdminDashboard: React.FC = () => {
       setTejedoras(tejedorasData);
       setPosts(postsData);
       setChallenges(challengesData);
+      setReferrals(referralsData);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -106,10 +114,21 @@ const AdminDashboard: React.FC = () => {
   }, [navigate]);
 
   // ORDER HANDLERS
-  const handleOpenOrder = (order: Order) => {
+  // Modificamos handleOpenOrder para cargar también la información del cliente
+  const handleOpenOrder = async (order: Order) => {
     setSelectedOrder(order);
     setStatusUpdate(order.estado);
     setTrackingGuide(order.guia_transportadora || '');
+    
+    // Buscar información del cliente usando el email del pedido
+    try {
+      const clientInfo = await db.getClientByEmail(order.clientEmail);
+      setOrderClient(clientInfo);
+    } catch (error) {
+      console.error('Error al cargar información del cliente:', error);
+      setOrderClient(null);
+    }
+    
     setIsOrderModalOpen(true);
   };
 
@@ -207,29 +226,16 @@ const AdminDashboard: React.FC = () => {
     const body = `
 Hola ${newOrderData.clientName || 'Cliente'},
 
-
-
 Tu pedido ha sido creado exitosamente:
 
-
-
 📦 Número de Seguimiento: #${createdOrderNumber}
-
 🎨 Producto: ${newOrderData.nombre_producto}
-
 📝 Descripción: ${newOrderData.descripcion || 'Sin descripción'}
-
 💰 Total a Pagar: $${newOrderData.total_final.toLocaleString()}
-
 ✅ Abono Realizado: $${newOrderData.monto_pagado.toLocaleString()}
-
 ⏳ Saldo Pendiente: $${saldo.toLocaleString()}
 
-
-
 Gracias por tu preferencia.
-
-
 
 Puntadas de Mechis
   `.trim();
@@ -245,31 +251,17 @@ Puntadas de Mechis
     const message = `
 🎉 *Nuevo Pedido #${createdOrderNumber}*
 
-
-
 👤 Cliente: ${newOrderData.clientName || newOrderData.clientEmail}
-
 📞 Teléfono: ${newOrderData.clientPhone || 'No proporcionado'}
 
-
-
 📦 *Detalles del Pedido:*
-
 🎨 Producto: ${newOrderData.nombre_producto}
-
 📝 Descripción: ${newOrderData.descripcion || 'Sin descripción'}
 
-
-
 💰 *Información de Pago:*
-
 • Total: $${newOrderData.total_final.toLocaleString()}
-
 • Abono: $${newOrderData.monto_pagado.toLocaleString()}
-
 • Saldo Pendiente: $${saldo.toLocaleString()}
-
-
 
 ✨ _Puntadas de Mechis_
   `.trim();
@@ -293,6 +285,14 @@ Puntadas de Mechis
       total_final: 0, 
       monto_pagado: 0 
     });
+  };
+
+  // REFERRAL HANDLERS
+  const handleDeleteReferral = async (id: string) => {
+    if (confirm("¿Eliminar este referido?")) {
+      await db.deleteReferral(id);
+      loadData();
+    }
   };
 
   // SUPPLY HANDLERS
@@ -720,6 +720,60 @@ const handleDeleteSupply = async (id: string) => {
     </div>
   );
 
+  // NUEVA VISTA DE REFERIDOS
+  const ReferralsView = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Gestión de Referidos</h2>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr>
+              <th className="p-4">Referido</th>
+              <th className="p-4">Email</th>
+              <th className="p-4">Referido por</th>
+              <th className="p-4">Descuento</th>
+              <th className="p-4">Compras</th>
+              <th className="p-4">Estado</th>
+              <th className="p-4">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {referrals.map(referral => (
+              <tr key={referral.id} className="hover:bg-gray-50">
+                <td className="p-4 font-bold">{referral.name}</td>
+                <td className="p-4">{referral.email}</td>
+                <td className="p-4">{referral.referredByName || 'N/A'}</td>
+                <td className="p-4">{referral.discount}%</td>
+                <td className="p-4">{referral.purchases || 0}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                    referral.status === 'active' ? 'bg-green-100 text-green-700' : 
+                    referral.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                    'bg-gray-200 text-gray-600'
+                  }`}>
+                    {referral.status === 'active' ? 'Activo' : 
+                     referral.status === 'pending' ? 'Pendiente' : 
+                     'Inactivo'}
+                  </span>
+                </td>
+                <td className="p-4 flex gap-2">
+                  <button className="text-blue-500 hover:bg-blue-50 p-2 rounded">
+                    <Eye size={16}/>
+                  </button>
+                  <button onClick={() => handleDeleteReferral(referral.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                    <Trash2 size={16}/>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   // GALLERY VIEW
   const GalleryView = () => (
     <div className="space-y-6 animate-fade-in">
@@ -938,6 +992,7 @@ const handleDeleteSupply = async (id: string) => {
             { id: 'orders', label: 'Pedidos', icon: <ShoppingBag size={20}/> },
             { id: 'supplies', label: 'Insumos', icon: <Box size={20}/> },
             { id: 'clients', label: 'Clientes', icon: <Users size={20}/> },
+            { id: 'referrals', label: 'Referidos', icon: <Users size={20}/> }, {/* Nueva opción */}
             { id: 'community', label: 'Comunidad', icon: <Heart size={20}/> },
             { id: 'challenges', label: 'Retos', icon: <Trophy size={20}/> },
             { id: 'gallery', label: 'Galería', icon: <ImageIcon size={20}/> },
@@ -961,6 +1016,7 @@ const handleDeleteSupply = async (id: string) => {
         {activeTab === 'orders' && <OrdersView />}
         {activeTab === 'supplies' && <SuppliesView />}
         {activeTab === 'clients' && <ClientsView />}
+        {activeTab === 'referrals' && <ReferralsView />} {/* Nueva vista */}
         {activeTab === 'gallery' && <GalleryView />}
         {activeTab === 'content' && <ContentView />}
         {activeTab === 'community' && <CommunityView />}
@@ -970,22 +1026,109 @@ const handleDeleteSupply = async (id: string) => {
 
       {/* MODALS */}
       
-      {/* Order Modal */}
+      {/* Order Modal - MODIFICADO PARA MOSTRAR INFORMACIÓN DEL CLIENTE */}
       {isOrderModalOpen && selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">Pedido #{selectedOrder.numero_seguimiento}</h3>
               <button onClick={() => setIsOrderModalOpen(false)}><X size={24}/></button>
             </div>
+            
+            {/* Información del cliente */}
+            <div className="mb-6 bg-blue-50 p-4 rounded-xl">
+              <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                <Users size={20} className="text-blue-600"/>
+                Información del Cliente
+              </h4>
+              {orderClient ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Nombre completo</p>
+                    <p className="font-medium">{orderClient.nombre_completo}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Email</p>
+                    <p className="font-medium">{orderClient.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Teléfono</p>
+                    <p className="font-medium">{orderClient.telefono || 'No registrado'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Descuento activo</p>
+                    <p className="font-medium">{orderClient.descuento_activo}%</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-500">
+                  <p>El cliente no está registrado en el sistema</p>
+                  <p className="text-sm mt-1">Email: {selectedOrder.clientEmail}</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Información del pedido */}
+            <div className="mb-6 bg-gray-50 p-4 rounded-xl">
+              <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                <ShoppingBag size={20} className="text-gray-600"/>
+                Detalles del Pedido
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Producto</p>
+                  <p className="font-medium">{selectedOrder.nombre_producto}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Descripción</p>
+                  <p className="font-medium">{selectedOrder.descripcion || 'Sin descripción'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Fecha de solicitud</p>
+                  <p className="font-medium">{selectedOrder.fecha_solicitud}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Estado actual</p>
+                  <p className="font-medium">{selectedOrder.estado}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Total</p>
+                  <p className="font-medium">${selectedOrder.total_final.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Pagado</p>
+                  <p className="font-medium">${selectedOrder.monto_pagado.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Saldo pendiente</p>
+                  <p className="font-medium text-red-600">${selectedOrder.saldo_pendiente.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Guía de transportadora</p>
+                  <p className="font-medium">{selectedOrder.guia_transportadora || 'Sin asignar'}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Opciones de gestión */}
             <div className="space-y-4">
               <div className="bg-gray-100 p-4 rounded-xl">
                 <label className="block text-sm font-bold mb-2">Número de Guía Transportadora</label>
-                <input type="text" className="w-full border p-2 rounded-lg" placeholder="Ej: Interrapidismo 1234567" value={trackingGuide} onChange={(e) => setTrackingGuide(e.target.value)}/>
+                <input 
+                  type="text" 
+                  className="w-full border p-2 rounded-lg" 
+                  placeholder="Ej: Interrapidismo 1234567" 
+                  value={trackingGuide} 
+                  onChange={(e) => setTrackingGuide(e.target.value)}
+                />
               </div>
               <div>
                 <label className="block text-sm font-bold mb-2">Estado del Pedido</label>
-                <select value={statusUpdate} onChange={(e) => setStatusUpdate(e.target.value)} className="w-full p-2 border rounded">
+                <select 
+                  value={statusUpdate} 
+                  onChange={(e) => setStatusUpdate(e.target.value)} 
+                  className="w-full p-2 border rounded"
+                >
                   <option value="En espera de agendar">En espera de agendar</option>
                   <option value="Agendado">Agendado</option>
                   <option value="En proceso">En proceso</option>
@@ -995,9 +1138,19 @@ const handleDeleteSupply = async (id: string) => {
                 </select>
               </div>
               {selectedOrder.saldo_pendiente > 0 && (
-                <button onClick={handleVerifyPayment} className="w-full bg-green-600 text-white py-2 rounded-lg font-bold">Registrar Pago</button>
+                <button 
+                  onClick={handleVerifyPayment} 
+                  className="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700"
+                >
+                  Registrar Pago
+                </button>
               )}
-              <button onClick={handleUpdateStatusAndGuide} className="w-full bg-gray-900 text-white py-2 rounded-lg font-bold">Guardar Cambios</button>
+              <button 
+                onClick={handleUpdateStatusAndGuide} 
+                className="w-full bg-gray-900 text-white py-2 rounded-lg font-bold hover:bg-gray-800"
+              >
+                Guardar Cambios
+              </button>
             </div>
           </div>
         </div>
