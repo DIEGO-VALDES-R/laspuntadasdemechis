@@ -1,3 +1,4 @@
+import { uploadImage, deleteImage } from '../services/storage';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
@@ -53,6 +54,7 @@ const AdminDashboard: React.FC = () => {
   // Status update
   const [statusUpdate, setStatusUpdate] = useState('');
   const [trackingGuide, setTrackingGuide] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -193,13 +195,6 @@ const AdminDashboard: React.FC = () => {
         await db.addSupply(editingSupply);
       }
       setIsSupplyModalOpen(false);
-      loadData();
-    }
-  };
-
-  const handleDeleteSupply = async (id: string) => {
-    if (confirm('¿Eliminar este insumo?')) {
-      await db.deleteSupply(id);
       loadData();
     }
   };
@@ -382,6 +377,43 @@ const AdminDashboard: React.FC = () => {
     });
     setIsChallengeModalOpen(true);
   };
+
+   // Función para manejar la subida de archivos para supplies
+const handleSupplyImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file || !editingSupply) return;
+
+  setUploadingImage(true);
+  
+  try {
+    const imageUrl = await uploadImage(file, 'supplies');
+    
+    if (imageUrl) {
+      setEditingSupply({ ...editingSupply, imageUrl });
+      alert('Imagen cargada exitosamente');
+    }
+  } catch (error) {
+    console.error('Error uploading:', error);
+    alert('Error al cargar la imagen');
+  } finally {
+    setUploadingImage(false);
+  }
+};
+
+// Actualizar handleDeleteSupply para eliminar también la imagen
+const handleDeleteSupply = async (id: string) => {
+  if (!confirm('¿Eliminar este insumo?')) return;
+  
+  const supply = supplies.find(s => s.id === id);
+  
+  // Eliminar imagen del storage si existe
+  if (supply?.imageUrl && supply.imageUrl.includes('supplies-images')) {
+    await deleteImage(supply.imageUrl);
+  }
+  
+  await db.deleteSupply(id);
+  loadData();
+};
 
   // VIEWS
   const DashboardView = () => (
@@ -898,64 +930,185 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Supply Modal */}
-      {isSupplyModalOpen && editingSupply && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-xl">Editar Insumo</h3>
-              <button onClick={() => setIsSupplyModalOpen(false)}><X size={24}/></button>
-            </div>
-            <form onSubmit={handleSaveSupply} className="space-y-4">
-              <div>
-                <label className="text-sm font-bold">Nombre del Producto</label>
-                <input className="w-full border p-2 rounded-lg" value={editingSupply.name} onChange={e => setEditingSupply({...editingSupply, name: e.target.value})} required/>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-bold">Referencia</label>
-                  <input className="w-full border p-2 rounded-lg" value={editingSupply.reference} onChange={e => setEditingSupply({...editingSupply, reference: e.target.value})} required/>
-                </div>
-                <div>
-                  <label className="text-sm font-bold">Número / Calibre</label>
-                  <input className="w-full border p-2 rounded-lg" value={editingSupply.number} onChange={e => setEditingSupply({...editingSupply, number: e.target.value})}/>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-bold">Color</label>
-                  <input className="w-full border p-2 rounded-lg" value={editingSupply.color} onChange={e => setEditingSupply({...editingSupply, color: e.target.value})} required/>
-                </div>
-                <div>
-                  <label className="text-sm font-bold">Cantidad</label>
-                  <input type="number" className="w-full border p-2 rounded-lg" value={editingSupply.quantity} onChange={e => setEditingSupply({...editingSupply, quantity: Number(e.target.value)})} required/>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-bold">Valor Unitario ($)</label>
-                  <input type="number" className="w-full border p-2 rounded-lg" value={editingSupply.unitValue} onChange={e => setEditingSupply({...editingSupply, unitValue: Number(e.target.value)})} required/>
-                </div>
-                <div>
-                  <label className="text-sm font-bold">Alerta Stock Bajo</label>
-                  <input type="number" className="w-full border p-2 rounded-lg" value={editingSupply.lowStockThreshold} onChange={e => setEditingSupply({...editingSupply, lowStockThreshold: Number(e.target.value)})} required/>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-bold">URL de Imagen</label>
-                <input 
-                  type="text" 
-                  className="w-full border p-2 rounded-lg" 
-                  value={editingSupply.imageUrl || ''} 
-                  onChange={e => setEditingSupply({...editingSupply, imageUrl: e.target.value})}
-                  placeholder="https://ejemplo.com/imagen.jpg"
-                />
-              </div>
-              <button type="submit" className="w-full bg-amber-600 text-white p-2 rounded-lg font-bold">Guardar</button>
-            </form>
+      // MODAL DE SUPPLY ACTUALIZADO
+{isSupplyModalOpen && editingSupply && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-xl">
+          {supplies.find(s => s.id === editingSupply.id) ? 'Editar Insumo' : 'Nuevo Insumo'}
+        </h3>
+        <button onClick={() => setIsSupplyModalOpen(false)}>
+          <X size={24}/>
+        </button>
+      </div>
+      
+      <form onSubmit={handleSaveSupply} className="space-y-4">
+        {/* Nombre */}
+        <div>
+          <label className="text-sm font-bold">Nombre del Producto</label>
+          <input 
+            className="w-full border p-2 rounded-lg" 
+            value={editingSupply.name} 
+            onChange={e => setEditingSupply({...editingSupply, name: e.target.value})} 
+            required
+          />
+        </div>
+
+        {/* Referencia y Número */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-bold">Referencia</label>
+            <input 
+              className="w-full border p-2 rounded-lg" 
+              value={editingSupply.reference} 
+              onChange={e => setEditingSupply({...editingSupply, reference: e.target.value})} 
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-bold">Número / Calibre</label>
+            <input 
+              className="w-full border p-2 rounded-lg" 
+              value={editingSupply.number} 
+              onChange={e => setEditingSupply({...editingSupply, number: e.target.value})}
+            />
           </div>
         </div>
-      )}
+
+        {/* Color y Cantidad */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-bold">Color</label>
+            <input 
+              className="w-full border p-2 rounded-lg" 
+              value={editingSupply.color} 
+              onChange={e => setEditingSupply({...editingSupply, color: e.target.value})} 
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-bold">Cantidad</label>
+            <input 
+              type="number" 
+              className="w-full border p-2 rounded-lg" 
+              value={editingSupply.quantity} 
+              onChange={e => setEditingSupply({...editingSupply, quantity: Number(e.target.value)})} 
+              required
+            />
+          </div>
+        </div>
+
+        {/* Valor Unitario y Alerta */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-bold">Valor Unitario ($)</label>
+            <input 
+              type="number" 
+              className="w-full border p-2 rounded-lg" 
+              value={editingSupply.unitValue} 
+              onChange={e => setEditingSupply({...editingSupply, unitValue: Number(e.target.value)})} 
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-bold">Alerta Stock Bajo</label>
+            <input 
+              type="number" 
+              className="w-full border p-2 rounded-lg" 
+              value={editingSupply.lowStockThreshold} 
+              onChange={e => setEditingSupply({...editingSupply, lowStockThreshold: Number(e.target.value)})} 
+              required
+            />
+          </div>
+        </div>
+
+        {/* IMAGEN - OPCIÓN DUAL */}
+        <div className="border-t pt-4">
+          <label className="text-sm font-bold block mb-2">Imagen del Producto</label>
+          
+          {/* Preview de la imagen actual */}
+          {editingSupply.imageUrl && (
+            <div className="mb-3 relative">
+              <img 
+                src={editingSupply.imageUrl} 
+                alt="Preview" 
+                className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
+              />
+              <button
+                type="button"
+                onClick={() => setEditingSupply({...editingSupply, imageUrl: ''})}
+                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+              >
+                <X size={16}/>
+              </button>
+            </div>
+          )}
+
+          {/* Tabs para elegir método */}
+          <div className="flex gap-2 mb-3">
+            <button
+              type="button"
+              className="flex-1 py-2 px-4 rounded-lg font-medium bg-amber-100 text-amber-800 border-2 border-amber-300"
+            >
+              <Upload size={16} className="inline mr-2"/>
+              Subir Archivo
+            </button>
+            <button
+              type="button"
+              className="flex-1 py-2 px-4 rounded-lg font-medium bg-gray-100 text-gray-600 border-2 border-gray-200"
+              onClick={() => {
+                const url = prompt('Ingresa la URL de la imagen:');
+                if (url) setEditingSupply({...editingSupply, imageUrl: url});
+              }}
+            >
+              🔗 Desde URL
+            </button>
+          </div>
+
+          {/* Input de archivo */}
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleSupplyImageUpload}
+              disabled={uploadingImage}
+              className="w-full border-2 border-dashed border-amber-300 rounded-lg p-4 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 disabled:opacity-50"
+            />
+            {uploadingImage && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+              </div>
+            )}
+          </div>
+          
+          <p className="text-xs text-gray-500 mt-2">
+            📁 Sube una imagen (máx 5MB) o pega una URL desde internet
+          </p>
+        </div>
+
+        {/* Botón Submit */}
+        <button 
+          type="submit" 
+          disabled={uploadingImage}
+          className="w-full bg-amber-600 text-white p-3 rounded-lg font-bold hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {uploadingImage ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              Subiendo imagen...
+            </>
+          ) : (
+            <>
+              <Save size={18}/>
+              Guardar Insumo
+            </>
+          )}
+        </button>
+      </form>
+    </div>
+  </div>
+)}
 
       {/* Gallery Modal */}
 {isGalleryModalOpen && editingGallery && (
