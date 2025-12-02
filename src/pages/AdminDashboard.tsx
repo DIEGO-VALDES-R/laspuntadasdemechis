@@ -992,7 +992,7 @@ const handleDeleteSupply = async (id: string) => {
             { id: 'orders', label: 'Pedidos', icon: <ShoppingBag size={20}/> },
             { id: 'supplies', label: 'Insumos', icon: <Box size={20}/> },
             { id: 'clients', label: 'Clientes', icon: <Users size={20}/> },
-            { id: 'referrals', label: 'Referidos', icon: <Users size={20}/> }, {/* Nueva opción */}
+            { id: 'referrals', label: 'Referidos', icon: <Users size={20}/> }, // Nueva opción
             { id: 'community', label: 'Comunidad', icon: <Heart size={20}/> },
             { id: 'challenges', label: 'Retos', icon: <Trophy size={20}/> },
             { id: 'gallery', label: 'Galería', icon: <ImageIcon size={20}/> },
