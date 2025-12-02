@@ -7,7 +7,7 @@ const TrackOrder: React.FC = () => {
   const [orderNumber, setOrderNumber] = useState('');
   const [order, setOrder] = useState<Order | null>(null);
   const [client, setClient] = useState<Client | null>(null);
-  const [isRegisteredUser, setIsRegisteredUser] = useState(false);
+  const [showFullInfo, setShowFullInfo] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
   const [referrals, setReferrals] = useState<any[]>([]);
@@ -23,32 +23,48 @@ const TrackOrder: React.FC = () => {
       if (foundOrder) {
         setOrder(foundOrder);
         
-        // Verificar si el email del pedido corresponde a un usuario registrado
-        const registeredClient = await db.getClientByEmail(foundOrder.clientEmail);
-        
-        if (registeredClient) {
-          setClient(registeredClient);
-          setIsRegisteredUser(true);
-          
-          // Cargar todos los pedidos del usuario
-          const allUserOrders = await db.getOrdersByEmail(registeredClient.email);
-          setUserOrders(allUserOrders);
-          
-          // Cargar referidos del usuario
-          const userReferrals = await db.getReferralsByReferrerId(registeredClient.id);
-          setReferrals(userReferrals);
-        } else {
-          setIsRegisteredUser(false);
-          setClient(null);
-          setUserOrders([foundOrder]);
-          setReferrals([]);
-        }
+        // No buscar automáticamente el cliente
+        // Solo mostrar información del pedido específico
+        setShowFullInfo(false);
+        setClient(null);
+        setUserOrders([foundOrder]);
+        setReferrals([]);
       } else {
         alert('Pedido no encontrado');
       }
     } catch (error) {
       console.error('Error al buscar pedido:', error);
       alert('Error al buscar el pedido');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleShowFullInfo = async () => {
+    if (!order) return;
+    
+    setLoading(true);
+    try {
+      // Verificar si el email del pedido corresponde a un usuario registrado
+      const registeredClient = await db.getClientByEmail(order.clientEmail);
+      
+      if (registeredClient) {
+        setClient(registeredClient);
+        setShowFullInfo(true);
+        
+        // Cargar todos los pedidos del usuario
+        const allUserOrders = await db.getOrdersByEmail(registeredClient.email);
+        setUserOrders(allUserOrders);
+        
+        // Cargar referidos del usuario
+        const userReferrals = await db.getReferralsByReferrerId(registeredClient.id);
+        setReferrals(userReferrals);
+      } else {
+        alert('No se encontró información de cliente registrada para este pedido');
+      }
+    } catch (error) {
+      console.error('Error al cargar información completa:', error);
+      alert('Error al cargar información completa');
     } finally {
       setLoading(false);
     }
@@ -80,7 +96,7 @@ const TrackOrder: React.FC = () => {
 
       {order && (
         <>
-          {/* Información del pedido específico */}
+          {/* Información del pedido específico - SIEMPRE VISIBLE */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 className="text-xl font-bold mb-4">Pedido #{order.numero_seguimiento}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -117,8 +133,22 @@ const TrackOrder: React.FC = () => {
             )}
           </div>
 
-          {/* Solo mostrar información completa si es un usuario registrado */}
-          {isRegisteredUser && client && (
+          {/* Botón para ver información completa - SOLO SI NO SE HA MOSTRADO */}
+          {!showFullInfo && (
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6 text-center">
+              <p className="text-gray-600 mb-4">¿Eres el cliente de este pedido y quieres ver tu información completa?</p>
+              <button
+                onClick={handleShowFullInfo}
+                disabled={loading}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+              >
+                {loading ? 'Cargando...' : 'Ver Mi Información Completa'}
+              </button>
+            </div>
+          )}
+
+          {/* Información completa del cliente - SOLO SI SE PRESIONÓ EL BOTÓN Y SE ENCONTRÓ CLIENTE */}
+          {showFullInfo && client && (
             <>
               {/* Beneficios del usuario */}
               <div className="bg-white rounded-lg shadow-md p-6 mb-6">
