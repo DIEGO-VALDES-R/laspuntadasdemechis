@@ -20,19 +20,27 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ clientEmail, onLogout
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [simulatingPayment, setSimulatingPayment] = useState(false);
 
+  // ✅ ESTE ES EL useEffect CORREGIDO CON SAFEGUARD
   useEffect(() => {
     const fetchClientData = async () => {
       try {
         setLoading(true);
         
+        // 🔒 SAFEGUARD: Verificar que no sea admin
+        if (clientEmail === 'puntadasdemechis@gmail.com') {
+          console.warn('⚠️ Admin intentó acceder al ClientDashboard, redirigiendo...');
+          window.location.href = '/#/admin';
+          return;
+        }
+        
         // 🔒 SEGURO: Solo carga pedidos del cliente actual usando su email
         console.log('🔒 Cargando pedidos para:', clientEmail);
-        const fetchedOrders = await db.getOrdersByEmail(clientEmail);
+        const fetchedOrders = await db.getOrdersByClientEmail(clientEmail);
         console.log('✅ Pedidos encontrados:', fetchedOrders.length);
         setOrders(fetchedOrders || []);
         
         // Cargar datos del cliente
-        const clientData = await db.getClient(clientEmail);
+        const clientData = await db.getClientByEmail(clientEmail);
         setClientData(clientData);
       } catch (error) {
         console.error('❌ Error al cargar datos:', error);

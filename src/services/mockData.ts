@@ -1,6 +1,3 @@
-
-
-
 import { Client, Order, PaymentMethod, Referral, GalleryItem, GlobalConfig, Post, Challenge, Supply, Expense, ReturnRecord } from '../types';
 
 export const mockClient: Client = {

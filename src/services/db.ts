@@ -124,11 +124,7 @@ const mapChallenge = (c: any): Challenge => ({
 // =====================================================
 
 export const db = {
-  // =====================================================
-  // --- ORDERS (PEDIDOS) ---
-  // =====================================================
-  
-  // ✅ Obtener TODOS los pedidos (solo para admin)
+  // --- ORDERS ---
   getOrders: async (): Promise<Order[]> => {
     const { data, error } = await supabase
       .from('orders')
@@ -142,63 +138,6 @@ export const db = {
     return (data || []).map(mapOrder);
   },
 
-  // ✅ Obtener pedidos de UN CLIENTE específico (seguro)
-  getOrdersByEmail: async (email: string): Promise<Order[]> => {
-    console.log('🔍 Buscando pedidos para:', email);
-    
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('client_email', email.toLowerCase().trim())
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('❌ Error al cargar pedidos:', error);
-      return [];
-    }
-    
-    if (!data || data.length === 0) {
-      console.log('⚠️ No se encontraron pedidos para este cliente');
-      return [];
-    }
-    
-    console.log(`✅ ${data.length} pedidos encontrados`);
-    return data.map(mapOrder);
-  },
-
-  // ✅ Buscar pedido por número Y validar con email (seguro)
-  getOrderByNumberAndEmail: async (orderNumber: string, email: string): Promise<Order | null> => {
-    console.log('🔍 Validando pedido:', orderNumber, 'para:', email);
-    
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('numero_seguimiento', orderNumber)
-      .eq('client_email', email.toLowerCase().trim())
-      .single();
-    
-    if (error || !data) {
-      console.log('⚠️ Pedido no encontrado o email no coincide');
-      return null;
-    }
-    
-    console.log('✅ Pedido validado correctamente');
-    return mapOrder(data);
-  },
-
-  // ✅ Buscar pedido por número (solo admin, sin validación de email)
-  getOrderByNumber: async (orderNumber: string): Promise<Order | null> => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('numero_seguimiento', orderNumber)
-      .single();
-    
-    if (error || !data) return null;
-    return mapOrder(data);
-  },
-
-  // ✅ Agregar nuevo pedido
   addOrder: async (order: Omit<Order, 'id'>) => {
     const { error } = await supabase.from('orders').insert({
       numero_seguimiento: order.numero_seguimiento,
@@ -218,7 +157,6 @@ export const db = {
     if (error) console.error('Error adding order:', error);
   },
 
-  // ✅ Actualizar pedido
   updateOrder: async (orderId: string, updates: Partial<Order>) => {
     const dbUpdates: any = {};
     if (updates.estado) dbUpdates.estado = updates.estado;
@@ -234,7 +172,6 @@ export const db = {
     if (error) console.error('Error updating order:', error);
   },
 
-  // ✅ Eliminar pedido
   deleteOrder: async (orderId: string) => {
     const { error } = await supabase
       .from('orders')
@@ -244,11 +181,33 @@ export const db = {
     if (error) console.error('Error deleting order:', error);
   },
 
-  // =====================================================
-  // --- CLIENTS (CLIENTES) ---
-  // =====================================================
+  // --- NUEVAS FUNCIONES PARA ÓRDENES ---
+  getOrderByNumber: async (orderNumber: string): Promise<Order | null> => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('numero_seguimiento', orderNumber)
+      .single();
+    
+    if (error || !data) return null;
+    return mapOrder(data);
+  },
 
-  // ✅ Obtener TODOS los clientes (solo admin)
+  getOrdersByEmail: async (email: string): Promise<Order[]> => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('client_email', email)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching orders by email:', error);
+      return [];
+    }
+    return (data || []).map(mapOrder);
+  },
+
+  // --- CLIENTS ---
   getAllClients: async (): Promise<Client[]> => {
     const { data, error } = await supabase
       .from('clients')
@@ -262,26 +221,32 @@ export const db = {
     return (data || []).map(mapClient);
   },
 
-  // ✅ Obtener UN cliente por email (seguro)
+  // Renombrada de getClient a getClientByEmail para mayor claridad
+  getClientByEmail: async (email: string): Promise<Client | null> => {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('email', email)
+    .single();
+
+  if (error || !data) return null;
+
+  return {
+    id: data.id,
+    nombre: data.name || data.nombre,
+    email: data.email,
+    telefono: data.phone || data.telefono,
+    direccion: data.address || data.direccion,
+    ciudad: data.city || data.ciudad,
+    fecha_registro: data.created_at || data.fecha_registro
+  };
+},
+
+  // Mantener la función original por si se usa en otros lugares
   getClient: async (email: string): Promise<Client | null> => {
-    console.log('🔍 Buscando cliente:', email);
-    
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('email', email.toLowerCase().trim())
-      .single();
-
-    if (error || !data) {
-      console.log('⚠️ Cliente no encontrado');
-      return null;
-    }
-
-    console.log('✅ Cliente encontrado:', data.nombre_completo);
-    return mapClient(data);
+    return await db.getClientByEmail(email);
   },
 
-  // ✅ Registrar nuevo cliente
   registerClient: async (clientData: any) => {
     const code = (clientData.nombre.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
     
@@ -304,7 +269,6 @@ export const db = {
     localStorage.setItem('puntadas_role', 'client');
   },
 
-  // ✅ Eliminar cliente
   deleteClient: async (clientId: string) => {
     const { error } = await supabase
       .from('clients')
@@ -314,81 +278,86 @@ export const db = {
     if (error) console.error('Error deleting client:', error);
   },
 
-  // =====================================================
-  // --- REFERRALS (REFERIDOS) ---
-  // =====================================================
+// 🔒 FUNCIÓN SEGURA - Solo pedidos del cliente específico
+getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
+  console.log('🔍 Buscando pedidos para email:', email);
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('client_email', email)
+    .order('fecha_pedido', { ascending: false });
+    
+  if (error) {
+    console.error('❌ Error al cargar pedidos:', error);
+    return [];
+  }
+  
+  if (!data) {
+    console.log('⚠️ No se encontraron pedidos');
+    return [];
+  }
+  
+  console.log(`✅ ${data.length} pedidos encontrados`);
+  return data.map(mapOrder);
+},
 
-  // ✅ Obtener TODOS los referidos (solo admin)
-  getAllReferrals: async (): Promise<any[]> => {
-    const { data, error } = await supabase
-      .from('referrals')
-      .select(`
-        *,
-        referrer:clients!referrals_referrer_id_fkey(nombre_completo)
-      `)
-      .order('created_at', { ascending: false });
+// 🔒 FUNCIÓN SEGURA - Validar pedido por número Y email
+getOrderByNumberAndEmail: async (orderNumber: string, email: string): Promise<Order | null> => {
+  console.log('🔍 Buscando pedido:', orderNumber, 'para email:', email);
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('numero_seguimiento', orderNumber)
+    .eq('client_email', email)
+    .single();
     
-    if (error) {
-      console.error('Error fetching referrals:', error);
-      return [];
-    }
-    
-    return (data || []).map(referral => ({
-      ...referral,
-      referredByName: referral.referrer?.nombre_completo || 'N/A'
-    }));
-  },
+  if (error) {
+    console.error('❌ Error:', error);
+    return null;
+  }
+  
+  if (!data) {
+    console.log('⚠️ Pedido no encontrado o email no coincide');
+    return null;
+  }
+  
+  console.log('✅ Pedido encontrado');
+  return mapOrder(data);
+},
 
-  // ✅ Obtener referidos de UN CLIENTE específico (seguro)
-  getReferralsByReferrerId: async (referrerId: string): Promise<any[]> => {
-    console.log('🔍 Buscando referidos para cliente:', referrerId);
-    
-    const { data, error } = await supabase
-      .from('referrals')
-      .select('*')
-      .eq('referrer_id', referrerId)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching referrals:', error);
-      return [];
-    }
-    
-    console.log(`✅ ${(data || []).length} referidos encontrados`);
-    return data || [];
-  },
+// 🔒 FUNCIÓN SEGURA - Obtener cliente por email
+getClientByEmail: async (email: string): Promise<Client | null> => {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('email', email)
+    .single();
 
-  // ✅ Agregar referido
-  addReferral: async (referral: any) => {
-    const { error } = await supabase.from('referrals').insert(referral);
-    
-    if (error) console.error('Error adding referral:', error);
-  },
+  if (error || !data) return null;
 
-  // ✅ Actualizar referido
-  updateReferral: async (referralId: string, updates: any) => {
-    const { error } = await supabase
-      .from('referrals')
-      .update(updates)
-      .eq('id', referralId);
-    
-    if (error) console.error('Error updating referral:', error);
-  },
-
-  // ✅ Eliminar referido
-  deleteReferral: async (id: string) => {
-    const { error } = await supabase
-      .from('referrals')
-      .delete()
-      .eq('id', id);
-    
-    if (error) console.error('Error deleting referral:', error);
-  },
-
-  // =====================================================
-  // --- SUPPLIES (INSUMOS) ---
-  // =====================================================
-
+  return {
+    id: data.id,
+    nombre: data.nombre_completo || data.nombre,
+    email: data.email,
+    telefono: data.telefono,
+    direccion: data.direccion,
+    ciudad: data.ciudad,
+    fecha_registro: data.created_at || data.fecha_registro,
+    codigo_referido: data.codigo_referido,
+    nivel: data.nivel || 'Bronce',
+    descuento_activo: data.descuento_activo || 0,
+    compras_totales: data.compras_totales || 0,
+    cantidad_referidos: data.cantidad_referidos || 0,
+    ahorro_historico: data.ahorro_historico || 0,
+    progreso_porcentaje: data.progreso_porcentaje || 0,
+    compras_para_siguiente: data.compras_para_siguiente || 0,
+    total_invertido: data.total_invertido || 0,
+    ahorro_descuentos: data.ahorro_descuentos || 0,
+    porcentaje_ahorro: data.porcentaje_ahorro || 0,
+    saldos_pendientes: data.saldos_pendientes || 0
+  };
+},
+  // --- SUPPLIES ---
   getSupplies: async (): Promise<Supply[]> => {
     const { data, error } = await supabase
       .from('supplies')
@@ -400,6 +369,7 @@ export const db = {
       return [];
     }
   
+    // ✅ Mapeo explícito aquí mismo
     return (data || []).map(s => ({
       id: s.id,
       name: s.name || '',
@@ -409,7 +379,7 @@ export const db = {
       color: s.color || '',
       number: s.number || '',
       lowStockThreshold: s.low_stock_threshold || 5,
-      imageUrl: s.image_url || ''
+      imageUrl: s.image_url || ''  // ✅ USAR MINÚSCULA
     }));
   },
 
@@ -455,10 +425,7 @@ export const db = {
     if (error) console.error('Error deleting supply:', error);
   },
 
-  // =====================================================
-  // --- EXPENSES (GASTOS) ---
-  // =====================================================
-
+  // --- EXPENSES ---
   getExpenses: async (): Promise<Expense[]> => {
     const { data, error } = await supabase
       .from('expenses')
@@ -484,10 +451,7 @@ export const db = {
     if (error) console.error('Error adding expense:', error);
   },
 
-  // =====================================================
-  // --- RETURNS (DEVOLUCIONES) ---
-  // =====================================================
-
+  // --- RETURNS ---
   getReturns: async (): Promise<ReturnRecord[]> => {
     const { data, error } = await supabase
       .from('returns')
@@ -501,11 +465,10 @@ export const db = {
     return (data || []).map(mapReturn);
   },
 
-  // =====================================================
-  // --- INVENTORY (CONFIGURACIÓN DE PRODUCTOS) ---
-  // =====================================================
-
+  // --- INVENTORY (Product Config) ---
   getAllInventoryItems: async (): Promise<InventoryItem[]> => {
+    // Esta función devuelve los items del catálogo (sizes, packaging, accessories)
+    // Por ahora usamos DEFAULT_CONFIG, pero puedes crear una tabla en Supabase si quieres
     return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
   },
 
@@ -513,10 +476,7 @@ export const db = {
     return DEFAULT_CONFIG;
   },
 
-  // =====================================================
-  // --- GALLERY (GALERÍA) ---
-  // =====================================================
-
+  // --- GALLERY ---
   getGallery: async (): Promise<GalleryItem[]> => {
     const { data, error } = await supabase
       .from('gallery_items')
@@ -564,10 +524,7 @@ export const db = {
     if (error) console.error('Error deleting gallery item:', error);
   },
 
-  // =====================================================
-  // --- CONFIG (CONFIGURACIÓN GLOBAL) ---
-  // =====================================================
-
+  // --- CONFIG ---
   getConfig: async (): Promise<GlobalConfig> => {
     const { data, error } = await supabase
       .from('global_config')
@@ -603,10 +560,7 @@ export const db = {
     if (error) console.error('Error saving config:', error);
   },
 
-  // =====================================================
-  // --- HOME CONFIG (CONFIGURACIÓN DE INICIO) ---
-  // =====================================================
-
+  // --- HOME CONFIG ---
   getHomeConfig: async (): Promise<HomeConfig> => {
     const { data, error } = await supabase
       .from('home_config')
@@ -643,10 +597,7 @@ export const db = {
     }
   },
 
-  // =====================================================
   // --- TEJEDORAS ---
-  // =====================================================
-
   getTejedoras: async (): Promise<Tejedora[]> => {
     const { data, error } = await supabase
       .from('tejedoras')
@@ -681,10 +632,7 @@ export const db = {
     if (error) console.error('Error deleting tejedora:', error);
   },
 
-  // =====================================================
-  // --- POSTS (COMUNIDAD) ---
-  // =====================================================
-
+  // --- POSTS ---
   getPosts: async (): Promise<Post[]> => {
     const { data, error } = await supabase
       .from('posts')
@@ -761,10 +709,7 @@ export const db = {
     return db.getPosts();
   },
 
-  // =====================================================
-  // --- CHALLENGES (RETOS) ---
-  // =====================================================
-
+  // --- CHALLENGES ---
   getChallenges: async (): Promise<Challenge[]> => {
     const { data, error } = await supabase
       .from('challenges')
@@ -820,5 +765,65 @@ export const db = {
       .eq('id', id);
     
     if (error) console.error('Error deleting challenge:', error);
-  }
+  },
+
+  // --- NUEVAS FUNCIONES PARA REFERIDOS ---
+  getAllReferrals: async (): Promise<any[]> => {
+    const { data, error } = await supabase
+      .from('referrals')
+      .select(`
+        *,
+        referrer:clients!referrals_referrer_id_fkey(nombre_completo)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching referrals:', error);
+      return [];
+    }
+    
+    // Mapear los datos para incluir el nombre del referente
+    return (data || []).map(referral => ({
+      ...referral,
+      referredByName: referral.referrer?.nombre_completo || 'N/A'
+    }));
+  },
+
+  getReferralsByReferrerId: async (referrerId: string): Promise<any[]> => {
+    const { data, error } = await supabase
+      .from('referrals')
+      .select('*')
+      .eq('referrer_id', referrerId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching referrals by referrer:', error);
+      return [];
+    }
+    return data || [];
+  },
+
+  deleteReferral: async (id: string) => {
+    const { error } = await supabase
+      .from('referrals')
+      .delete()
+      .eq('id', id);
+    
+    if (error) console.error('Error deleting referral:', error);
+  },
+// Agrega estas funciones al final del objeto db, antes del cierre };
+updateReferral: async (referralId: string, updates: any) => {
+  const { error } = await supabase
+    .from('referrals')
+    .update(updates)
+    .eq('id', referralId);
+  
+  if (error) console.error('Error updating referral:', error);
+},
+
+addReferral: async (referral: any) => {
+  const { error } = await supabase.from('referrals').insert(referral);
+  
+  if (error) console.error('Error adding referral:', error);
+}
 };

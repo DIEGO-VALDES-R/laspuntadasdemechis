@@ -8,6 +8,7 @@ import ClientDashboard from './pages/ClientDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import TrackOrder from './pages/TrackOrder';
 import Community from './pages/Community';
 import Challenges from './pages/Challenges';
 import Accounting from './pages/Accounting';
@@ -32,7 +33,7 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
   children, 
-  requireAuth = false,
+  requireAuth = false, 
   requireAdmin = false 
 }) => {
   const [loading, setLoading] = useState(true);
@@ -50,6 +51,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       setIsAuthenticated(true);
       setIsAdmin(session.user.email === ADMIN_EMAIL);
     }
+    
     setLoading(false);
   };
 
@@ -80,7 +82,7 @@ const App: React.FC = () => {
   useEffect(() => {
     // Verificar sesión de Supabase al cargar
     checkSession();
-
+    
     // Escuchar cambios en la autenticación
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
@@ -96,6 +98,7 @@ const App: React.FC = () => {
         localStorage.removeItem('puntadas_user');
         localStorage.removeItem('puntadas_role');
       }
+      
       window.dispatchEvent(new Event('storage'));
     });
 
@@ -115,6 +118,7 @@ const App: React.FC = () => {
       localStorage.setItem('puntadas_user', session.user.email || '');
       localStorage.setItem('puntadas_role', session.user.email === ADMIN_EMAIL ? 'admin' : 'client');
     }
+    
     setLoading(false);
   };
 
@@ -143,6 +147,7 @@ const App: React.FC = () => {
           {/* Rutas Públicas */}
           <Route path="/" element={<Home />} />
           <Route path="/request" element={<RequestForm />} />
+          <Route path="/track" element={<TrackOrder />} />
           <Route path="/community" element={<Community />} />
           <Route path="/challenges" element={<Challenges />} />
           
@@ -167,38 +172,35 @@ const App: React.FC = () => {
               )
             } 
           />
-
+          
           {/* 🔒 Ruta Protegida - Dashboard Cliente */}
-          <Route
-            path="/dashboard"
+          <Route 
+            path="/dashboard" 
             element={
               <ProtectedRoute requireAuth={true}>
-                <ClientDashboard 
-                  clientEmail={userEmail || ''} 
-                  onLogout={handleLogout}
-                />
+                <ClientDashboard clientEmail={userEmail || ''} onLogout={handleLogout} />
               </ProtectedRoute>
-            }
+            } 
           />
-
+          
           {/* 🔒 Rutas Protegidas - Admin */}
-          <Route
-            path="/admin"
+          <Route 
+            path="/admin" 
             element={
               <ProtectedRoute requireAuth={true} requireAdmin={true}>
                 <AdminDashboard />
               </ProtectedRoute>
-            }
+            } 
           />
-          <Route
-            path="/admin/accounting"
+          <Route 
+            path="/admin/accounting" 
             element={
               <ProtectedRoute requireAuth={true} requireAdmin={true}>
                 <Accounting />
               </ProtectedRoute>
-            }
+            } 
           />
-
+          
           {/* Ruta por defecto */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
