@@ -32,7 +32,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ clientEmail, onLogout
         setOrders(fetchedOrders || []);
         
         // Cargar datos del cliente
-        const clientData = await db.getClientByEmail(clientEmail);
+        const clientData = await db.getClient(clientEmail);
         setClientData(clientData);
       } catch (error) {
         console.error('❌ Error al cargar datos:', error);
