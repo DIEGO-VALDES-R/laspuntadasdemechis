@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
 import { db } from '../services/db';
-import { Order, Client } from '../types';
+import { Order } from '../types';
 import { Search } from 'lucide-react';
 
 const TrackOrderSection: React.FC = () => {
   const [orderNumber, setOrderNumber] = useState('');
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showFullInfo, setShowFullInfo] = useState(false);
-  const [client, setClient] = useState<Client | null>(null);
-  const [userOrders, setUserOrders] = useState<Order[]>([]);
-  const [referrals, setReferrals] = useState<any[]>([]);
 
   const handleSearchOrder = async () => {
     if (!orderNumber.trim()) return;
@@ -22,47 +18,12 @@ const TrackOrderSection: React.FC = () => {
       
       if (foundOrder) {
         setOrder(foundOrder);
-        // No buscar automáticamente el cliente
-        setShowFullInfo(false);
-        setClient(null);
-        setUserOrders([foundOrder]);
-        setReferrals([]);
       } else {
         alert('Pedido no encontrado');
       }
     } catch (error) {
       console.error('Error al buscar pedido:', error);
       alert('Error al buscar el pedido');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleShowFullInfo = async () => {
-    if (!order) return;
-    
-    setLoading(true);
-    try {
-      // Verificar si el email del pedido corresponde a un usuario registrado
-      const registeredClient = await db.getClientByEmail(order.clientEmail);
-      
-      if (registeredClient) {
-        setClient(registeredClient);
-        setShowFullInfo(true);
-        
-        // Cargar todos los pedidos del usuario
-        const allUserOrders = await db.getOrdersByEmail(registeredClient.email);
-        setUserOrders(allUserOrders);
-        
-        // Cargar referidos del usuario
-        const userReferrals = await db.getReferralsByReferrerId(registeredClient.id);
-        setReferrals(userReferrals);
-      } else {
-        alert('No se encontró información de cliente registrada para este pedido');
-      }
-    } catch (error) {
-      console.error('Error al cargar información completa:', error);
-      alert('Error al cargar información completa');
     } finally {
       setLoading(false);
     }
@@ -89,151 +50,41 @@ const TrackOrderSection: React.FC = () => {
       </div>
 
       {order && (
-        <>
-          {/* Información del pedido específico - SIEMPRE VISIBLE */}
-          <div className="border rounded-lg p-4 mb-6">
-            <h3 className="text-xl font-bold mb-4">Pedido #{order.numero_seguimiento}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-600">Producto</p>
-                <p className="font-medium">{order.nombre_producto}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Descripción</p>
-                <p className="font-medium">{order.descripcion || 'Sin descripción'}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Total</p>
-                <p className="font-medium">${order.total_final.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Pagado</p>
-                <p className="font-medium">${order.monto_pagado.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Saldo Pendiente</p>
-                <p className="font-medium text-red-600">${order.saldo_pendiente.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="text-gray-600">Estado</p>
-                <p className="font-medium">{order.estado}</p>
-              </div>
+        <div className="border rounded-lg p-4">
+          <h3 className="text-xl font-bold mb-4">Pedido #{order.numero_seguimiento}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-gray-600">Producto</p>
+              <p className="font-medium">{order.nombre_producto}</p>
             </div>
-            
-            {order.saldo_pendiente > 0 && (
-              <button className="mt-4 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
-                Completar Pago
-              </button>
-            )}
+            <div>
+              <p className="text-gray-600">Descripción</p>
+              <p className="font-medium">{order.descripcion || 'Sin descripción'}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Total</p>
+              <p className="font-medium">${order.total_final.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Pagado</p>
+              <p className="font-medium">${order.monto_pagado.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Saldo Pendiente</p>
+              <p className="font-medium text-red-600">${order.saldo_pendiente.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Estado</p>
+              <p className="font-medium">{order.estado}</p>
+            </div>
           </div>
-
-          {/* Botón para ver información completa - SOLO SI NO SE HA MOSTRADO */}
-          {!showFullInfo && (
-            <div className="text-center mb-6">
-              <p className="text-gray-600 mb-4">¿Eres el cliente de este pedido y quieres ver tu información completa?</p>
-              <button
-                onClick={handleShowFullInfo}
-                disabled={loading}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-              >
-                {loading ? 'Cargando...' : 'Ver Mi Información Completa'}
-              </button>
-            </div>
+          
+          {order.saldo_pendiente > 0 && (
+            <button className="mt-4 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+              Completar Pago
+            </button>
           )}
-
-          {/* Información completa del cliente - SOLO SI SE PRESIONÓ EL BOTÓN Y SE ENCONTRÓ CLIENTE */}
-          {showFullInfo && client && (
-            <>
-              {/* Beneficios del usuario */}
-              <div className="border rounded-lg p-4 mb-6">
-                <h3 className="text-xl font-bold mb-4">Tus Beneficios</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-gray-600">Nivel</p>
-                    <p className="font-bold text-lg">{client.nivel}</p>
-                    <div className="flex justify-center mt-2">⭐⭐⭐</div>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-gray-600">Descuento activo</p>
-                    <p className="font-bold text-lg">{client.descuento_activo}%</p>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-gray-600">Descuento por referidos</p>
-                    <p className="font-bold text-lg">10%</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Todos los pedidos del usuario */}
-              <div className="border rounded-lg p-4 mb-6">
-                <h3 className="text-xl font-bold mb-4">Mis Pedidos</h3>
-                <div className="space-y-4">
-                  {userOrders.map((userOrder) => (
-                    <div key={userOrder.id} className="border rounded p-4 hover:bg-gray-50">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h4 className="font-bold">Pedido #{userOrder.numero_seguimiento}</h4>
-                          <p>{userOrder.nombre_producto}</p>
-                          <p className="text-sm text-gray-600">Estado: {userOrder.estado}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold">${userOrder.total_final.toLocaleString()}</p>
-                          <p className="text-sm text-gray-600">Saldo: ${userOrder.saldo_pendiente.toLocaleString()}</p>
-                          <button className="mt-2 px-4 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                            Ver
-                          </button>
-                          {userOrder.saldo_pendiente > 0 && (
-                            <button className="mt-2 ml-2 px-4 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
-                              Completar Pago
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Referidos del usuario */}
-              <div className="border rounded-lg p-4 mb-6">
-                <h3 className="text-xl font-bold mb-4">Mis Referidos</h3>
-                {referrals.length > 0 ? (
-                  <div className="space-y-4">
-                    {referrals.map((referral) => (
-                      <div key={referral.id} className="border rounded p-4 flex justify-between items-center">
-                        <div>
-                          <h4 className="font-bold">{referral.name}</h4>
-                          <p className="text-sm text-gray-600">{referral.email}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600">{referral.purchases} compras</p>
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            referral.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {referral.status === 'active' ? '✅ Activo' : '⏳ Pendiente'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No tienes referidos aún</p>
-                )}
-                
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg text-center">
-                  <p className="font-bold mb-2">Tu código de referido:</p>
-                  <div className="flex items-center justify-center gap-2">
-                    <code className="bg-white px-3 py-1 rounded border">{client.codigo_referido || 'REF-' + client.id}</code>
-                    <button className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
-                      Copiar
-                    </button>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-2">Cada referido = 10% de descuento</p>
-                </div>
-              </div>
-            </>
-          )}
-        </>
+        </div>
       )}
     </div>
   );
