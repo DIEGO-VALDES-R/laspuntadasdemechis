@@ -27,7 +27,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ clientEmail, onLogout
         
         // 🔒 SEGURO: Solo carga pedidos del cliente actual usando su email
         console.log('🔒 Cargando pedidos para:', clientEmail);
-        const fetchedOrders = await db.getOrdersByClientEmail(clientEmail);
+        const fetchedOrders = await db.getOrdersByEmail(clientEmail);
         console.log('✅ Pedidos encontrados:', fetchedOrders.length);
         setOrders(fetchedOrders || []);
         
