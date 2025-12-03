@@ -181,7 +181,6 @@ export const db = {
     if (error) console.error('Error deleting order:', error);
   },
 
-  // --- NUEVAS FUNCIONES PARA ÓRDENES ---
   getOrderByNumber: async (orderNumber: string): Promise<Order | null> => {
     const { data, error } = await supabase
       .from('orders')
@@ -207,6 +206,53 @@ export const db = {
     return (data || []).map(mapOrder);
   },
 
+  // 🔒 FUNCIÓN SEGURA - Solo pedidos del cliente específico
+  getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
+    console.log('🔍 Buscando pedidos para:', email);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('client_email', email)
+      .order('fecha_pedido', { ascending: false });
+      
+    if (error) {
+      console.error('❌ Error al cargar pedidos:', error);
+      return [];
+    }
+    
+    if (!data) {
+      console.log('⚠️ No se encontraron pedidos para este cliente');
+      return [];
+    }
+    
+    console.log(`✅ ${data.length} pedidos encontrados`);
+    return data.map(mapOrder);
+  },
+
+  // 🔒 FUNCIÓN SEGURA - Validar pedido por número Y email
+  getOrderByNumberAndEmail: async (orderNumber: string, email: string): Promise<Order | null> => {
+    console.log('🔍 Buscando pedido:', orderNumber, 'para email:', email);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('numero_seguimiento', orderNumber)
+      .eq('client_email', email)
+      .single();
+      
+    if (error) {
+      console.error('❌ Error:', error);
+      return null;
+    }
+    
+    if (!data) {
+      console.log('⚠️ Pedido no encontrado o email no coincide');
+      return null;
+    }
+    
+    console.log('✅ Pedido encontrado');
+    return mapOrder(data);
+  },
+
   // --- CLIENTS ---
   getAllClients: async (): Promise<Client[]> => {
     const { data, error } = await supabase
@@ -221,30 +267,22 @@ export const db = {
     return (data || []).map(mapClient);
   },
 
-  // Renombrada de getClient a getClientByEmail para mayor claridad
+  // 🔒 FUNCIÓN SEGURA - Obtener cliente por email
   getClientByEmail: async (email: string): Promise<Client | null> => {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('email', email)
-    .single();
+    console.log('🔍 Buscando cliente:', email);
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('email', email)
+      .single();
 
-  if (error || !data) return null;
+    if (error || !data) {
+      console.log('✅ Cliente encontrado:', null);
+      return null;
+    }
 
-  return {
-    id: data.id,
-    nombre: data.name || data.nombre,
-    email: data.email,
-    telefono: data.phone || data.telefono,
-    direccion: data.address || data.direccion,
-    ciudad: data.city || data.ciudad,
-    fecha_registro: data.created_at || data.fecha_registro
-  };
-},
-
-  // Mantener la función original por si se usa en otros lugares
-  getClient: async (email: string): Promise<Client | null> => {
-    return await db.getClientByEmail(email);
+    console.log('✅ Cliente encontrado:', data.nombre_completo);
+    return mapClient(data);
   },
 
   registerClient: async (clientData: any) => {
@@ -278,85 +316,6 @@ export const db = {
     if (error) console.error('Error deleting client:', error);
   },
 
-// 🔒 FUNCIÓN SEGURA - Solo pedidos del cliente específico
-getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
-  console.log('🔍 Buscando pedidos para email:', email);
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('client_email', email)
-    .order('fecha_pedido', { ascending: false });
-    
-  if (error) {
-    console.error('❌ Error al cargar pedidos:', error);
-    return [];
-  }
-  
-  if (!data) {
-    console.log('⚠️ No se encontraron pedidos');
-    return [];
-  }
-  
-  console.log(`✅ ${data.length} pedidos encontrados`);
-  return data.map(mapOrder);
-},
-
-// 🔒 FUNCIÓN SEGURA - Validar pedido por número Y email
-getOrderByNumberAndEmail: async (orderNumber: string, email: string): Promise<Order | null> => {
-  console.log('🔍 Buscando pedido:', orderNumber, 'para email:', email);
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('numero_seguimiento', orderNumber)
-    .eq('client_email', email)
-    .single();
-    
-  if (error) {
-    console.error('❌ Error:', error);
-    return null;
-  }
-  
-  if (!data) {
-    console.log('⚠️ Pedido no encontrado o email no coincide');
-    return null;
-  }
-  
-  console.log('✅ Pedido encontrado');
-  return mapOrder(data);
-},
-
-// 🔒 FUNCIÓN SEGURA - Obtener cliente por email
-getClientByEmail: async (email: string): Promise<Client | null> => {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('email', email)
-    .single();
-
-  if (error || !data) return null;
-
-  return {
-    id: data.id,
-    nombre: data.nombre_completo || data.nombre,
-    email: data.email,
-    telefono: data.telefono,
-    direccion: data.direccion,
-    ciudad: data.ciudad,
-    fecha_registro: data.created_at || data.fecha_registro,
-    codigo_referido: data.codigo_referido,
-    nivel: data.nivel || 'Bronce',
-    descuento_activo: data.descuento_activo || 0,
-    compras_totales: data.compras_totales || 0,
-    cantidad_referidos: data.cantidad_referidos || 0,
-    ahorro_historico: data.ahorro_historico || 0,
-    progreso_porcentaje: data.progreso_porcentaje || 0,
-    compras_para_siguiente: data.compras_para_siguiente || 0,
-    total_invertido: data.total_invertido || 0,
-    ahorro_descuentos: data.ahorro_descuentos || 0,
-    porcentaje_ahorro: data.porcentaje_ahorro || 0,
-    saldos_pendientes: data.saldos_pendientes || 0
-  };
-},
   // --- SUPPLIES ---
   getSupplies: async (): Promise<Supply[]> => {
     const { data, error } = await supabase
@@ -369,7 +328,6 @@ getClientByEmail: async (email: string): Promise<Client | null> => {
       return [];
     }
   
-    // ✅ Mapeo explícito aquí mismo
     return (data || []).map(s => ({
       id: s.id,
       name: s.name || '',
@@ -379,7 +337,7 @@ getClientByEmail: async (email: string): Promise<Client | null> => {
       color: s.color || '',
       number: s.number || '',
       lowStockThreshold: s.low_stock_threshold || 5,
-      imageUrl: s.image_url || ''  // ✅ USAR MINÚSCULA
+      imageUrl: s.image_url || ''
     }));
   },
 
@@ -467,8 +425,6 @@ getClientByEmail: async (email: string): Promise<Client | null> => {
 
   // --- INVENTORY (Product Config) ---
   getAllInventoryItems: async (): Promise<InventoryItem[]> => {
-    // Esta función devuelve los items del catálogo (sizes, packaging, accessories)
-    // Por ahora usamos DEFAULT_CONFIG, pero puedes crear una tabla en Supabase si quieres
     return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
   },
 
@@ -767,26 +723,48 @@ getClientByEmail: async (email: string): Promise<Client | null> => {
     if (error) console.error('Error deleting challenge:', error);
   },
 
-  // --- NUEVAS FUNCIONES PARA REFERIDOS ---
+  // --- REFERRALS ---
   getAllReferrals: async (): Promise<any[]> => {
-    const { data, error } = await supabase
-      .from('referrals')
-      .select(`
-        *,
-        referrer:clients!referrals_referrer_id_fkey(nombre_completo)
-      `)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching referrals:', error);
+    try {
+      // Obtener referidos
+      const { data, error } = await supabase
+        .from('referrals')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching referrals:', error);
+        return [];
+      }
+      
+      if (!data || data.length === 0) {
+        return [];
+      }
+      
+      // Obtener información de clientes por separado
+      const referrerIds = [...new Set(data.map(r => r.referrer_id).filter(Boolean))];
+      
+      if (referrerIds.length > 0) {
+        const { data: clientsData } = await supabase
+          .from('clients')
+          .select('id, nombre_completo')
+          .in('id', referrerIds);
+        
+        const clientsMap = new Map(
+          (clientsData || []).map(c => [c.id, c.nombre_completo])
+        );
+        
+        return data.map(referral => ({
+          ...referral,
+          referredByName: clientsMap.get(referral.referrer_id) || 'N/A'
+        }));
+      }
+      
+      return data.map(r => ({ ...r, referredByName: 'N/A' }));
+    } catch (error) {
+      console.error('Error in getAllReferrals:', error);
       return [];
     }
-    
-    // Mapear los datos para incluir el nombre del referente
-    return (data || []).map(referral => ({
-      ...referral,
-      referredByName: referral.referrer?.nombre_completo || 'N/A'
-    }));
   },
 
   getReferralsByReferrerId: async (referrerId: string): Promise<any[]> => {
@@ -811,19 +789,19 @@ getClientByEmail: async (email: string): Promise<Client | null> => {
     
     if (error) console.error('Error deleting referral:', error);
   },
-// Agrega estas funciones al final del objeto db, antes del cierre };
-updateReferral: async (referralId: string, updates: any) => {
-  const { error } = await supabase
-    .from('referrals')
-    .update(updates)
-    .eq('id', referralId);
-  
-  if (error) console.error('Error updating referral:', error);
-},
 
-addReferral: async (referral: any) => {
-  const { error } = await supabase.from('referrals').insert(referral);
-  
-  if (error) console.error('Error adding referral:', error);
-}
+  updateReferral: async (referralId: string, updates: any) => {
+    const { error } = await supabase
+      .from('referrals')
+      .update(updates)
+      .eq('id', referralId);
+    
+    if (error) console.error('Error updating referral:', error);
+  },
+
+  addReferral: async (referral: any) => {
+    const { error } = await supabase.from('referrals').insert(referral);
+    
+    if (error) console.error('Error adding referral:', error);
+  }
 };

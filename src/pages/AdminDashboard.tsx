@@ -69,39 +69,48 @@ const AdminDashboard: React.FC = () => {
   const [trackingGuide, setTrackingGuide] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      // Agregamos referrals a la carga de datos
-      const [ordersData, clientsData, suppliesData, galleryData, configData, homeData, tejedorasData, postsData, challengesData, referralsData] = await Promise.all([
-        db.getOrders(),
-        db.getAllClients(),
-        db.getSupplies(),
-        db.getGallery(),
-        db.getConfig(),
-        db.getHomeConfig(),
-        db.getTejedoras(),
-        db.getPosts(),
-        db.getChallenges(),
-        db.getAllReferrals() // Nueva función que necesitarás implementar en tu servicio db
-      ]);
+  // En AdminDashboard.tsx, REEMPLAZA la función loadData:
 
-      setOrders(ordersData);
-      setClients(clientsData);
-      setSupplies(suppliesData);
-      setGallery(galleryData);
-      setConfig(configData);
-      setHomeConfig(homeData);
-      setTejedoras(tejedorasData);
-      setPosts(postsData);
-      setChallenges(challengesData);
+const loadData = async () => {
+  setLoading(true);
+  try {
+    // Cargar datos principales
+    const [ordersData, clientsData, suppliesData, galleryData, configData, homeData, tejedorasData, postsData, challengesData] = await Promise.all([
+      db.getOrders(),
+      db.getAllClients(),
+      db.getSupplies(),
+      db.getGallery(),
+      db.getConfig(),
+      db.getHomeConfig(),
+      db.getTejedoras(),
+      db.getPosts(),
+      db.getChallenges()
+    ]);
+
+    setOrders(ordersData);
+    setClients(clientsData);
+    setSupplies(suppliesData);
+    setGallery(galleryData);
+    setConfig(configData);
+    setHomeConfig(homeData);
+    setTejedoras(tejedorasData);
+    setPosts(postsData);
+    setChallenges(challengesData);
+    
+    // Cargar referidos de forma segura (puede fallar sin romper la app)
+    try {
+      const referralsData = await db.getAllReferrals();
       setReferrals(referralsData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
+    } catch (refError) {
+      console.warn('⚠️ No se pudieron cargar referidos:', refError);
+      setReferrals([]); // Usar array vacío si falla
     }
-  };
+  } catch (error) {
+    console.error('Error loading data:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     const user = localStorage.getItem('puntadas_user');
