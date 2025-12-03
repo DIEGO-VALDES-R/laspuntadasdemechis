@@ -525,6 +525,43 @@ const handleDeleteSupply = async (id: string) => {
   loadData();
 };
 
+// Agrega estas funciones después de las funciones existentes
+const handleUpdateReferralStatus = async (referralId: string, status: string) => {
+  try {
+    await db.updateReferral(referralId, { status });
+    alert('Estado del referido actualizado');
+    loadData();
+  } catch (error) {
+    console.error('Error al actualizar estado del referido:', error);
+    alert('Error al actualizar estado del referido');
+  }
+};
+
+const handleAddReferral = async () => {
+  // Aquí puedes agregar un modal para agregar un nuevo referido
+  // Por ahora, solo mostramos un mensaje
+  const email = prompt('Ingrese el email del referido:');
+  if (!email) return;
+  
+  const referrerId = prompt('Ingrese el ID del referente:');
+  if (!referrerId) return;
+  
+  try {
+    await db.addReferral({
+      email,
+      referrerId,
+      status: 'pending',
+      discount: config.descuento_referido,
+      created_at: new Date().toISOString()
+    });
+    alert('Referido agregado correctamente');
+    loadData();
+  } catch (error) {
+    console.error('Error al agregar referido:', error);
+    alert('Error al agregar referido');
+  }
+};
+
   // VIEWS
   const DashboardView = () => (
     <div className="space-y-6 animate-fade-in">
@@ -720,59 +757,93 @@ const handleDeleteSupply = async (id: string) => {
     </div>
   );
 
-  // NUEVA VISTA DE REFERIDOS
-  const ReferralsView = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Gestión de Referidos</h2>
+  // NUEVA VISTA DE REFERIDOS MEJORADA
+const ReferralsView = () => (
+  <div className="space-y-6 animate-fade-in">
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-bold text-gray-800">Gestión de Referidos</h2>
+      <button className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700">
+        <Plus size={18}/> Nuevo Referido
+      </button>
+    </div>
+    
+    {/* Estadísticas de referidos */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+        <div className="p-3 rounded-full bg-purple-100"><Users className="text-purple-600"/></div>
+        <div>
+          <p className="text-gray-500 text-sm">Total Referidos</p>
+          <p className="text-2xl font-bold">{referrals.length}</p>
+        </div>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="p-4">Referido</th>
-              <th className="p-4">Email</th>
-              <th className="p-4">Referido por</th>
-              <th className="p-4">Descuento</th>
-              <th className="p-4">Compras</th>
-              <th className="p-4">Estado</th>
-              <th className="p-4">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {referrals.map(referral => (
-              <tr key={referral.id} className="hover:bg-gray-50">
-                <td className="p-4 font-bold">{referral.name}</td>
-                <td className="p-4">{referral.email}</td>
-                <td className="p-4">{referral.referredByName || 'N/A'}</td>
-                <td className="p-4">{referral.discount}%</td>
-                <td className="p-4">{referral.purchases || 0}</td>
-                <td className="p-4">
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${
-                    referral.status === 'active' ? 'bg-green-100 text-green-700' : 
-                    referral.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                    'bg-gray-200 text-gray-600'
-                  }`}>
-                    {referral.status === 'active' ? 'Activo' : 
-                     referral.status === 'pending' ? 'Pendiente' : 
-                     'Inactivo'}
-                  </span>
-                </td>
-                <td className="p-4 flex gap-2">
-                  <button className="text-blue-500 hover:bg-blue-50 p-2 rounded">
-                    <Eye size={16}/>
-                  </button>
-                  <button onClick={() => handleDeleteReferral(referral.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
-                    <Trash2 size={16}/>
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+        <div className="p-3 rounded-full bg-green-100"><DollarSign className="text-green-600"/></div>
+        <div>
+          <p className="text-gray-500 text-sm">Referidos Activos</p>
+          <p className="text-2xl font-bold">{referrals.filter(r => r.status === 'active').length}</p>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+        <div className="p-3 rounded-full bg-yellow-100"><Trophy className="text-yellow-600"/></div>
+        <div>
+          <p className="text-gray-500 text-sm">Referidos Pendientes</p>
+          <p className="text-2xl font-bold">{referrals.filter(r => r.status === 'pending').length}</p>
+        </div>
       </div>
     </div>
-  );
+    
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-gray-50 text-gray-600">
+          <tr>
+            <th className="p-4">Referido</th>
+            <th className="p-4">Email</th>
+            <th className="p-4">Referido por</th>
+            <th className="p-4">Descuento</th>
+            <th className="p-4">Compras</th>
+            <th className="p-4">Estado</th>
+            <th className="p-4">Fecha de Registro</th>
+            <th className="p-4">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {referrals.map(referral => (
+            <tr key={referral.id} className="hover:bg-gray-50">
+              <td className="p-4 font-bold">{referral.name}</td>
+              <td className="p-4">{referral.email}</td>
+              <td className="p-4">{referral.referredByName || 'N/A'}</td>
+              <td className="p-4">{referral.discount}%</td>
+              <td className="p-4">{referral.purchases || 0}</td>
+              <td className="p-4">
+                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                  referral.status === 'active' ? 'bg-green-100 text-green-700' : 
+                  referral.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                  'bg-gray-200 text-gray-600'
+                }`}>
+                  {referral.status === 'active' ? 'Activo' : 
+                   referral.status === 'pending' ? 'Pendiente' : 
+                   'Inactivo'}
+                </span>
+              </td>
+              <td className="p-4">{referral.created_at ? new Date(referral.created_at).toLocaleDateString() : 'N/A'}</td>
+              <td className="p-4 flex gap-2">
+                <button className="text-blue-500 hover:bg-blue-50 p-2 rounded">
+                  <Eye size={16}/>
+                </button>
+                <button className="text-green-500 hover:bg-green-50 p-2 rounded">
+                  <Users size={16}/>
+                </button>
+                <button onClick={() => handleDeleteReferral(referral.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                  <Trash2 size={16}/>
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
   // GALLERY VIEW
   const GalleryView = () => (
