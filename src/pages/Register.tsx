@@ -44,11 +44,11 @@ const Register: React.FC = () => {
       // 2. Registrar en la tabla clients
       await db.registerClient({
   email: formData.email,
-  nombre: formData.nombre,  // ← Cambiar aquí
+  nombre_completo: formData.nombre,  // ✅ CORREGIDO (antes era solo "nombre")
   telefono: formData.telefono,
   direccion: formData.direccion,
   cedula: formData.cedula,
-  password: formData.password  // ← Agregar password
+  password: formData.password
 });
 
       alert('Cuenta creada exitosamente. Revisa tu email para confirmar.');

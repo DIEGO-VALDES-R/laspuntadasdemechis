@@ -254,68 +254,68 @@ export const db = {
   },
 
   // --- CLIENTS ---
-  getAllClients: async (): Promise<Client[]> => {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching clients:', error);
-      return [];
-    }
-    return (data || []).map(mapClient);
-  },
+getAllClients: async (): Promise<Client[]> => {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('Error fetching clients:', error);
+    return [];
+  }
+  return (data || []).map(mapClient);
+},
 
-  // 🔒 FUNCIÓN SEGURA - Obtener cliente por email
-  getClientByEmail: async (email: string): Promise<Client | null> => {
-    console.log('🔍 Buscando cliente:', email);
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('email', email)
-      .single();
+// 🔒 FUNCIÓN SEGURA - Obtener cliente por email
+getClientByEmail: async (email: string): Promise<Client | null> => {
+  console.log('🔍 Buscando cliente:', email);
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('email', email)
+    .single();
 
-    if (error || !data) {
-      console.log('✅ Cliente encontrado:', null);
-      return null;
-    }
+  if (error || !data) {
+    console.log('⚠️ Cliente NO encontrado'); // ✅ CORREGIDO
+    return null;
+  }
 
-    console.log('✅ Cliente encontrado:', data.nombre_completo);
-    return mapClient(data);
-  },
+  console.log('✅ Cliente encontrado:', data.nombre_completo);
+  return mapClient(data);
+},
 
-  registerClient: async (clientData: any) => {
-    const code = (clientData.nombre.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
-    
-    const { error } = await supabase.from('clients').insert({
-      nombre_completo: clientData.nombre,
-      email: clientData.email,
-      cedula: clientData.cedula,
-      telefono: clientData.telefono,
-      direccion: clientData.direccion,
-      password: clientData.password,
-      codigo_referido: code
-    });
-    
-    if (error) {
-      console.error('Error registering client:', error);
-      throw error;
-    }
-    
-    localStorage.setItem('puntadas_user', clientData.email);
-    localStorage.setItem('puntadas_role', 'client');
-  },
+registerClient: async (clientData: any) => {
+  // ✅ CORREGIDO: Ahora usa nombre_completo
+  const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
+  
+  const { error } = await supabase.from('clients').insert({
+    nombre_completo: clientData.nombre_completo, // ✅ Ya correcto
+    email: clientData.email,
+    cedula: clientData.cedula,
+    telefono: clientData.telefono,
+    direccion: clientData.direccion,
+    password: clientData.password,
+    codigo_referido: code
+  });
+  
+  if (error) {
+    console.error('Error registering client:', error);
+    throw error;
+  }
+  
+  localStorage.setItem('puntadas_user', clientData.email);
+  localStorage.setItem('puntadas_role', 'client');
+},
 
-  deleteClient: async (clientId: string) => {
-    const { error } = await supabase
-      .from('clients')
-      .delete()
-      .eq('id', clientId);
-    
-    if (error) console.error('Error deleting client:', error);
-  },
-
+deleteClient: async (clientId: string) => {
+  const { error } = await supabase
+    .from('clients')
+    .delete()
+    .eq('id', clientId);
+  
+  if (error) console.error('Error deleting client:', error);
+},
   // --- SUPPLIES ---
   getSupplies: async (): Promise<Supply[]> => {
     const { data, error } = await supabase
