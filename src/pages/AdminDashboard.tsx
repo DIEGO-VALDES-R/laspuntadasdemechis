@@ -68,6 +68,9 @@ const AdminDashboard: React.FC = () => {
   const [statusUpdate, setStatusUpdate] = useState('');
   const [trackingGuide, setTrackingGuide] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [finalImageFile, setFinalImageFile] = useState<File | null>(null);
+  const [finalImagePreview, setFinalImagePreview] = useState<string>('');
+  const [uploadingFinalImage, setUploadingFinalImage] = useState(false);
 
   // En AdminDashboard.tsx, REEMPLAZA la función loadData:
 
@@ -123,23 +126,92 @@ const loadData = async () => {
   }, [navigate]);
 
   // ORDER HANDLERS
-  // Modificamos handleOpenOrder para cargar también la información del cliente
-  const handleOpenOrder = async (order: Order) => {
-    setSelectedOrder(order);
-    setStatusUpdate(order.estado);
-    setTrackingGuide(order.guia_transportadora || '');
-    
-    // Buscar información del cliente usando el email del pedido
-    try {
-      const clientInfo = await db.getClientByEmail(order.clientEmail);
-      setOrderClient(clientInfo);
-    } catch (error) {
-      console.error('Error al cargar información del cliente:', error);
-      setOrderClient(null);
-    }
-    
-    setIsOrderModalOpen(true);
+// REEMPLAZA la función handleOpenOrder existente con esta:
+const handleOpenOrder = async (order: Order) => {
+  setSelectedOrder(order);
+  setStatusUpdate(order.estado);
+  setTrackingGuide(order.guia_transportadora || '');
+  
+  // Limpiar estados de imagen final
+  setFinalImageFile(null);
+  setFinalImagePreview('');
+
+  // Buscar información del cliente usando el email del pedido
+  try {
+    const clientInfo = await db.getClientByEmail(order.clientEmail);
+    setOrderClient(clientInfo);
+  } catch (error) {
+    console.error('Error al cargar información del cliente:', error);
+    setOrderClient(null);
+  }
+
+  setIsOrderModalOpen(true);
+};
+
+const handleFinalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  // Crear preview
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setFinalImagePreview(reader.result as string);
   };
+  reader.readAsDataURL(file);
+  setFinalImageFile(file);
+};
+
+const handleUploadFinalImage = async () => {
+  if (!finalImageFile || !selectedOrder) return;
+
+  setUploadingFinalImage(true);
+  try {
+    const imageUrl = await uploadImage(finalImageFile, 'orders');
+    
+    if (imageUrl) {
+      // Actualizar el pedido con la URL de la imagen final
+      await db.updateOrder(selectedOrder.id, {
+        final_image_url: imageUrl
+      });
+
+      alert('✅ Imagen final subida correctamente');
+      setFinalImageFile(null);
+      setFinalImagePreview('');
+      loadData();
+      
+      // Actualizar el pedido seleccionado para mostrar la nueva imagen
+      setSelectedOrder({...selectedOrder, final_image_url: imageUrl});
+    }
+  } catch (error) {
+    console.error('Error uploading final image:', error);
+    alert('Error al subir la imagen final');
+  } finally {
+    setUploadingFinalImage(false);
+  }
+};
+
+const handleDeleteFinalImage = async () => {
+  if (!selectedOrder?.final_image_url) return;
+  
+  if (!window.confirm('¿Eliminar la imagen final del amigurumi?')) return;
+
+  try {
+    // Eliminar de Supabase Storage
+    await deleteImage(selectedOrder.final_image_url);
+    
+    // Actualizar en la base de datos
+    await db.updateOrder(selectedOrder.id, {
+      final_image_url: null
+    });
+
+    alert('✅ Imagen final eliminada');
+    setSelectedOrder({...selectedOrder, final_image_url: undefined});
+    loadData();
+  } catch (error) {
+    console.error('Error deleting final image:', error);
+    alert('Error al eliminar la imagen');
+  }
+};
 
   const handleVerifyPayment = async () => {
     if (!selectedOrder) return;
@@ -1189,50 +1261,164 @@ const ReferralsView = () => (
                 </div>
               </div>
             </div>
-            
             {/* Opciones de gestión */}
-            <div className="space-y-4">
-              <div className="bg-gray-100 p-4 rounded-xl">
-                <label className="block text-sm font-bold mb-2">Número de Guía Transportadora</label>
-                <input 
-                  type="text" 
-                  className="w-full border p-2 rounded-lg" 
-                  placeholder="Ej: Interrapidismo 1234567" 
-                  value={trackingGuide} 
-                  onChange={(e) => setTrackingGuide(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold mb-2">Estado del Pedido</label>
-                <select 
-                  value={statusUpdate} 
-                  onChange={(e) => setStatusUpdate(e.target.value)} 
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="En espera de agendar">En espera de agendar</option>
-                  <option value="Agendado">Agendado</option>
-                  <option value="En proceso">En proceso</option>
-                  <option value="Listo para entregar">Listo para entregar</option>
-                  <option value="Entregado">Entregado</option>
-                  <option value="Cancelado">Cancelado</option>
-                </select>
-              </div>
-              {selectedOrder.saldo_pendiente > 0 && (
-                <button 
-                  onClick={handleVerifyPayment} 
-                  className="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700"
-                >
-                  Registrar Pago
-                </button>
-              )}
-              <button 
-                onClick={handleUpdateStatusAndGuide} 
-                className="w-full bg-gray-900 text-white py-2 rounded-lg font-bold hover:bg-gray-800"
+<div className="space-y-4">
+  
+  {/* Sección de Imágenes del Pedido */}
+  <div className="bg-purple-50 p-4 rounded-xl space-y-4">
+    <h4 className="font-bold text-lg flex items-center gap-2">
+      <ImageIcon size={20} className="text-purple-600"/>
+      Imágenes del Pedido
+    </h4>
+
+    {/* Imagen de Referencia */}
+    <div>
+      <p className="text-sm font-bold text-gray-700 mb-2">📸 Imagen de Referencia (lo que pidió)</p>
+      {selectedOrder.imagen_url ? (
+        <img 
+          src={selectedOrder.imagen_url} 
+          alt="Referencia" 
+          className="w-full h-48 object-cover rounded-lg border-2 border-gray-300"
+        />
+      ) : (
+        <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+          Sin imagen de referencia
+        </div>
+      )}
+    </div>
+
+    {/* Imagen Final del Amigurumi */}
+    <div>
+      <p className="text-sm font-bold text-gray-700 mb-2">✨ Imagen Final (producto terminado)</p>
+      
+      {selectedOrder.final_image_url ? (
+        <div className="relative">
+          <img 
+            src={selectedOrder.final_image_url} 
+            alt="Producto Final" 
+            className="w-full h-48 object-cover rounded-lg border-2 border-green-400"
+          />
+          <button
+            type="button"
+            onClick={handleDeleteFinalImage}
+            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+          >
+            <X size={16}/>
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Preview de la nueva imagen */}
+          {finalImagePreview && (
+            <div className="relative">
+              <img 
+                src={finalImagePreview} 
+                alt="Preview" 
+                className="w-full h-48 object-cover rounded-lg border-2 border-blue-400"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setFinalImageFile(null);
+                  setFinalImagePreview('');
+                }}
+                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
               >
-                Guardar Cambios
+                <X size={16}/>
               </button>
             </div>
-          </div>
+          )}
+
+          {/* Input para subir imagen */}
+          <label className="w-full border-2 border-dashed border-purple-300 rounded-lg p-6 cursor-pointer hover:bg-purple-50 flex flex-col items-center gap-2">
+            <Upload size={28} className="text-purple-600" />
+            <span className="font-medium text-purple-700 text-center">
+              {uploadingFinalImage ? 'Subiendo imagen...' : 'Click para subir foto del amigurumi terminado'}
+            </span>
+            <span className="text-xs text-gray-500">Máx 5MB - JPG, PNG</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFinalImageUpload}
+              disabled={uploadingFinalImage}
+              className="hidden"
+            />
+          </label>
+
+          {/* Botón para guardar la imagen */}
+          {finalImageFile && (
+            <button
+              type="button"
+              onClick={handleUploadFinalImage}
+              disabled={uploadingFinalImage}
+              className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {uploadingFinalImage ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  Subiendo...
+                </>
+              ) : (
+                <>
+                  <Upload size={18}/>
+                  Guardar Imagen Final
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
+
+  {/* Número de Guía Transportadora */}
+  <div className="bg-gray-100 p-4 rounded-xl">
+    <label className="block text-sm font-bold mb-2">Número de Guía Transportadora</label>
+    <input 
+      type="text" 
+      className="w-full border p-2 rounded-lg" 
+      placeholder="Ej: Interrapidismo 1234567" 
+      value={trackingGuide} 
+      onChange={(e) => setTrackingGuide(e.target.value)}
+    />
+  </div>
+
+  {/* Estado del Pedido */}
+  <div>
+    <label className="block text-sm font-bold mb-2">Estado del Pedido</label>
+    <select 
+      value={statusUpdate} 
+      onChange={(e) => setStatusUpdate(e.target.value)} 
+      className="w-full p-2 border rounded"
+    >
+      <option value="En espera de agendar">En espera de agendar</option>
+      <option value="Agendado">Agendado</option>
+      <option value="En proceso">En proceso</option>
+      <option value="Listo para entregar">Listo para entregar</option>
+      <option value="Entregado">Entregado</option>
+      <option value="Cancelado">Cancelado</option>
+    </select>
+  </div>
+
+  {/* Botón Registrar Pago */}
+  {selectedOrder.saldo_pendiente > 0 && (
+    <button 
+      onClick={handleVerifyPayment} 
+      className="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700"
+    >
+      Registrar Pago
+    </button>
+  )}
+
+  {/* Botón Guardar Cambios */}
+  <button 
+    onClick={handleUpdateStatusAndGuide} 
+    className="w-full bg-gray-900 text-white py-2 rounded-lg font-bold hover:bg-gray-800"
+  >
+    Guardar Cambios
+  </button>
+</div>
+                      </div>
         </div>
       )}
 

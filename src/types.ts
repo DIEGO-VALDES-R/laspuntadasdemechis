@@ -25,8 +25,8 @@ export interface Client {
 export interface Order {
   id: string;
   clientEmail?: string;
-  numero_seguimiento: string; // Internal Order ID
-  guia_transportadora?: string; // New: External Shipping Tracking ID
+  numero_seguimiento: string;
+  guia_transportadora?: string;
   nombre_producto: string;
   estado: 'En espera de agendar' | 'Agendado' | 'En proceso' | 'Finalizado' | 'Listo para entregar' | 'Entregado' | 'Cancelado';
   fecha_solicitud: string;
@@ -35,6 +35,7 @@ export interface Order {
   monto_pagado: number;
   saldo_pendiente: number;
   imagen_url: string;
+  final_image_url?: string; // ← 🆕 AGREGAR ESTA LÍNEA
   descripcion: string;
   desglose: {
     precio_base: number;

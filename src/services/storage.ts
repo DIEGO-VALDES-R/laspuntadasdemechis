@@ -2,8 +2,9 @@ import { supabase } from './supabaseClient';
 
 export const uploadImage = async (
   file: File,
-  folder: 'supplies' | 'gallery' | 'tejedoras' | 'posts' | 'challenges' = 'supplies'
+  folder: 'supplies' | 'gallery' | 'tejedoras' | 'posts' | 'challenges' | 'orders' = 'supplies' // ← Agregar 'orders'
 ): Promise<string | null> => {
+  // ... resto del código igual
   try {
     // Validar tamaño (máx 5MB)
     if (file.size > 5 * 1024 * 1024) {
