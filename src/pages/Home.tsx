@@ -34,14 +34,16 @@ const Home: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleTrack = (e: React.FormEvent) => {
-    e.preventDefault();
-    if(trackId) {
-      localStorage.setItem('puntadas_user', trackId);
-      window.dispatchEvent(new Event('storage'));
-      navigate('/dashboard');
-    }
-  };
+// ✅ REEMPLAZA la función handleTrack en Home.tsx (alrededor de línea 25)
+
+const handleTrack = (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (trackId.trim()) {
+    // ✅ CORRECTO: Redirigir a la página de rastreo con el número
+    navigate(`/track?order=${trackId.trim()}`);
+  }
+};
 
   const scrollToGallery = () => {
     const gallerySection = document.getElementById('gallery');

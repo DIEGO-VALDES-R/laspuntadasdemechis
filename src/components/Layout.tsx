@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, User, ShoppingBag, Instagram, MessageCircle, LogOut, LayoutDashboard, Heart, Trophy } from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,29 +10,69 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Check auth state on mount and route changes
   useEffect(() => {
     const checkAuth = () => {
       const user = localStorage.getItem('puntadas_user');
       const role = localStorage.getItem('puntadas_role');
-      setIsLoggedIn(!!user);
-      setIsAdmin(role === 'admin');
+
+      setIsLoggedIn(prev => {
+        const newValue = !!user;
+        return prev !== newValue ? newValue : prev;
+      });
+
+      setIsAdmin(prev => {
+        const newValue = role === 'admin';
+        return prev !== newValue ? newValue : prev;
+      });
     };
-    
+
     checkAuth();
-    
-    // Listen for storage events in case login happens in another tab/component
-    window.addEventListener('storage', checkAuth);
-    return () => window.removeEventListener('storage', checkAuth);
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'puntadas_user' || e.key === 'puntadas_role') {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [location]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('puntadas_user');
-    localStorage.removeItem('puntadas_role');
-    setIsLoggedIn(false);
-    setIsAdmin(false);
-    navigate('/login');
-    setIsMenuOpen(false);
+  // ✅ FUNCIÓN DE LOGOUT CORREGIDA - Sincronizada con Supabase
+  const handleLogout = async () => {
+    try {
+      // 1. Cerrar sesión en Supabase primero
+      await supabase.auth.signOut();
+      
+      // 2. Limpiar localStorage
+      localStorage.removeItem('puntadas_user');
+      localStorage.removeItem('puntadas_role');
+      localStorage.removeItem('puntadas_user_id');
+      
+      // 3. Actualizar estado local
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setIsMenuOpen(false);
+      
+      // 4. Redirigir a login
+      navigate('/login');
+      
+      // 5. Disparar evento para que otros componentes se enteren
+      window.dispatchEvent(new Event('storage'));
+      
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      // Forzar limpieza aunque falle Supabase
+      localStorage.removeItem('puntadas_user');
+      localStorage.removeItem('puntadas_role');
+      localStorage.removeItem('puntadas_user_id');
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      navigate('/login');
+    }
   };
 
   const dashboardLink = isAdmin ? '/admin' : '/dashboard';
@@ -55,14 +95,14 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <Link to="/" className="text-gray-600 hover:text-pink-500 transition">Inicio</Link>
               <Link to="/request" className="text-gray-600 hover:text-pink-500 transition">Solicitar</Link>
               <Link to="/#gallery" className="text-gray-600 hover:text-pink-500 transition">Galería</Link>
-              
+
               <Link to="/community" className="text-gray-600 hover:text-pink-500 transition flex items-center gap-1">
                 <Heart size={16} /> Comunidad
               </Link>
               <Link to="/challenges" className="text-gray-600 hover:text-pink-500 transition flex items-center gap-1">
                 <Trophy size={16} /> Retos
               </Link>
-              
+
               {!isLoggedIn ? (
                 <>
                   <Link to="/login" className="text-gray-600 hover:text-pink-500 font-medium">Iniciar Sesión</Link>
@@ -73,10 +113,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               ) : (
                 <div className="flex items-center gap-3">
                   <Link to={dashboardLink} className={`flex items-center gap-2 px-4 py-2 rounded-full transition ${isAdmin ? 'bg-gray-800 text-white hover:bg-gray-700' : 'text-gray-700 bg-gray-100 hover:bg-gray-200'}`}>
-                    {isAdmin ? <LayoutDashboard size={18} /> : <User size={18} />} 
+                    {isAdmin ? <LayoutDashboard size={18} /> : <User size={18} />}
                     {isAdmin ? "Administración" : "Mi Cuenta"}
                   </Link>
-                  <button 
+                  <button
                     onClick={handleLogout}
                     className="flex items-center gap-2 text-gray-500 hover:text-red-500 transition px-2"
                     title="Cerrar Sesión"
@@ -107,7 +147,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <Link to="/request" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md">Solicitar Pedido</Link>
               <Link to="/community" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md">Comunidad</Link>
               <Link to="/challenges" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md">Retos</Link>
-              
+
               {!isLoggedIn ? (
                 <>
                   <Link to="/login" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md">Iniciar Sesión</Link>

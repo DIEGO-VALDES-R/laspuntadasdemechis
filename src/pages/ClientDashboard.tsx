@@ -20,45 +20,50 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ clientEmail, onLogout
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [simulatingPayment, setSimulatingPayment] = useState(false);
 
-  // ✅ ESTE ES EL useEffect CORREGIDO CON SAFEGUARD
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchClientData = async () => {
+      if (!clientEmail) {
+        console.log('⚠️ No hay clientEmail, saliendo...');
+        return;
+      }
+
       try {
         setLoading(true);
+        console.log('🔍 Cargando pedidos para:', clientEmail);
         
-        // 🔒 SAFEGUARD: Verificar que no sea admin
-        if (clientEmail === 'puntadasdemechis@gmail.com') {
-          console.warn('⚠️ Admin intentó acceder al ClientDashboard, redirigiendo...');
-          window.location.href = '/#/admin';
-          return;
-        }
-        
-        // 🔒 SEGURO: Solo carga pedidos del cliente actual usando su email
-        console.log('🔒 Cargando pedidos para:', clientEmail);
         const fetchedOrders = await db.getOrdersByClientEmail(clientEmail);
-        console.log('✅ Pedidos encontrados:', fetchedOrders.length);
-        setOrders(fetchedOrders || []);
         
-        // Cargar datos del cliente
-        const clientData = await db.getClientByEmail(clientEmail);
-        setClientData(clientData);
+        if (isMounted) {
+          console.log('✅ Pedidos encontrados:', fetchedOrders.length);
+          setOrders(fetchedOrders || []);
+          
+          const clientData = await db.getClientByEmail(clientEmail);
+          setClientData(clientData);
+        }
       } catch (error) {
         console.error('❌ Error al cargar datos:', error);
-        setOrders([]);
+        if (isMounted) {
+          setOrders([]);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    if (clientEmail) {
-      fetchClientData();
-    }
+    fetchClientData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [clientEmail]);
 
   const pendingOrders = orders.filter(o => o.saldo_pendiente > 0);
   const activeOrders = orders.filter(o => o.estado !== 'Entregado' && o.estado !== 'Cancelado');
 
-  // Resto del componente permanece igual...
   const openPaymentModal = (order: Order) => {
     setSelectedOrder(order);
     setIsModalOpen(true);
@@ -68,7 +73,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ clientEmail, onLogout
   const openDetailModal = (order: Order) => {
     setSelectedOrder(order);
     setIsDetailModalOpen(true);
-  }
+  };
 
   const closeModals = () => {
     setIsModalOpen(false);
@@ -80,7 +85,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ clientEmail, onLogout
     navigate('/request', { state: { reorderOrder: order } });
   };
 
-  // Simulate status update after payment action
   const updateOrderLocally = (orderId: string, isManual: boolean) => {
     setSimulatingPayment(true);
     setTimeout(() => {

@@ -122,14 +122,34 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
-  const handleLogout = async () => {
+  // En App.tsx, reemplaza la función handleLogout (línea ~90):
+const handleLogout = async () => {
+  try {
+    // 1. Cerrar sesión en Supabase
     await supabase.auth.signOut();
-    setUserEmail(null);
-    setIsAdmin(false);
+    
+    // 2. Limpiar localStorage
     localStorage.removeItem('puntadas_user');
     localStorage.removeItem('puntadas_role');
-    window.dispatchEvent(new Event('storage'));
-  };
+    localStorage.removeItem('puntadas_user_id');
+    
+    // 3. Actualizar estado local
+    setUserEmail(null);
+    setIsAdmin(false);
+    
+    // 4. Redirigir ANTES de disparar el evento storage
+    window.location.href = '/#/login';
+    
+    // 5. Solo después de redirigir, disparar evento
+    setTimeout(() => {
+      window.dispatchEvent(new Event('storage'));
+    }, 100);
+  } catch (error) {
+    console.error('Error al cerrar sesión:', error);
+    // Forzar redirección incluso si hay error
+    window.location.href = '/#/login';
+  }
+};
 
   if (loading) {
     return (
