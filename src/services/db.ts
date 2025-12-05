@@ -17,6 +17,7 @@ const mapOrder = (o: any): Order => ({
   monto_pagado: o.monto_pagado,
   saldo_pendiente: o.saldo_pendiente,
   imagen_url: o.imagen_url,
+  final_image_url: o.final_image_url, // ← 🆕 AGREGAR ESTA LÍNEA
   descripcion: o.descripcion,
   desglose: o.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
   guia_transportadora: o.guia_transportadora,
