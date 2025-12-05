@@ -601,13 +601,17 @@ const Accounting: React.FC = () => {
        {/* Header */}
        <header className="bg-white shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10 print:hidden">
            <div className="flex items-center gap-4">
-               {currentView !== 'OVERVIEW' && (
-                   <button onClick={() => setCurrentView('OVERVIEW')} className="p-2 hover:bg-gray-100 rounded-full transition">
-                       <ArrowLeft size={20}/>
-                   </button>
-               )}
-               <h1 className="text-xl font-bold text-gray-800">Módulo Contable</h1>
-           </div>
+    {currentView !== 'OVERVIEW' ? (
+        <button onClick={() => setCurrentView('OVERVIEW')} className="p-2 hover:bg-gray-100 rounded-full transition">
+            <ArrowLeft size={20}/>
+        </button>
+    ) : (
+        <button onClick={() => navigate('/admin')} className="p-2 hover:bg-gray-100 rounded-full transition">
+            <ArrowLeft size={20}/>
+        </button>
+    )}
+    <h1 className="text-xl font-bold text-gray-800">Módulo Contable</h1>
+</div>
            <div className="flex gap-2">
                <select 
                 className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
