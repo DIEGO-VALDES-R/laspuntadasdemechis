@@ -276,6 +276,7 @@ const handleDeleteFinalImage = async () => {
 
     const saldo = newOrderData.total_final - newOrderData.monto_pagado;
     const newOrder = {
+    const newOrder = {
       numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
       clientEmail: newOrderData.clientEmail,
       nombre_producto: newOrderData.nombre_producto,
@@ -285,11 +286,9 @@ const handleDeleteFinalImage = async () => {
       total_final: newOrderData.total_final,
       monto_pagado: newOrderData.monto_pagado,
       saldo_pendiente: saldo,
-      imagen_url: 'https://via.placeholder.com/200?text=Manual',
+      imagen_url: 'https://placehold.co/400x400/e8e8e8/666666?text=Pedido+Manual', // ← URL CORREGIDA
       desglose: { precio_base: newOrderData.total_final, empaque: 0, accesorios: 0, descuento: 0 }
     };
-
-    await db.addOrder(newOrder as any);
     
     // Guardar el número de orden y mostrar opciones de notificación
     setCreatedOrderNumber(newOrder.numero_seguimiento);

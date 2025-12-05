@@ -271,19 +271,30 @@ getAllClients: async (): Promise<Client[]> => {
 // 🔒 FUNCIÓN SEGURA - Obtener cliente por email
 getClientByEmail: async (email: string): Promise<Client | null> => {
   console.log('🔍 Buscando cliente:', email);
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('email', email)
-    .single();
+  
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle(); // ← Cambiar de .single() a .maybeSingle()
 
-  if (error || !data) {
-    console.log('⚠️ Cliente NO encontrado'); // ✅ CORREGIDO
+    if (error) {
+      console.error('❌ Error al buscar cliente:', error);
+      return null;
+    }
+
+    if (!data) {
+      console.log('⚠️ Cliente NO encontrado');
+      return null;
+    }
+
+    console.log('✅ Cliente encontrado:', data.nombre_completo);
+    return mapClient(data);
+  } catch (error) {
+    console.error('❌ Excepción al buscar cliente:', error);
     return null;
   }
-
-  console.log('✅ Cliente encontrado:', data.nombre_completo);
-  return mapClient(data);
 },
 
 registerClient: async (clientData: any) => {
