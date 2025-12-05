@@ -149,7 +149,11 @@ const RequestForm: React.FC = () => {
   
   // Dynamic Inventory State
   const [inventory, setInventory] = useState<ProductConfig>({ sizes: [], packaging: [], accessories: [] });
-  const [globalConfig, setGlobalConfig] = useState(db.getConfig());
+  const [globalConfig, setGlobalConfig] = useState<GlobalConfig>({ 
+  limite_pago_completo: 70000, 
+  abono_minimo_fijo: 50000, 
+  descuento_referido: 10 
+}); // ✅ Valor inicial por defecto, se carga en useEffect
 
   // Dynamic Form State
   const [selectedType, setSelectedType] = useState<string>('otro');
@@ -168,29 +172,45 @@ const RequestForm: React.FC = () => {
     paymentOption: 'total' as 'total' | 'abono',
   });
 
-  useEffect(() => {
-      setInventory(db.getInventory());
-      setGlobalConfig(db.getConfig());
-      
-      const user = localStorage.getItem('puntadas_user');
-      if (!user) {
-          navigate('/register');
-      } else {
-          setUserEmail(user);
-      }
-      
-      // Handle Reorder Logic
-      if (location.state && location.state.reorderOrder) {
-          const oldOrder = location.state.reorderOrder as Order;
-          setFormData(prev => ({
-              ...prev,
-              nombreProducto: oldOrder.nombre_producto,
-              // Try to find if description contains a type hint, otherwise default to 'otro' and dump desc in notes
-              imagenPreview: oldOrder.imagen_url,
-          }));
-          setExtraNotes(`[REORDEN de #${oldOrder.numero_seguimiento}]\n${oldOrder.descripcion}`);
-      }
-  }, [navigate, location]);
+  // DESPUÉS (con async/await):
+// DESPUÉS (con async/await):
+useEffect(() => {
+    const loadData = async () => {
+        try {
+            // Cargar inventario desde Supabase
+            const inventoryData = await db.getInventory();
+            setInventory(inventoryData);
+            console.log('✅ Inventario cargado en RequestForm');
+            
+            // Cargar configuración global
+            const configData = await db.getConfig();
+            setGlobalConfig(configData);
+            console.log('✅ Config cargado:', configData);
+        } catch (error) {
+            console.error('❌ Error cargando datos:', error);
+        }
+    };
+
+    loadData();
+
+    const user = localStorage.getItem('puntadas_user');
+    if (!user) {
+        navigate('/register');
+    } else {
+        setUserEmail(user);
+    }
+
+    // Handle Reorder Logic
+    if (location.state && location.state.reorderOrder) {
+        const oldOrder = location.state.reorderOrder as Order;
+        setFormData(prev => ({
+            ...prev,
+            nombreProducto: oldOrder.nombre_producto,
+            imagenPreview: oldOrder.imagen_url,
+        }));
+        setExtraNotes(`[REORDEN de #${oldOrder.numero_seguimiento}]\n${oldOrder.descripcion}`);
+    }
+}, [navigate, location]);
 
   // --- FORM LOGIC ---
 

@@ -212,27 +212,29 @@ updateOrder: async (orderId: string, updates: Partial<Order>) => {
   },
 
   // 🔒 FUNCIÓN SEGURA - Solo pedidos del cliente específico
-  getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
-    console.log('🔍 Buscando pedidos para:', email);
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('client_email', email)
-      .order('fecha_pedido', { ascending: false });
-      
-    if (error) {
-      console.error('❌ Error al cargar pedidos:', error);
-      return [];
-    }
-    
-    if (!data) {
-      console.log('⚠️ No se encontraron pedidos para este cliente');
-      return [];
-    }
-    
-    console.log(`✅ ${data.length} pedidos encontrados`);
-    return data.map(mapOrder);
-  },
+// DESPUÉS (corregido):
+getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
+  console.log('🔍 Buscando pedidos para:', email);
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('client_email', email)
+    .order('created_at', { ascending: false }); // ✅ CAMPO CORRECTO
+
+  if (error) {
+    console.error('❌ Error al cargar pedidos:', error);
+    return [];
+  }
+
+  if (!data) {
+    console.log('⚠️ No se encontraron pedidos para este cliente');
+    return [];
+  }
+
+  console.log(`✅ ${data.length} pedidos encontrados`);
+  return data.map(mapOrder);
+},
+
 
   // 🔒 FUNCIÓN SEGURA - Validar pedido por número Y email
   getOrderByNumberAndEmail: async (orderNumber: string, email: string): Promise<Order | null> => {
@@ -444,10 +446,53 @@ deleteClient: async (clientId: string) => {
     return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
   },
 
-  getInventory: (): ProductConfig => {
-    return DEFAULT_CONFIG;
-  },
+  // DESPUÉS (carga desde Supabase):
+getInventory: async (): Promise<ProductConfig> => {
+  try {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .select('*')
+      .order('price', { ascending: true });
 
+    if (error || !data || data.length === 0) {
+      console.log('⚠️ No hay inventario en BD, usando valores por defecto');
+      return DEFAULT_CONFIG;
+    }
+
+    // Agrupar por categoría
+    const sizes = data.filter(i => i.category === 'sizes').map(i => ({
+      id: i.id,
+      category: i.category as 'sizes',
+      label: i.label,
+      price: i.price
+    }));
+
+    const packaging = data.filter(i => i.category === 'packaging').map(i => ({
+      id: i.id,
+      category: i.category as 'packaging',
+      label: i.label,
+      price: i.price
+    }));
+
+    const accessories = data.filter(i => i.category === 'accessories').map(i => ({
+      id: i.id,
+      category: i.category as 'accessories',
+      label: i.label,
+      price: i.price
+    }));
+
+    console.log('✅ Inventario cargado:', { 
+      sizes: sizes.length, 
+      packaging: packaging.length, 
+      accessories: accessories.length 
+    });
+    
+    return { sizes, packaging, accessories };
+  } catch (error) {
+    console.error('❌ Error loading inventory:', error);
+    return DEFAULT_CONFIG;
+  }
+},
   // --- GALLERY ---
   getGallery: async (): Promise<GalleryItem[]> => {
     const { data, error } = await supabase
