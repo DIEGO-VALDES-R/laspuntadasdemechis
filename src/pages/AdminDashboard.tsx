@@ -276,7 +276,6 @@ const handleDeleteFinalImage = async () => {
 
     const saldo = newOrderData.total_final - newOrderData.monto_pagado;
     const newOrder = {
-    const newOrder = {
       numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
       clientEmail: newOrderData.clientEmail,
       nombre_producto: newOrderData.nombre_producto,
