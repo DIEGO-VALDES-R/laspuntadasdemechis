@@ -158,20 +158,24 @@ export const db = {
     if (error) console.error('Error adding order:', error);
   },
 
-  updateOrder: async (orderId: string, updates: Partial<Order>) => {
-    const dbUpdates: any = {};
-    if (updates.estado) dbUpdates.estado = updates.estado;
-    if (updates.guia_transportadora) dbUpdates.guia_transportadora = updates.guia_transportadora;
-    if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
-    if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
+updateOrder: async (orderId: string, updates: Partial<Order>) => {
+  const dbUpdates: any = {};
+  if (updates.estado) dbUpdates.estado = updates.estado;
+  if (updates.guia_transportadora) dbUpdates.guia_transportadora = updates.guia_transportadora;
+  if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
+  if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
+  
+  // ✅ AGREGAR ESTAS LÍNEAS:
+  if (updates.final_image_url !== undefined) dbUpdates.final_image_url = updates.final_image_url;
+  if (updates.fecha_entrega !== undefined) dbUpdates.fecha_entrega = updates.fecha_entrega;
 
-    const { error } = await supabase
-      .from('orders')
-      .update(dbUpdates)
-      .eq('id', orderId);
-    
-    if (error) console.error('Error updating order:', error);
-  },
+  const { error } = await supabase
+    .from('orders')
+    .update(dbUpdates)
+    .eq('id', orderId);
+
+  if (error) console.error('Error updating order:', error);
+},
 
   deleteOrder: async (orderId: string) => {
     const { error } = await supabase
