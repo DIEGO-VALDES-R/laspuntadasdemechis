@@ -726,9 +726,12 @@ Detalle: ${order.descripcion}`;
                     <span className="text-lg font-bold">${total.toLocaleString()}</span>
                 </div>
                 
-                <h3 className="font-semibold mb-2 text-sm text-gray-500 uppercase">¿Cuánto deseas pagar hoy?</h3>
+<h3 className="font-semibold mb-2 text-sm text-gray-500 uppercase">¿Cuánto deseas pagar hoy?</h3>
                 <div className="space-y-2">
-                    <label className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer ${formData.paymentOption === 'total' ? 'border-pink-500 bg-pink-50' : 'hover:bg-gray-50'}`}>
+                    <label 
+                        onClick={() => setFormData({...formData, paymentOption: 'total'})}
+                        className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer ${formData.paymentOption === 'total' ? 'border-pink-500 bg-pink-50' : 'hover:bg-gray-50'}`}
+                    >
                         <div className="flex items-center gap-2">
                             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.paymentOption === 'total' ? 'border-pink-500' : 'border-gray-400'}`}>
                                 {formData.paymentOption === 'total' && <div className="w-2 h-2 bg-pink-500 rounded-full"></div>}
@@ -739,7 +742,10 @@ Detalle: ${order.descripcion}`;
                     </label>
 
                     {canPayPartial ? (
-                         <label className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer ${formData.paymentOption === 'abono' ? 'border-pink-500 bg-pink-50' : 'hover:bg-gray-50'}`}>
+                         <label 
+                            onClick={() => setFormData({...formData, paymentOption: 'abono'})}
+                            className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer ${formData.paymentOption === 'abono' ? 'border-pink-500 bg-pink-50' : 'hover:bg-gray-50'}`}
+                         >
                             <div className="flex items-center gap-2">
                                 <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.paymentOption === 'abono' ? 'border-pink-500' : 'border-gray-400'}`}>
                                     {formData.paymentOption === 'abono' && <div className="w-2 h-2 bg-pink-500 rounded-full"></div>}

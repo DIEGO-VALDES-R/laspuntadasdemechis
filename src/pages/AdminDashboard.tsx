@@ -267,13 +267,43 @@ const handleDeleteFinalImage = async () => {
   // ============================================
   // 2. MODIFICAR LA FUNCIÓN handleCreateOrder
   // ============================================
-  const handleCreateOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newOrderData.clientEmail || !newOrderData.nombre_producto || newOrderData.total_final <= 0) {
-      alert("Completa los campos obligatorios");
-      return;
+// ============================================
+// 2. MODIFICAR LA FUNCIÓN handleCreateOrder
+// ============================================
+const handleCreateOrder = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!newOrderData.clientEmail || !newOrderData.nombre_producto || newOrderData.total_final <= 0) {
+    alert("Completa los campos obligatorios");
+    return;
+  }
+
+  try {
+    // 🆕 VERIFICAR SI EL CLIENTE EXISTE
+    console.log('🔍 Verificando si el cliente existe:', newOrderData.clientEmail);
+    let clientExists = await db.getClientByEmail(newOrderData.clientEmail);
+    
+    // 🆕 SI NO EXISTE, CREARLO AUTOMÁTICAMENTE
+    if (!clientExists) {
+      console.log('📝 Cliente no existe, creando automáticamente...');
+      
+      await db.registerClient({
+        nombre_completo: newOrderData.clientName || 'Cliente Manual',
+        email: newOrderData.clientEmail,
+        telefono: newOrderData.clientPhone || '',
+        cedula: '',
+        direccion: '',
+        password: `temp${Date.now()}` // Password temporal para clientes manuales
+      });
+      
+      console.log('✅ Cliente creado exitosamente');
+      
+      // Esperar un momento para que se registre en la BD
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } else {
+      console.log('✅ Cliente ya existe en la base de datos');
     }
 
+    // CREAR EL PEDIDO
     const saldo = newOrderData.total_final - newOrderData.monto_pagado;
     const newOrder = {
       numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
@@ -285,16 +315,28 @@ const handleDeleteFinalImage = async () => {
       total_final: newOrderData.total_final,
       monto_pagado: newOrderData.monto_pagado,
       saldo_pendiente: saldo,
-      imagen_url: 'https://placehold.co/400x400/e8e8e8/666666?text=Pedido+Manual', // ← URL CORREGIDA
+      imagen_url: 'https://placehold.co/400x400/e8e8e8/666666?text=Pedido+Manual',
       desglose: { precio_base: newOrderData.total_final, empaque: 0, accesorios: 0, descuento: 0 }
     };
+
+    console.log('💾 Guardando pedido:', newOrder.numero_seguimiento);
+    await db.addOrder(newOrder as any);
+    console.log('✅ Pedido guardado exitosamente');
     
     // Guardar el número de orden y mostrar opciones de notificación
     setCreatedOrderNumber(newOrder.numero_seguimiento);
     setShowNotificationOptions(true);
     
-    loadData();
-  };
+    // Recargar datos
+    await loadData();
+    
+    alert('✅ Pedido creado exitosamente');
+    
+  } catch (error) {
+    console.error('❌ Error al crear pedido:', error);
+    alert(`Error al crear el pedido: ${(error as Error).message}`);
+  }
+};
 
   // ============================================
   // 3. AGREGAR FUNCIONES PARA ENVIAR MENSAJES
