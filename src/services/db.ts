@@ -443,23 +443,23 @@ deleteClient: async (clientId: string) => {
   },
 
   // --- INVENTORY (Product Config) ---
-  getAllInventoryItems: async (): Promise<InventoryItem[]> => {
-    return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
-  },
+getAllInventoryItems: async (): Promise<InventoryItem[]> => {
+  return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
+},
 
-  // DESPUÉS (carga desde Supabase):
+// Carga desde Supabase
 getInventory: async (): Promise<ProductConfig> => {
   try {
     const { data, error } = await supabase
       .from('inventory_items')
       .select('*')
       .order('price', { ascending: true });
-
+    
     if (error || !data || data.length === 0) {
       console.log('⚠️ No hay inventario en BD, usando valores por defecto');
       return DEFAULT_CONFIG;
     }
-
+    
     // Agrupar por categoría
     const sizes = data.filter(i => i.category === 'sizes').map(i => ({
       id: i.id,
@@ -467,21 +467,21 @@ getInventory: async (): Promise<ProductConfig> => {
       label: i.label,
       price: i.price
     }));
-
+    
     const packaging = data.filter(i => i.category === 'packaging').map(i => ({
       id: i.id,
       category: i.category as 'packaging',
       label: i.label,
       price: i.price
     }));
-
+    
     const accessories = data.filter(i => i.category === 'accessories').map(i => ({
       id: i.id,
       category: i.category as 'accessories',
       label: i.label,
       price: i.price
     }));
-
+    
     console.log('✅ Inventario cargado:', { 
       sizes: sizes.length, 
       packaging: packaging.length, 
@@ -493,6 +493,59 @@ getInventory: async (): Promise<ProductConfig> => {
     console.error('❌ Error loading inventory:', error);
     return DEFAULT_CONFIG;
   }
+},
+
+// 🆕 CRUD para inventory_items
+getInventoryItems: async (): Promise<InventoryItem[]> => {
+  const { data, error } = await supabase
+    .from('inventory_items')
+    .select('*')
+    .order('category', { ascending: true })
+    .order('price', { ascending: true });
+  
+  if (error) {
+    console.error('Error fetching inventory items:', error);
+    return [];
+  }
+  
+  return (data || []).map(item => ({
+    id: item.id,
+    category: item.category,
+    label: item.label,
+    price: item.price
+  }));
+},
+
+addInventoryItem: async (item: Omit<InventoryItem, 'id'>) => {
+  const { error } = await supabase.from('inventory_items').insert({
+    category: item.category,
+    label: item.label,
+    price: item.price
+  });
+  
+  if (error) console.error('Error adding inventory item:', error);
+},
+
+updateInventoryItem: async (item: InventoryItem) => {
+  const { error } = await supabase
+    .from('inventory_items')
+    .update({
+      category: item.category,
+      label: item.label,
+      price: item.price
+    })
+    .eq('id', item.id);
+  
+  if (error) console.error('Error updating inventory item:', error);
+},
+
+deleteInventoryItem: async (id: string) => {
+  const { error } = await supabase
+    .from('inventory_items')
+    .delete()
+    .eq('id', id);
+  
+  if (error) console.error('Error deleting inventory item:', error);
 },
   // --- GALLERY ---
   getGallery: async (): Promise<GalleryItem[]> => {

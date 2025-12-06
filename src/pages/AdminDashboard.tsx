@@ -7,10 +7,10 @@ import {
   Search, Eye, X, Save, ShoppingBag, Plus, Trash2, Edit2, 
   Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart
 } from 'lucide-react';
-import { Order, Client, Supply, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
+import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
 
 // Agregamos 'referrals' al tipo Tab
-type Tab = 'dashboard' | 'orders' | 'supplies' | 'clients' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'referrals';
+type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -48,10 +48,16 @@ const AdminDashboard: React.FC = () => {
   const [isSupplyModalOpen, setIsSupplyModalOpen] = useState(false);
   const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
 
-  // ============================================
-  // 1. AGREGAR ESTOS ESTADOS AL INICIO DEL COMPONENTE
-  // ============================================
-  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
+// 🆕 INVENTORY STATES
+const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+const [editingInventoryItem, setEditingInventoryItem] = useState<InventoryItem | null>(null);
+const [activeInventoryCategory, setActiveInventoryCategory] = useState<'sizes' | 'packaging' | 'accessories'>('sizes');
+
+// ============================================
+// 1. AGREGAR ESTOS ESTADOS AL INICIO DEL COMPONENTE
+// ============================================
+const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [newOrderData, setNewOrderData] = useState({
     clientEmail: '',
     clientName: '', // NUEVO
@@ -71,28 +77,31 @@ const AdminDashboard: React.FC = () => {
   const [finalImageFile, setFinalImageFile] = useState<File | null>(null);
   const [finalImagePreview, setFinalImagePreview] = useState<string>('');
   const [uploadingFinalImage, setUploadingFinalImage] = useState(false);
-
-  // En AdminDashboard.tsx, REEMPLAZA la función loadData:
+  
+  
+// En AdminDashboard.tsx, REEMPLAZA la función loadData:
 
 const loadData = async () => {
   setLoading(true);
   try {
     // Cargar datos principales
-    const [ordersData, clientsData, suppliesData, galleryData, configData, homeData, tejedorasData, postsData, challengesData] = await Promise.all([
-      db.getOrders(),
-      db.getAllClients(),
-      db.getSupplies(),
-      db.getGallery(),
-      db.getConfig(),
-      db.getHomeConfig(),
-      db.getTejedoras(),
-      db.getPosts(),
-      db.getChallenges()
-    ]);
+    const [ordersData, clientsData, suppliesData, inventoryData, galleryData, configData, homeData, tejedorasData, postsData, challengesData] = await Promise.all([
+  db.getOrders(),
+  db.getAllClients(),
+  db.getSupplies(),
+  db.getInventoryItems(), // 🆕 AGREGAR
+  db.getGallery(),
+  db.getConfig(),
+  db.getHomeConfig(),
+  db.getTejedoras(),
+  db.getPosts(),
+  db.getChallenges()
+]);
 
     setOrders(ordersData);
     setClients(clientsData);
     setSupplies(suppliesData);
+    setInventoryItems(inventoryData);
     setGallery(galleryData);
     setConfig(configData);
     setHomeConfig(homeData);
@@ -275,9 +284,46 @@ const handleDeleteFinalImage = async () => {
     }
   };
 
-  // ============================================
-  // 2. MODIFICAR LA FUNCIÓN handleCreateOrder
-  // ============================================
+  // INVENTORY HANDLERS
+const openNewInventoryItem = () => {
+  setEditingInventoryItem({
+    id: `inv-${Date.now()}`,
+    category: activeInventoryCategory,
+    label: '',
+    price: 0
+  });
+  setIsInventoryModalOpen(true);
+};
+
+const handleSaveInventoryItem = async (e: React.MouseEvent) => {
+  e.preventDefault();
+  if (!editingInventoryItem || !editingInventoryItem.label || editingInventoryItem.price <= 0) {
+    alert('Completa todos los campos');
+    return;
+  }
+
+  try {
+    const exists = inventoryItems.some(i => i.id === editingInventoryItem.id);
+    if (exists) {
+      await db.updateInventoryItem(editingInventoryItem);
+    } else {
+      await db.addInventoryItem(editingInventoryItem);
+    }
+    setIsInventoryModalOpen(false);
+    setEditingInventoryItem(null);
+    loadData();
+  } catch (error) {
+    console.error('Error saving inventory item:', error);
+    alert('Error al guardar');
+  }
+};
+
+const handleDeleteInventoryItem = async (id: string) => {
+  if (!confirm('¿Eliminar este item del inventario?')) return;
+  await db.deleteInventoryItem(id);
+  loadData();
+};
+
 // ============================================
 // 2. MODIFICAR LA FUNCIÓN handleCreateOrder
 // ============================================
@@ -854,6 +900,104 @@ const handleAddReferral = async () => {
   </div>
 );
 
+const InventoryView = () => (
+  <div className="space-y-6 animate-fade-in">
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+        <Package className="text-purple-600"/> Inventario de Productos
+      </h2>
+      <button 
+        onClick={openNewInventoryItem} 
+        className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
+      >
+        <Plus size={18}/> Agregar Item
+      </button>
+    </div>
+
+    {/* Pestañas de categorías */}
+    <div className="flex gap-2 border-b">
+      <button
+        onClick={() => setActiveInventoryCategory('sizes')}
+        className={`px-4 py-2 font-medium transition-colors ${
+          activeInventoryCategory === 'sizes'
+            ? 'border-b-2 border-purple-600 text-purple-600'
+            : 'text-gray-600 hover:text-gray-800'
+        }`}
+      >
+        📏 Tamaños
+      </button>
+      <button
+        onClick={() => setActiveInventoryCategory('packaging')}
+        className={`px-4 py-2 font-medium transition-colors ${
+          activeInventoryCategory === 'packaging'
+            ? 'border-b-2 border-purple-600 text-purple-600'
+            : 'text-gray-600 hover:text-gray-800'
+        }`}
+      >
+        📦 Empaques
+      </button>
+      <button
+        onClick={() => setActiveInventoryCategory('accessories')}
+        className={`px-4 py-2 font-medium transition-colors ${
+          activeInventoryCategory === 'accessories'
+            ? 'border-b-2 border-purple-600 text-purple-600'
+            : 'text-gray-600 hover:text-gray-800'
+        }`}
+      >
+        ✨ Accesorios
+      </button>
+    </div>
+
+    {/* Tabla de items */}
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-gray-50 text-gray-600">
+          <tr>
+            <th className="p-4">Nombre</th>
+            <th className="p-4 text-right">Precio</th>
+            <th className="p-4 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {inventoryItems
+            .filter(item => item.category === activeInventoryCategory)
+            .map(item => (
+              <tr key={item.id} className="hover:bg-gray-50">
+                <td className="p-4 font-medium">{item.label}</td>
+                <td className="p-4 text-right font-bold text-gray-800">
+                  ${item.price.toLocaleString()}
+                </td>
+                <td className="p-4 text-right flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingInventoryItem(item);
+                      setIsInventoryModalOpen(true);
+                    }}
+                    className="text-blue-600 hover:bg-blue-50 p-2 rounded"
+                  >
+                    <Edit2 size={16}/>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteInventoryItem(item.id)}
+                    className="text-red-600 hover:bg-red-50 p-2 rounded"
+                  >
+                    <Trash2 size={16}/>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          {inventoryItems.filter(item => item.category === activeInventoryCategory).length === 0 && (
+            <tr>
+              <td colSpan={3} className="p-8 text-center text-gray-500">
+                No hay items en esta categoría
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
   // CLIENTS VIEW
   const ClientsView = () => (
     <div className="space-y-6 animate-fade-in">
@@ -1194,6 +1338,7 @@ const ReferralsView = () => (
             { id: 'finance', label: 'Contabilidad', icon: <PieChart size={20}/>, action: () => navigate('/admin/accounting') },
             { id: 'orders', label: 'Pedidos', icon: <ShoppingBag size={20}/> },
             { id: 'supplies', label: 'Insumos', icon: <Box size={20}/> },
+            { id: 'inventory', label: 'Inventario', icon: <Package size={20}/> },
             { id: 'clients', label: 'Clientes', icon: <Users size={20}/> },
             { id: 'referrals', label: 'Referidos', icon: <Users size={20}/> }, // Nueva opción
             { id: 'community', label: 'Comunidad', icon: <Heart size={20}/> },
@@ -1218,6 +1363,7 @@ const ReferralsView = () => (
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'orders' && <OrdersView />}
         {activeTab === 'supplies' && <SuppliesView />}
+        {activeTab === 'inventory' && <InventoryView />}
         {activeTab === 'clients' && <ClientsView />}
         {activeTab === 'referrals' && <ReferralsView />} {/* Nueva vista */}
         {activeTab === 'gallery' && <GalleryView />}
@@ -1477,6 +1623,96 @@ const ReferralsView = () => (
         </div>
       )}
 
+{/* MODAL DE INVENTARIO */}
+{isInventoryModalOpen && editingInventoryItem && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold">
+          {inventoryItems.some(i => i.id === editingInventoryItem.id)
+            ? 'Editar Item'
+            : 'Nuevo Item'}
+        </h3>
+        <button
+          onClick={() => {
+            setIsInventoryModalOpen(false);
+            setEditingInventoryItem(null);
+          }}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X size={24}/>
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Categoría
+          </label>
+          <select
+            value={editingInventoryItem.category}
+            onChange={e =>
+              setEditingInventoryItem({
+                ...editingInventoryItem,
+                category: e.target.value as 'sizes' | 'packaging' | 'accessories'
+              })
+            }
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            <option value="sizes">📏 Tamaño</option>
+            <option value="packaging">📦 Empaque</option>
+            <option value="accessories">✨ Accesorio</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Nombre
+          </label>
+          <input
+            type="text"
+            value={editingInventoryItem.label}
+            onChange={e =>
+              setEditingInventoryItem({
+                ...editingInventoryItem,
+                label: e.target.value
+              })
+            }
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            placeholder="Ej: 15cm, Caja Premium, Base LED"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Precio ($)
+          </label>
+          <input
+            type="number"
+            value={editingInventoryItem.price}
+            onChange={e =>
+              setEditingInventoryItem({
+                ...editingInventoryItem,
+                price: parseFloat(e.target.value) || 0
+              })
+            }
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            placeholder="0"
+            min="0"
+          />
+        </div>
+
+        <button
+          onClick={handleSaveInventoryItem}
+          className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 font-bold"
+        >
+          <Save size={20}/>
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {/* ============================================ */}
       {/* 4. REEMPLAZAR EL MODAL COMPLETO */}
       {/* ============================================ */}
