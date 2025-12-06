@@ -150,6 +150,7 @@ export const db = {
       monto_pagado: order.monto_pagado,
       saldo_pendiente: order.saldo_pendiente,
       imagen_url: order.imagen_url,
+      final_image_url: order.final_image_url || null, // ← 🆕 AGREGAR ESTA LÍNEA
       descripcion: order.descripcion,
       desglose: order.desglose,
       guia_transportadora: order.guia_transportadora

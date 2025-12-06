@@ -128,6 +128,10 @@ const loadData = async () => {
   // ORDER HANDLERS
 // REEMPLAZA la función handleOpenOrder existente con esta:
 const handleOpenOrder = async (order: Order) => {
+  console.log('🔍 Abriendo pedido #', order.numero_seguimiento);
+  console.log('📸 final_image_url en el pedido:', order.final_image_url);
+  console.log('📦 Objeto completo:', order);
+  
   setSelectedOrder(order);
   setStatusUpdate(order.estado);
   setTrackingGuide(order.guia_transportadora || '');
@@ -166,24 +170,31 @@ const handleUploadFinalImage = async () => {
 
   setUploadingFinalImage(true);
   try {
+    console.log('📤 Subiendo imagen final para pedido:', selectedOrder.id);
     const imageUrl = await uploadImage(finalImageFile, 'orders');
+    console.log('✅ Imagen subida a Storage:', imageUrl);
     
     if (imageUrl) {
       // Actualizar el pedido con la URL de la imagen final
+      console.log('💾 Actualizando pedido en BD...');
       await db.updateOrder(selectedOrder.id, {
         final_image_url: imageUrl
       });
+      console.log('✅ Pedido actualizado en BD');
 
       alert('✅ Imagen final subida correctamente');
       setFinalImageFile(null);
       setFinalImagePreview('');
-      loadData();
       
       // Actualizar el pedido seleccionado para mostrar la nueva imagen
       setSelectedOrder({...selectedOrder, final_image_url: imageUrl});
+      console.log('✅ Estado local actualizado');
+      
+      await loadData();
+      console.log('✅ Datos recargados');
     }
   } catch (error) {
-    console.error('Error uploading final image:', error);
+    console.error('❌ Error uploading final image:', error);
     alert('Error al subir la imagen final');
   } finally {
     setUploadingFinalImage(false);
@@ -1337,6 +1348,10 @@ const ReferralsView = () => (
             src={selectedOrder.final_image_url} 
             alt="Producto Final" 
             className="w-full h-48 object-cover rounded-lg border-2 border-green-400"
+            onError={(e) => {
+              console.error('❌ Error cargando imagen final:', selectedOrder.final_image_url);
+              e.currentTarget.style.display = 'none';
+            }}
           />
           <button
             type="button"
