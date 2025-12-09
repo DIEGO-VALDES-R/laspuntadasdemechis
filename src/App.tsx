@@ -12,6 +12,7 @@ import TrackOrder from './pages/TrackOrder';
 import Community from './pages/Community';
 import Challenges from './pages/Challenges';
 import Accounting from './pages/Accounting';
+import SiteContentEditor from './pages/SiteContentEditor';
 
 const ADMIN_EMAIL = 'puntadasdemechis@gmail.com';
 
@@ -220,6 +221,15 @@ const handleLogout = async () => {
               </ProtectedRoute>
             } 
           />
+// Y agregar la ruta dentro de las rutas de admin:
+<Route
+  path="/admin/site-content"
+  element={
+    <ProtectedRoute requireAuth={true} requireAdmin={true}>
+      <SiteContentEditor />
+    </ProtectedRoute>
+  }
+/>
           
           {/* Ruta por defecto */}
           <Route path="*" element={<Navigate to="/" replace />} />

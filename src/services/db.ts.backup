@@ -1,4 +1,4 @@
-﻿import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
 import { Order, Client, InventoryItem, ProductConfig, GlobalConfig, GalleryItem, DEFAULT_CONFIG, Tejedora, HomeConfig, Post, Challenge, Supply, Expense, ReturnRecord } from '../types';
 
 // =====================================================
@@ -17,7 +17,7 @@ const mapOrder = (o: any): Order => ({
   monto_pagado: o.monto_pagado,
   saldo_pendiente: o.saldo_pendiente,
   imagen_url: o.imagen_url,
-  final_image_url: o.final_image_url, // â† ðŸ†• AGREGAR ESTA LÃNEA
+  final_image_url: o.final_image_url, // ← 🆕 AGREGAR ESTA LÍNEA
   descripcion: o.descripcion,
   desglose: o.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
   guia_transportadora: o.guia_transportadora,
@@ -150,7 +150,7 @@ export const db = {
       monto_pagado: order.monto_pagado,
       saldo_pendiente: order.saldo_pendiente,
       imagen_url: order.imagen_url,
-      final_image_url: order.final_image_url || null, // â† ðŸ†• AGREGAR ESTA LÃNEA
+      final_image_url: order.final_image_url || null, // ← 🆕 AGREGAR ESTA LÍNEA
       descripcion: order.descripcion,
       desglose: order.desglose,
       guia_transportadora: order.guia_transportadora
@@ -166,7 +166,7 @@ updateOrder: async (orderId: string, updates: Partial<Order>) => {
   if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
   if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
   
-  // âœ… AGREGAR ESTAS LÃNEAS:
+  // ✅ AGREGAR ESTAS LÍNEAS:
   if (updates.final_image_url !== undefined) dbUpdates.final_image_url = updates.final_image_url;
   if (updates.fecha_entrega !== undefined) dbUpdates.fecha_entrega = updates.fecha_entrega;
 
@@ -212,34 +212,34 @@ updateOrder: async (orderId: string, updates: Partial<Order>) => {
     return (data || []).map(mapOrder);
   },
 
-  // ðŸ”’ FUNCIÃ“N SEGURA - Solo pedidos del cliente especÃ­fico
-// DESPUÃ‰S (corregido):
+  // 🔒 FUNCIÓN SEGURA - Solo pedidos del cliente específico
+// DESPUÉS (corregido):
 getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
-  console.log('ðŸ” Buscando pedidos para:', email);
+  console.log('🔍 Buscando pedidos para:', email);
   const { data, error } = await supabase
     .from('orders')
     .select('*')
     .eq('client_email', email)
-    .order('created_at', { ascending: false }); // âœ… CAMPO CORRECTO
+    .order('created_at', { ascending: false }); // ✅ CAMPO CORRECTO
 
   if (error) {
-    console.error('âŒ Error al cargar pedidos:', error);
+    console.error('❌ Error al cargar pedidos:', error);
     return [];
   }
 
   if (!data) {
-    console.log('âš ï¸ No se encontraron pedidos para este cliente');
+    console.log('⚠️ No se encontraron pedidos para este cliente');
     return [];
   }
 
-  console.log(`âœ… ${data.length} pedidos encontrados`);
+  console.log(`✅ ${data.length} pedidos encontrados`);
   return data.map(mapOrder);
 },
 
 
-  // ðŸ”’ FUNCIÃ“N SEGURA - Validar pedido por nÃºmero Y email
+  // 🔒 FUNCIÓN SEGURA - Validar pedido por número Y email
   getOrderByNumberAndEmail: async (orderNumber: string, email: string): Promise<Order | null> => {
-    console.log('ðŸ” Buscando pedido:', orderNumber, 'para email:', email);
+    console.log('🔍 Buscando pedido:', orderNumber, 'para email:', email);
     const { data, error } = await supabase
       .from('orders')
       .select('*')
@@ -248,16 +248,16 @@ getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
       .single();
       
     if (error) {
-      console.error('âŒ Error:', error);
+      console.error('❌ Error:', error);
       return null;
     }
     
     if (!data) {
-      console.log('âš ï¸ Pedido no encontrado o email no coincide');
+      console.log('⚠️ Pedido no encontrado o email no coincide');
       return null;
     }
     
-    console.log('âœ… Pedido encontrado');
+    console.log('✅ Pedido encontrado');
     return mapOrder(data);
   },
 
@@ -275,41 +275,41 @@ getAllClients: async (): Promise<Client[]> => {
   return (data || []).map(mapClient);
 },
 
-// ðŸ”’ FUNCIÃ“N SEGURA - Obtener cliente por email
+// 🔒 FUNCIÓN SEGURA - Obtener cliente por email
 getClientByEmail: async (email: string): Promise<Client | null> => {
-  console.log('ðŸ” Buscando cliente:', email);
+  console.log('🔍 Buscando cliente:', email);
   
   try {
     const { data, error } = await supabase
       .from('clients')
       .select('*')
       .eq('email', email)
-      .maybeSingle(); // â† Cambiar de .single() a .maybeSingle()
+      .maybeSingle(); // ← Cambiar de .single() a .maybeSingle()
 
     if (error) {
-      console.error('âŒ Error al buscar cliente:', error);
+      console.error('❌ Error al buscar cliente:', error);
       return null;
     }
 
     if (!data) {
-      console.log('âš ï¸ Cliente NO encontrado');
+      console.log('⚠️ Cliente NO encontrado');
       return null;
     }
 
-    console.log('âœ… Cliente encontrado:', data.nombre_completo);
+    console.log('✅ Cliente encontrado:', data.nombre_completo);
     return mapClient(data);
   } catch (error) {
-    console.error('âŒ ExcepciÃ³n al buscar cliente:', error);
+    console.error('❌ Excepción al buscar cliente:', error);
     return null;
   }
 },
 
 registerClient: async (clientData: any) => {
-  // âœ… CORREGIDO: Ahora usa nombre_completo
+  // ✅ CORREGIDO: Ahora usa nombre_completo
   const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
   
   const { error } = await supabase.from('clients').insert({
-    nombre_completo: clientData.nombre_completo, // âœ… Ya correcto
+    nombre_completo: clientData.nombre_completo, // ✅ Ya correcto
     email: clientData.email,
     cedula: clientData.cedula,
     telefono: clientData.telefono,
@@ -456,11 +456,11 @@ getInventory: async (): Promise<ProductConfig> => {
       .order('price', { ascending: true });
     
     if (error || !data || data.length === 0) {
-      console.log('âš ï¸ No hay inventario en BD, usando valores por defecto');
+      console.log('⚠️ No hay inventario en BD, usando valores por defecto');
       return DEFAULT_CONFIG;
     }
     
-    // Agrupar por categorÃ­a
+    // Agrupar por categoría
     const sizes = data.filter(i => i.category === 'sizes').map(i => ({
       id: i.id,
       category: i.category as 'sizes',
@@ -482,7 +482,7 @@ getInventory: async (): Promise<ProductConfig> => {
       price: i.price
     }));
     
-    console.log('âœ… Inventario cargado:', { 
+    console.log('✅ Inventario cargado:', { 
       sizes: sizes.length, 
       packaging: packaging.length, 
       accessories: accessories.length 
@@ -490,12 +490,12 @@ getInventory: async (): Promise<ProductConfig> => {
     
     return { sizes, packaging, accessories };
   } catch (error) {
-    console.error('âŒ Error loading inventory:', error);
+    console.error('❌ Error loading inventory:', error);
     return DEFAULT_CONFIG;
   }
 },
 
-// ðŸ†• CRUD para inventory_items
+// 🆕 CRUD para inventory_items
 getInventoryItems: async (): Promise<InventoryItem[]> => {
   const { data, error } = await supabase
     .from('inventory_items')
@@ -856,7 +856,7 @@ deleteInventoryItem: async (id: string) => {
         return [];
       }
       
-      // Obtener informaciÃ³n de clientes por separado
+      // Obtener información de clientes por separado
       const referrerIds = [...new Set(data.map(r => r.referrer_id).filter(Boolean))];
       
       if (referrerIds.length > 0) {
@@ -896,7 +896,7 @@ deleteInventoryItem: async (id: string) => {
     return data || [];
   },
 
-deleteReferral: async (id: string) => {
+  deleteReferral: async (id: string) => {
     const { error } = await supabase
       .from('referrals')
       .delete()
@@ -904,6 +904,7 @@ deleteReferral: async (id: string) => {
     
     if (error) console.error('Error deleting referral:', error);
   },
+
   updateReferral: async (referralId: string, updates: any) => {
     const { error } = await supabase
       .from('referrals')
@@ -912,146 +913,172 @@ deleteReferral: async (id: string) => {
     
     if (error) console.error('Error updating referral:', error);
   },
+
   addReferral: async (referral: any) => {
     const { error } = await supabase.from('referrals').insert(referral);
     
     if (error) console.error('Error adding referral:', error);
-  },
-
-  // ========== VALUE PROPS ==========
-  getValueProps: async (): Promise<any[]> => {
-    const { data, error } = await supabase
-      .from('value_props')
-      .select('*')
-      .order('order', { ascending: true });
-    
-    if (error) {
-      console.error('Error fetching value props:', error);
-      return [];
-    }
-    
-    return data || [];
-  },
-
-  saveValueProp: async (prop: any): Promise<void> => {
-    const { error } = await supabase
-      .from('value_props')
-      .insert([prop]);
-    
-    if (error) throw error;
-  },
-
-  updateValueProp: async (id: string, updates: any): Promise<void> => {
-    const { error } = await supabase
-      .from('value_props')
-      .update(updates)
-      .eq('id', id);
-    
-    if (error) throw error;
-  },
-
-  deleteValueProp: async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('value_props')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-  },
-
-  // ========== SITE STATS ==========
-  getSiteStats: async (): Promise<any> => {
-    const { data, error } = await supabase
-      .from('site_stats')
-      .select('*')
-      .single();
-    
-    if (error) {
-      return {
-        amigurumiCount: 17,
-        clientCount: 17,
-        rating: 4.9,
-        yearsExperience: 5
-      };
-    }
-    
-    return data;
-  },
-
-  updateSiteStats: async (stats: any): Promise<void> => {
-    const { error } = await supabase
-      .from('site_stats')
-      .upsert([{ id: 1, ...stats }]);
-    
-    if (error) throw error;
-  },
-
-  // ========== TESTIMONIALS ==========
-  getTestimonials: async (): Promise<any[]> => {
-    const { data, error } = await supabase
-      .from('testimonials')
-      .select('*')
-      .order('date', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching testimonials:', error);
-      return [];
-    }
-    
-    return data || [];
-  },
-
-  saveTestimonial: async (testimonial: any): Promise<void> => {
-    const { error } = await supabase
-      .from('testimonials')
-      .insert([testimonial]);
-    
-    if (error) throw error;
-  },
-
-  updateTestimonial: async (id: string, updates: any): Promise<void> => {
-    const { error } = await supabase
-      .from('testimonials')
-      .update(updates)
-      .eq('id', id);
-    
-    if (error) throw error;
-  },
-
-  deleteTestimonial: async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('testimonials')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-  },
-
-  // ========== EDITABLE SECTIONS ==========
-  getEditableSections: async (): Promise<any> => {
-    const { data, error } = await supabase
-      .from('editable_sections')
-      .select('*')
-      .single();
-    
-    if (error) {
-      return {
-        valuePropsTitle: '¿Por Qué Elegirnos?',
-        statsTitle: 'Nuestro Impacto',
-        statsSubtitle: 'Números que hablan por nosotros',
-        testimonialsTitle: 'Lo Que Dicen Nuestros Clientes',
-        testimonialsSubtitle: 'Más de 450 clientes satisfechos'
-      };
-    }
-    
-    return data;
-  },
-
-  updateEditableSections: async (sections: any): Promise<void> => {
-    const { error } = await supabase
-      .from('editable_sections')
-      .upsert([{ id: 1, ...sections }]);
-    
-    if (error) throw error;
-  }
 };
+
+// En src/services/db.ts, agregar estas funciones:
+
+// ========== VALUE PROPS ==========
+async getValueProps(): Promise<ValueProp[]> {
+  const { data, error } = await supabase
+    .from('value_props')
+    .select('*')
+    .order('order', { ascending: true });
+  
+  if (error) {
+    console.error('Error fetching value props:', error);
+    return this.getDefaultValueProps();
+  }
+  
+  return data || this.getDefaultValueProps();
+}
+
+async saveValueProp(prop: Omit<ValueProp, 'id'>): Promise<void> {
+  const { error } = await supabase
+    .from('value_props')
+    .insert([prop]);
+  
+  if (error) throw error;
+}
+
+async updateValueProp(id: string, updates: Partial<ValueProp>): Promise<void> {
+  const { error } = await supabase
+    .from('value_props')
+    .update(updates)
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
+async deleteValueProp(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('value_props')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
+// ========== SITE STATS ==========
+async getSiteStats(): Promise<SiteStats> {
+  const { data, error } = await supabase
+    .from('site_stats')
+    .select('*')
+    .single();
+  
+  if (error) {
+    return {
+      amigurumiCount: 17,
+      clientCount: 17,
+      rating: 4.9,
+      yearsExperience: 5
+    };
+  }
+  
+  return data;
+}
+
+async updateSiteStats(stats: SiteStats): Promise<void> {
+  const { error } = await supabase
+    .from('site_stats')
+    .upsert([{ id: 1, ...stats }]);
+  
+  if (error) throw error;
+}
+
+// ========== TESTIMONIALS ==========
+async getTestimonials(): Promise<Testimonial[]> {
+  const { data, error } = await supabase
+    .from('testimonials')
+    .select('*')
+    .order('date', { ascending: false });
+  
+  if (error) {
+    console.error('Error fetching testimonials:', error);
+    return this.getDefaultTestimonials();
+  }
+  
+  return data || this.getDefaultTestimonials();
+}
+
+async saveTestimonial(testimonial: Omit<Testimonial, 'id'>): Promise<void> {
+  const { error } = await supabase
+    .from('testimonials')
+    .insert([testimonial]);
+  
+  if (error) throw error;
+}
+
+async updateTestimonial(id: string, updates: Partial<Testimonial>): Promise<void> {
+  const { error } = await supabase
+    .from('testimonials')
+    .update(updates)
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
+async deleteTestimonial(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('testimonials')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
+// ========== EDITABLE SECTIONS ==========
+async getEditableSections(): Promise<EditableSections> {
+  const { data, error } = await supabase
+    .from('editable_sections')
+    .select('*')
+    .single();
+  
+  if (error) {
+    return {
+      valuePropsTitle: '¿Por Qué Elegirnos?',
+      statsTitle: 'Nuestro Impacto',
+      statsSubtitle: 'Números que hablan por nosotros',
+      testimonialsTitle: 'Lo Que Dicen Nuestros Clientes',
+      testimonialsSubtitle: 'Más de 450 clientes satisfechos'
+    };
+  }
+  
+  return data;
+}
+
+async updateEditableSections(sections: EditableSections): Promise<void> {
+  const { error } = await supabase
+    .from('editable_sections')
+    .upsert([{ id: 1, ...sections }]);
+  
+  if (error) throw error;
+}
+
+// Valores por defecto
+private getDefaultValueProps(): ValueProp[] {
+  return [
+    { id: '1', icon: 'heart', title: '100% Personalizado', order: 1 },
+    { id: '2', icon: 'gift', title: 'Hecho con Amor', order: 2 },
+    { id: '3', icon: 'gift', title: 'Regalo Perfecto', order: 3 },
+    { id: '4', icon: 'truck', title: 'Envíos Seguros', order: 4 },
+    { id: '5', icon: 'clock', title: 'Seguimiento Real', order: 5 }
+  ];
+}
+
+private getDefaultTestimonials(): Testimonial[] {
+  return [
+    {
+      id: '1',
+      name: 'María González',
+      rating: 5,
+      comment: '¡El amigurumi de mi perro quedó idéntico! Súper recomendado.',
+      imageUrl: 'https://i.pravatar.cc/150?img=1',
+      date: new Date().toISOString()
+    }
+  ];
+}

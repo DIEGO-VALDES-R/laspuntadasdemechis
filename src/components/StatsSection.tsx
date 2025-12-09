@@ -120,3 +120,4 @@ const StatsSection: React.FC = () => {
 
 export default StatsSection;
 
+

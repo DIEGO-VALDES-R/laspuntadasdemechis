@@ -35,7 +35,7 @@ export interface Order {
   monto_pagado: number;
   saldo_pendiente: number;
   imagen_url: string;
-  final_image_url?: string; // ← 🆕 AGREGAR ESTA LÍNEA
+  final_image_url?: string; // â† ðŸ†• AGREGAR ESTA LÃNEA
   descripcion: string;
   desglose: {
     precio_base: number;
@@ -90,8 +90,9 @@ export interface GalleryItem {
   id: string;
   title: string;
   description: string;
-  imageUrl: string; // Base64 or URL
+  imageUrl: string;
   price?: number;
+  category?: string;  // â¬…ï¸ NUEVO
 }
 
 // New Content Management Types
@@ -143,7 +144,7 @@ export interface Supply {
   quantity: number;
   color: string;
   number: string; // Calibre o número de lote
-  lowStockThreshold: number; // Cantidad mínima para alerta
+  lowStockThreshold: number; // Cantidad mÃ­nima para alerta
   imageUrl?: string;
 }
 
@@ -189,3 +190,4 @@ export const DEFAULT_CONFIG: ProductConfig = {
     { id: 'ac4', category: 'accessories', label: 'Luz LED', price: 5000 },
   ]
 };
+

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { uploadImage, deleteImage } from '../services/storage';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,8 +10,8 @@ import {
 } from 'lucide-react';
 import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
 
-// Agregamos 'referrals' al tipo Tab
-type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings';
+// Agregamos 'site-content' al tipo Tab
+type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'site-content';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -27,13 +28,27 @@ const AdminDashboard: React.FC = () => {
   const [tejedoras, setTejedoras] = useState<Tejedora[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
-  // Nuevo estado para referidos
   const [referrals, setReferrals] = useState<any[]>([]);
+
+  // 🆕 ESTADOS PARA CONTENIDO DEL SITIO
+  const [siteStats, setSiteStats] = useState({
+    amigurumiCount: 17,
+    clientCount: 17,
+    rating: 4.9,
+    yearsExperience: 5
+  });
+
+  const [editableSections, setEditableSections] = useState({
+    valuePropsTitle: '¿Por Qué Elegirnos?',
+    statsTitle: 'Nuestro Impacto',
+    statsSubtitle: 'Números que hablan por nosotros',
+    testimonialsTitle: 'Lo Que Dicen Nuestros Clientes',
+    testimonialsSubtitle: 'Más de 450 clientes satisfechos'
+  });
 
   // Modal States
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  // Nuevo estado para el cliente del pedido
   const [orderClient, setOrderClient] = useState<Client | null>(null);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -78,51 +93,82 @@ const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [finalImagePreview, setFinalImagePreview] = useState<string>('');
   const [uploadingFinalImage, setUploadingFinalImage] = useState(false);
   
-  
-// En AdminDashboard.tsx, REEMPLAZA la función loadData:
-
-const loadData = async () => {
-  setLoading(true);
-  try {
-    // Cargar datos principales
-    const [ordersData, clientsData, suppliesData, inventoryData, galleryData, configData, homeData, tejedorasData, postsData, challengesData] = await Promise.all([
-  db.getOrders(),
-  db.getAllClients(),
-  db.getSupplies(),
-  db.getInventoryItems(), // 🆕 AGREGAR
-  db.getGallery(),
-  db.getConfig(),
-  db.getHomeConfig(),
-  db.getTejedoras(),
-  db.getPosts(),
-  db.getChallenges()
-]);
-
-    setOrders(ordersData);
-    setClients(clientsData);
-    setSupplies(suppliesData);
-    setInventoryItems(inventoryData);
-    setGallery(galleryData);
-    setConfig(configData);
-    setHomeConfig(homeData);
-    setTejedoras(tejedorasData);
-    setPosts(postsData);
-    setChallenges(challengesData);
-    
-    // Cargar referidos de forma segura (puede fallar sin romper la app)
+  // 🆕 FUNCIONES PARA GUARDAR CONTENIDO DEL SITIO
+  const handleSaveSiteStats = async () => {
     try {
-      const referralsData = await db.getAllReferrals();
-      setReferrals(referralsData);
-    } catch (refError) {
-      console.warn('⚠️ No se pudieron cargar referidos:', refError);
-      setReferrals([]); // Usar array vacío si falla
+      await db.updateSiteStats(siteStats);
+      alert('✅ Estadísticas guardadas correctamente');
+    } catch (error) {
+      console.error('Error saving stats:', error);
+      alert('❌ Error al guardar estadísticas');
     }
-  } catch (error) {
-    console.error('Error loading data:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
+  const handleSaveEditableSections = async () => {
+    try {
+      await db.updateEditableSections(editableSections);
+      alert('✅ Títulos guardados correctamente');
+    } catch (error) {
+      console.error('Error saving sections:', error);
+      alert('❌ Error al guardar títulos');
+    }
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [
+        ordersData, 
+        clientsData, 
+        suppliesData, 
+        inventoryData, 
+        galleryData, 
+        configData, 
+        homeData, 
+        teamData, 
+        postsData, 
+        challengesData, 
+        referralsData,
+        // 🆕 AGREGAR ESTAS DOS LÍNEAS:
+        statsData,
+        sectionsData
+      ] = await Promise.all([
+        db.getOrders(),
+        db.getAllClients(),
+        db.getSupplies(),
+        db.getInventoryItems(),
+        db.getGallery(),
+        db.getConfig(),
+        db.getHomeConfig(),
+        db.getTejedoras(),
+        db.getPosts(),
+        db.getChallenges(),
+        db.getAllReferrals(),
+        // 🆕 AGREGAR ESTAS DOS LÍNEAS:
+        db.getSiteStats(),
+        db.getEditableSections()
+      ]);
+      
+      setOrders(ordersData);
+      setClients(clientsData);
+      setSupplies(suppliesData);
+      setInventoryItems(inventoryData);
+      setGallery(galleryData);
+      setConfig(configData);
+      setHomeConfig(homeData);
+      setTejedoras(teamData);
+      setPosts(postsData);
+      setChallenges(challengesData);
+      setReferrals(referralsData);
+      // 🆕 AGREGAR ESTAS DOS LÍNEAS:
+      setSiteStats(statsData);
+      setEditableSections(sectionsData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const user = localStorage.getItem('puntadas_user');
@@ -133,6 +179,8 @@ const loadData = async () => {
     }
     loadData();
   }, [navigate]);
+
+
 
   // ORDER HANDLERS
 // REEMPLAZA la función handleOpenOrder existente con esta:
@@ -1320,6 +1368,159 @@ const ReferralsView = () => (
     </div>
   );
 
+  // 🆕 SITE CONTENT VIEW
+  const SiteContentView = () => (
+    <div className="space-y-8 animate-fade-in">
+      <h2 className="text-2xl font-bold">📝 Editor de Contenido del Sitio</h2>
+
+      {/* TÍTULOS DE SECCIONES */}
+      <section className="bg-white rounded-xl shadow-lg p-6">
+        <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+          <Edit2 className="text-purple-500" />
+          Títulos de Secciones
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Título "¿Por Qué Elegirnos?"
+            </label>
+            <input
+              type="text"
+              value={editableSections.valuePropsTitle}
+              onChange={(e) => setEditableSections({...editableSections, valuePropsTitle: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Título "Nuestro Impacto"
+            </label>
+            <input
+              type="text"
+              value={editableSections.statsTitle}
+              onChange={(e) => setEditableSections({...editableSections, statsTitle: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Subtítulo Estadísticas
+            </label>
+            <input
+              type="text"
+              value={editableSections.statsSubtitle}
+              onChange={(e) => setEditableSections({...editableSections, statsSubtitle: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Título Testimonios
+            </label>
+            <input
+              type="text"
+              value={editableSections.testimonialsTitle}
+              onChange={(e) => setEditableSections({...editableSections, testimonialsTitle: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Subtítulo Testimonios
+            </label>
+            <input
+              type="text"
+              value={editableSections.testimonialsSubtitle}
+              onChange={(e) => setEditableSections({...editableSections, testimonialsSubtitle: e.target.value})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <button
+            onClick={handleSaveEditableSections}
+            className="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 flex items-center gap-2"
+          >
+            <Save size={20} />
+            Guardar Títulos
+          </button>
+        </div>
+      </section>
+
+      {/* ESTADÍSTICAS */}
+      <section className="bg-white rounded-xl shadow-lg p-6">
+        <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+          📊 Estadísticas del Sitio
+        </h3>
+        
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Amigurumis Creados
+            </label>
+            <input
+              type="number"
+              value={siteStats.amigurumiCount}
+              onChange={(e) => setSiteStats({...siteStats, amigurumiCount: parseInt(e.target.value)})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Clientes Felices
+            </label>
+            <input
+              type="number"
+              value={siteStats.clientCount}
+              onChange={(e) => setSiteStats({...siteStats, clientCount: parseInt(e.target.value)})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Rating Promedio (1.0 - 5.0)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              min="1"
+              max="5"
+              value={siteStats.rating}
+              onChange={(e) => setSiteStats({...siteStats, rating: parseFloat(e.target.value)})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Años de Experiencia
+            </label>
+            <input
+              type="number"
+              value={siteStats.yearsExperience}
+              onChange={(e) => setSiteStats({...siteStats, yearsExperience: parseInt(e.target.value)})}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleSaveSiteStats}
+          className="mt-6 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 flex items-center gap-2"
+        >
+          <Save size={20} />
+          Guardar Estadísticas
+        </button>
+      </section>
+    </div>
+  );
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
@@ -1340,11 +1541,12 @@ const ReferralsView = () => (
             { id: 'supplies', label: 'Insumos', icon: <Box size={20}/> },
             { id: 'inventory', label: 'Inventario', icon: <Package size={20}/> },
             { id: 'clients', label: 'Clientes', icon: <Users size={20}/> },
-            { id: 'referrals', label: 'Referidos', icon: <Users size={20}/> }, // Nueva opción
+            { id: 'referrals', label: 'Referidos', icon: <Users size={20}/> },
             { id: 'community', label: 'Comunidad', icon: <Heart size={20}/> },
             { id: 'challenges', label: 'Retos', icon: <Trophy size={20}/> },
             { id: 'gallery', label: 'Galería', icon: <ImageIcon size={20}/> },
             { id: 'content', label: 'Contenido Inicio', icon: <PenTool size={20}/> },
+            { id: 'site-content', label: 'Editar Contenido', icon: <Edit2 size={20}/> }, // 🆕 NUEVA OPCIÓN
             { id: 'settings', label: 'Configuración', icon: <Settings size={20}/> },
           ].map((item) => (
             <button
@@ -1365,12 +1567,13 @@ const ReferralsView = () => (
         {activeTab === 'supplies' && <SuppliesView />}
         {activeTab === 'inventory' && <InventoryView />}
         {activeTab === 'clients' && <ClientsView />}
-        {activeTab === 'referrals' && <ReferralsView />} {/* Nueva vista */}
+        {activeTab === 'referrals' && <ReferralsView />}
         {activeTab === 'gallery' && <GalleryView />}
         {activeTab === 'content' && <ContentView />}
         {activeTab === 'community' && <CommunityView />}
         {activeTab === 'challenges' && <ChallengesView />}
         {activeTab === 'settings' && <SettingsView />}
+        {activeTab === 'site-content' && <SiteContentView />} {/* 🆕 NUEVA VISTA */}
       </main>
 
       {/* MODALS */}

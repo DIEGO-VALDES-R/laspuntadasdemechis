@@ -1,9 +1,15 @@
-
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Search, Heart, Gift, Truck, Clock, Loader } from 'lucide-react';
 import { db } from '../services/db';
 import { GalleryItem, HomeConfig, Tejedora } from '../types';
+
+// 🆕 IMPORTAR COMPONENTES NUEVOS
+import AnimatedHero from '../components/AnimatedHero';
+import InteractiveGallery from '../components/InteractiveGallery';
+import TestimonialsCarousel from '../components/TestimonialsCarousel';
+import StatsSection from '../components/StatsSection';
+import ProcessTimeline from '../components/ProcessTimeline';
 
 const Home: React.FC = () => {
   const [trackId, setTrackId] = useState('');
@@ -13,37 +19,60 @@ const Home: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [galleryData, homeData, teamData] = await Promise.all([
-          db.getGallery(),
-          db.getHomeConfig(),
-          db.getTejedoras()
-        ]);
-        setGalleryItems(galleryData);
-        setHomeConfig(homeData);
-        setTejedoras(teamData);
-      } catch (error) {
-        console.error("Failed to load home data", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+useEffect(() => {
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [
+        galleryData, 
+        homeData, 
+        teamData,
+        statsData,        // 🆕 AGREGAR
+        sectionsData      // 🆕 AGREGAR
+      ] = await Promise.all([
+        db.getGallery(),
+        db.getHomeConfig(),
+        db.getTejedoras(),
+        db.getSiteStats(),        // 🆕 AGREGAR
+        db.getEditableSections()  // 🆕 AGREGAR
+      ]);
+      
+      setGalleryItems(galleryData);
+      setHomeConfig(homeData);
+      setTejedoras(teamData);
+      setSiteStats(statsData);           // 🆕 AGREGAR
+      setEditableSections(sectionsData); // 🆕 AGREGAR
+    } catch (error) {
+      console.error("Failed to load home data", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, []);
 
-// ✅ REEMPLAZA la función handleTrack en Home.tsx (alrededor de línea 25)
+  const handleTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (trackId.trim()) {
+      navigate(`/track?order=${trackId.trim()}`);
+    }
+  };
 
-const handleTrack = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (trackId.trim()) {
-    // ✅ CORRECTO: Redirigir a la página de rastreo con el número
-    navigate(`/track?order=${trackId.trim()}`);
-  }
-};
+const [siteStats, setSiteStats] = useState({
+  amigurumiCount: 17,
+  clientCount: 17,
+  rating: 4.9,
+  yearsExperience: 5
+});
+
+const [editableSections, setEditableSections] = useState({
+  valuePropsTitle: '¿Por Qué Elegirnos?',
+  statsTitle: 'Nuestro Impacto',
+  statsSubtitle: 'Números que hablan por nosotros',
+  testimonialsTitle: 'Lo Que Dicen Nuestros Clientes',
+  testimonialsSubtitle: 'Más de 450 clientes satisfechos'
+});
 
   const scrollToGallery = () => {
     const gallerySection = document.getElementById('gallery');
@@ -60,63 +89,24 @@ const handleTrack = (e: React.FormEvent) => {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader className="animate-spin text-pink-500" size={40} /></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader className="animate-spin text-pink-500" size={40} />
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col gap-16 pb-16">
       
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-pink-50 via-purple-50 to-white overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8 z-10">
-              <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 leading-tight">
-                ¡Dale vida a tu <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
-                  imaginación! 🧶
-                </span>
-              </h1>
-              <p className="text-lg text-gray-600 max-w-lg">
-                Amigurumis 100% personalizados hechos con amor. Desde tu personaje favorito hasta tu mascota, lo tejemos para ti.
-              </p>
-              <div className="flex gap-4">
-                <Link to="/request" className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-8 py-4 rounded-full font-bold shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">
-                  Solicitar Pedido
-                </Link>
-                <button 
-                  onClick={scrollToGallery}
-                  className="bg-white text-gray-800 px-8 py-4 rounded-full font-bold shadow-md hover:bg-gray-50 transition border border-gray-100"
-                >
-                  Ver Galería
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4 opacity-90">
-               <div className="transform translate-y-8">
-                  {homeConfig.heroImage1 && (
-                    <img 
-                      src={homeConfig.heroImage1}
-                      alt="Colección Amigurumis" 
-                      className="rounded-2xl shadow-2xl object-cover h-64 w-full" 
-                    />
-                  )}
-               </div>
-               <div className="transform -translate-y-8">
-                  {homeConfig.heroImage2 && (
-                    <img 
-                      src={homeConfig.heroImage2} 
-                      alt="Conejito Crochet" 
-                      className="rounded-2xl shadow-2xl object-cover h-64 w-full" 
-                    />
-                  )}
-               </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* 🆕 HERO SECTION ANIMADO - Reemplaza el hero anterior */}
+      <AnimatedHero 
+        heroImage1={homeConfig.heroImage1}
+        heroImage2={homeConfig.heroImage2}
+        onScrollToGallery={scrollToGallery}
+      />
 
-      {/* Order Tracker */}
+      {/* Order Tracker - MANTIENE EL CÓDIGO ORIGINAL */}
       <section className="max-w-4xl mx-auto w-full px-4 -mt-24 z-20 relative">
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-purple-100">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Rastrea tu Pedido</h2>
@@ -138,7 +128,10 @@ const handleTrack = (e: React.FormEvent) => {
         </div>
       </section>
 
-      {/* Value Props */}
+      {/* 🆕 PROCESO TIMELINE - NUEVO */}
+      <ProcessTimeline />
+
+      {/* Value Props - MANTIENE EL CÓDIGO ORIGINAL */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900">¿Por Qué Elegirnos?</h2>
@@ -159,7 +152,14 @@ const handleTrack = (e: React.FormEvent) => {
         </div>
       </section>
 
-      {/* Knitters Team Section (Dynamic) */}
+      {/* 🆕 CONTADOR DE ESTADÍSTICAS - NUEVO */}
+     <StatsSection 
+  stats={siteStats}
+  title={editableSections.statsTitle}
+  subtitle={editableSections.statsSubtitle}
+/>
+
+      {/* Knitters Team Section - MANTIENE EL CÓDIGO ORIGINAL */}
       {tejedoras.length > 0 && (
         <section className="bg-pink-50 py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -182,38 +182,15 @@ const handleTrack = (e: React.FormEvent) => {
         </section>
       )}
 
-      {/* Gallery */}
-      <section id="gallery" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900">Nuestras Creaciones</h2>
-          <p className="text-gray-500 mt-2">Un poco de nuestro trabajo reciente</p>
-        </div>
-        
-        {galleryItems.length === 0 ? (
-            <div className="text-center text-gray-400 py-12">No hay items en la galería aún.</div>
-        ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {galleryItems.map((item) => (
-                <div key={item.id} className="group relative overflow-hidden rounded-2xl shadow-lg bg-white border border-gray-100">
-                  <div className="aspect-square overflow-hidden">
-                      <img 
-                        src={item.imageUrl} 
-                        alt={item.title} 
-                        className="w-full h-full object-cover transition duration-500 group-hover:scale-110"
-                      />
-                  </div>
-                  <div className="p-4">
-                      <h3 className="font-bold text-lg text-gray-800">{item.title}</h3>
-                      <p className="text-sm text-gray-500">{item.description}</p>
-                      {item.price && item.price > 0 && (
-                          <p className="text-pink-600 font-bold mt-2">${item.price.toLocaleString()}</p>
-                      )}
-                  </div>
-                </div>
-              ))}
-            </div>
-        )}
-      </section>
+      {/* 🆕 TESTIMONIOS - NUEVO */}
+     <TestimonialsCarousel 
+  title={editableSections.testimonialsTitle}
+  subtitle={editableSections.testimonialsSubtitle}
+/>
+      {/* 🆕 GALERÍA INTERACTIVA - Reemplaza la galería anterior */}
+      <div id="gallery">
+        <InteractiveGallery items={galleryItems} />
+      </div>
 
     </div>
   );
