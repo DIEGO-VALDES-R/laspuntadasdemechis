@@ -1,207 +1,194 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useEffect } from 'react';
 import { db } from '../services/db';
 import { Save } from 'lucide-react';
 
-interface EditableSections {
-  valuePropsTitle: string;
-  statsTitle: string;
-  statsSubtitle: string;
-  testimonialsTitle: string;
-  testimonialsSubtitle: string;
-}
-
-interface SiteStats {
-  amigurumiCount: number;
-  clientCount: number;
-  rating: number;
-  yearsExperience: number;
-}
-
 export default function SiteContentEditor() {
-  const [initialSections, setInitialSections] = useState<EditableSections>({
-    valuePropsTitle: '',
-    statsTitle: '',
-    statsSubtitle: '',
-    testimonialsTitle: '',
-    testimonialsSubtitle: ''
-  });
-
-  const [initialStats, setInitialStats] = useState<SiteStats>({
-    amigurumiCount: 0,
-    clientCount: 0,
-    rating: 0,
-    yearsExperience: 0
-  });
-
-  const valuePropsRef = useRef<HTMLInputElement>(null);
-  const statsTitleRef = useRef<HTMLInputElement>(null);
-  const statsSubtitleRef = useRef<HTMLInputElement>(null);
-  const testimonialsTitleRef = useRef<HTMLInputElement>(null);
-  const testimonialsSubtitleRef = useRef<HTMLInputElement>(null);
-
-  const amigurumiCountRef = useRef<HTMLInputElement>(null);
-  const clientCountRef = useRef<HTMLInputElement>(null);
-  const ratingRef = useRef<HTMLInputElement>(null);
-  const yearsExperienceRef = useRef<HTMLInputElement>(null);
-
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  console.log('🔄 SiteContentEditor renderizado');
 
   useEffect(() => {
-    loadData();
-  }, []);
+    console.log('📥 Cargando datos iniciales...');
+    loadInitialData();
+  }, []); // ⬅️ Array vacío = solo se ejecuta UNA vez
 
-  const loadData = async () => {
+  const loadInitialData = async () => {
     try {
       const [sectionsData, statsData] = await Promise.all([
         db.getEditableSections(),
         db.getSiteStats()
       ]);
-      
+
+      console.log('✅ Datos cargados:', { sectionsData, statsData });
+
+      // Cargar valores en los inputs usando querySelector (SIN refs, SIN state)
       if (sectionsData) {
-        setInitialSections(sectionsData);
-        if (valuePropsRef.current) valuePropsRef.current.value = sectionsData.valuePropsTitle;
-        if (statsTitleRef.current) statsTitleRef.current.value = sectionsData.statsTitle;
-        if (statsSubtitleRef.current) statsSubtitleRef.current.value = sectionsData.statsSubtitle;
-        if (testimonialsTitleRef.current) testimonialsTitleRef.current.value = sectionsData.testimonialsTitle;
-        if (testimonialsSubtitleRef.current) testimonialsSubtitleRef.current.value = sectionsData.testimonialsSubtitle;
+        const input1 = document.getElementById('valuePropsTitle') as HTMLInputElement;
+        const input2 = document.getElementById('statsTitle') as HTMLInputElement;
+        const input3 = document.getElementById('statsSubtitle') as HTMLInputElement;
+        const input4 = document.getElementById('testimonialsTitle') as HTMLInputElement;
+        const input5 = document.getElementById('testimonialsSubtitle') as HTMLInputElement;
+
+        if (input1) input1.value = sectionsData.valuePropsTitle || '';
+        if (input2) input2.value = sectionsData.statsTitle || '';
+        if (input3) input3.value = sectionsData.statsSubtitle || '';
+        if (input4) input4.value = sectionsData.testimonialsTitle || '';
+        if (input5) input5.value = sectionsData.testimonialsSubtitle || '';
       }
-      
+
       if (statsData) {
-        setInitialStats(statsData);
-        if (amigurumiCountRef.current) amigurumiCountRef.current.value = String(statsData.amigurumiCount);
-        if (clientCountRef.current) clientCountRef.current.value = String(statsData.clientCount);
-        if (ratingRef.current) ratingRef.current.value = String(statsData.rating);
-        if (yearsExperienceRef.current) yearsExperienceRef.current.value = String(statsData.yearsExperience);
+        const stat1 = document.getElementById('amigurumiCount') as HTMLInputElement;
+        const stat2 = document.getElementById('clientCount') as HTMLInputElement;
+        const stat3 = document.getElementById('rating') as HTMLInputElement;
+        const stat4 = document.getElementById('yearsExperience') as HTMLInputElement;
+
+        if (stat1) stat1.value = String(statsData.amigurumiCount || 0);
+        if (stat2) stat2.value = String(statsData.clientCount || 0);
+        if (stat3) stat3.value = String(statsData.rating || 0);
+        if (stat4) stat4.value = String(statsData.yearsExperience || 0);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('❌ Error cargando datos:', error);
     }
   };
 
   const handleSaveTitles = async () => {
-    setLoading(true);
-    setMessage('');
+    console.log('💾 Guardando títulos...');
+    
     try {
-      const sections: EditableSections = {
-        valuePropsTitle: valuePropsRef.current?.value || '',
-        statsTitle: statsTitleRef.current?.value || '',
-        statsSubtitle: statsSubtitleRef.current?.value || '',
-        testimonialsTitle: testimonialsTitleRef.current?.value || '',
-        testimonialsSubtitle: testimonialsSubtitleRef.current?.value || ''
+      const sections = {
+        valuePropsTitle: (document.getElementById('valuePropsTitle') as HTMLInputElement)?.value || '',
+        statsTitle: (document.getElementById('statsTitle') as HTMLInputElement)?.value || '',
+        statsSubtitle: (document.getElementById('statsSubtitle') as HTMLInputElement)?.value || '',
+        testimonialsTitle: (document.getElementById('testimonialsTitle') as HTMLInputElement)?.value || '',
+        testimonialsSubtitle: (document.getElementById('testimonialsSubtitle') as HTMLInputElement)?.value || ''
       };
-      
+
       await db.updateEditableSections(sections);
-      setMessage('✅ Títulos guardados correctamente');
-      setTimeout(() => setMessage(''), 3000);
+      
+      // Mostrar mensaje temporal
+      const msgDiv = document.getElementById('message');
+      if (msgDiv) {
+        msgDiv.textContent = '✅ Títulos guardados correctamente';
+        msgDiv.className = 'p-4 rounded-lg bg-green-50 text-green-800 mb-6';
+        msgDiv.style.display = 'block';
+        setTimeout(() => {
+          msgDiv.style.display = 'none';
+        }, 3000);
+      }
+
+      console.log('✅ Títulos guardados');
     } catch (error) {
-      console.error('Error saving titles:', error);
-      setMessage('❌ Error al guardar títulos');
-    } finally {
-      setLoading(false);
+      console.error('❌ Error guardando títulos:', error);
+      
+      const msgDiv = document.getElementById('message');
+      if (msgDiv) {
+        msgDiv.textContent = '❌ Error al guardar títulos';
+        msgDiv.className = 'p-4 rounded-lg bg-red-50 text-red-800 mb-6';
+        msgDiv.style.display = 'block';
+      }
     }
   };
 
   const handleSaveStats = async () => {
-    setLoading(true);
-    setMessage('');
+    console.log('💾 Guardando estadísticas...');
+    
     try {
-      const stats: SiteStats = {
-        amigurumiCount: parseInt(amigurumiCountRef.current?.value || '0'),
-        clientCount: parseInt(clientCountRef.current?.value || '0'),
-        rating: parseFloat(ratingRef.current?.value || '0'),
-        yearsExperience: parseInt(yearsExperienceRef.current?.value || '0')
+      const stats = {
+        amigurumiCount: parseInt((document.getElementById('amigurumiCount') as HTMLInputElement)?.value || '0'),
+        clientCount: parseInt((document.getElementById('clientCount') as HTMLInputElement)?.value || '0'),
+        rating: parseFloat((document.getElementById('rating') as HTMLInputElement)?.value || '0'),
+        yearsExperience: parseInt((document.getElementById('yearsExperience') as HTMLInputElement)?.value || '0')
       };
-      
+
       await db.updateSiteStats(stats);
-      setMessage('✅ Estadísticas guardadas correctamente');
-      setTimeout(() => setMessage(''), 3000);
+      
+      const msgDiv = document.getElementById('message');
+      if (msgDiv) {
+        msgDiv.textContent = '✅ Estadísticas guardadas correctamente';
+        msgDiv.className = 'p-4 rounded-lg bg-green-50 text-green-800 mb-6';
+        msgDiv.style.display = 'block';
+        setTimeout(() => {
+          msgDiv.style.display = 'none';
+        }, 3000);
+      }
+
+      console.log('✅ Estadísticas guardadas');
     } catch (error) {
-      console.error('Error saving stats:', error);
-      setMessage('❌ Error al guardar estadísticas');
-    } finally {
-      setLoading(false);
+      console.error('❌ Error guardando estadísticas:', error);
+      
+      const msgDiv = document.getElementById('message');
+      if (msgDiv) {
+        msgDiv.textContent = '❌ Error al guardar estadísticas';
+        msgDiv.className = 'p-4 rounded-lg bg-red-50 text-red-800 mb-6';
+        msgDiv.style.display = 'block';
+      }
     }
   };
-
-  const messageClasses = message.includes('✅') 
-    ? 'p-4 rounded-lg bg-green-50 text-green-800' 
-    : 'p-4 rounded-lg bg-red-50 text-red-800';
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
       <h2 className="text-2xl font-bold text-gray-800">📝 Editor de Contenido del Sitio</h2>
 
-      {message && (
-        <div className={messageClasses}>
-          {message}
-        </div>
-      )}
+      <div id="message" style={{ display: 'none' }}></div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-purple-600 mb-4">📝 Títulos de Secciones</h3>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="valuePropsTitle" className="block text-sm font-medium text-gray-700 mb-2">
               Título "¿Por Qué Elegirnos?"
             </label>
             <input
-              ref={valuePropsRef}
+              id="valuePropsTitle"
               type="text"
-              defaultValue={initialSections.valuePropsTitle}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="Ej: ¿Por Qué Elegirnos?"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="statsTitle" className="block text-sm font-medium text-gray-700 mb-2">
               Título "Nuestro Impacto"
             </label>
             <input
-              ref={statsTitleRef}
+              id="statsTitle"
               type="text"
-              defaultValue={initialSections.statsTitle}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="Ej: Nuestro Impacto"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="statsSubtitle" className="block text-sm font-medium text-gray-700 mb-2">
               Subtítulo Estadísticas
             </label>
             <input
-              ref={statsSubtitleRef}
+              id="statsSubtitle"
               type="text"
-              defaultValue={initialSections.statsSubtitle}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="Ej: Números que hablan por nosotros"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="testimonialsTitle" className="block text-sm font-medium text-gray-700 mb-2">
               Título Testimonios
             </label>
             <input
-              ref={testimonialsTitleRef}
+              id="testimonialsTitle"
               type="text"
-              defaultValue={initialSections.testimonialsTitle}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="Ej: Lo Que Dicen Nuestros Clientes"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="testimonialsSubtitle" className="block text-sm font-medium text-gray-700 mb-2">
               Subtítulo Testimonios
             </label>
             <input
-              ref={testimonialsSubtitleRef}
+              id="testimonialsSubtitle"
               type="text"
-              defaultValue={initialSections.testimonialsSubtitle}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               placeholder="Ej: Más de 450 clientes satisfechos"
             />
@@ -209,11 +196,11 @@ export default function SiteContentEditor() {
 
           <button
             onClick={handleSaveTitles}
-            disabled={loading}
-            className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            type="button"
+            className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
           >
             <Save size={20} />
-            {loading ? 'Guardando...' : 'Guardar Títulos'}
+            Guardar Títulos
           </button>
         </div>
       </div>
@@ -223,39 +210,36 @@ export default function SiteContentEditor() {
         
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="amigurumiCount" className="block text-sm font-medium text-gray-700 mb-2">
               Amigurumis Creados
             </label>
             <input
-              ref={amigurumiCountRef}
+              id="amigurumiCount"
               type="number"
-              defaultValue={initialStats.amigurumiCount}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               min="0"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="clientCount" className="block text-sm font-medium text-gray-700 mb-2">
               Clientes Felices
             </label>
             <input
-              ref={clientCountRef}
+              id="clientCount"
               type="number"
-              defaultValue={initialStats.clientCount}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               min="0"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="rating" className="block text-sm font-medium text-gray-700 mb-2">
               Rating Promedio (1.0 - 5.0)
             </label>
             <input
-              ref={ratingRef}
+              id="rating"
               type="number"
-              defaultValue={initialStats.rating}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               min="1"
               max="5"
@@ -264,13 +248,12 @@ export default function SiteContentEditor() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="yearsExperience" className="block text-sm font-medium text-gray-700 mb-2">
               Años de Experiencia
             </label>
             <input
-              ref={yearsExperienceRef}
+              id="yearsExperience"
               type="number"
-              defaultValue={initialStats.yearsExperience}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               min="0"
             />
@@ -279,11 +262,11 @@ export default function SiteContentEditor() {
 
         <button
           onClick={handleSaveStats}
-          disabled={loading}
-          className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          type="button"
+          className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
         >
           <Save size={20} />
-          {loading ? 'Guardando...' : 'Guardar Estadísticas'}
+          Guardar Estadísticas
         </button>
       </div>
     </div>
