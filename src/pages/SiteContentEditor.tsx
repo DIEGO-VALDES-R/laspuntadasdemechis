@@ -1,126 +1,107 @@
-﻿import React, { useEffect } from 'react';
+﻿import React, { useEffect, useCallback } from 'react';
 import { db } from '../services/db';
 import { Save } from 'lucide-react';
 
 export default function SiteContentEditor() {
-  console.log('🔄 SiteContentEditor renderizado');
-
-  useEffect(() => {
-    console.log('📥 Cargando datos iniciales...');
-    loadInitialData();
-  }, []); // ⬅️ Array vacío = solo se ejecuta UNA vez
-
-  const loadInitialData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [sectionsData, statsData] = await Promise.all([
         db.getEditableSections(),
         db.getSiteStats()
       ]);
-
-      console.log('✅ Datos cargados:', { sectionsData, statsData });
-
-      // Cargar valores en los inputs usando querySelector (SIN refs, SIN state)
+      
+      console.log('✅ Datos cargados');
+      
+      // Cargar valores directamente en el DOM
       if (sectionsData) {
-        const input1 = document.getElementById('valuePropsTitle') as HTMLInputElement;
-        const input2 = document.getElementById('statsTitle') as HTMLInputElement;
-        const input3 = document.getElementById('statsSubtitle') as HTMLInputElement;
-        const input4 = document.getElementById('testimonialsTitle') as HTMLInputElement;
-        const input5 = document.getElementById('testimonialsSubtitle') as HTMLInputElement;
-
-        if (input1) input1.value = sectionsData.valuePropsTitle || '';
-        if (input2) input2.value = sectionsData.statsTitle || '';
-        if (input3) input3.value = sectionsData.statsSubtitle || '';
-        if (input4) input4.value = sectionsData.testimonialsTitle || '';
-        if (input5) input5.value = sectionsData.testimonialsSubtitle || '';
+        const setValue = (id: string, value: any) => {
+          const el = document.getElementById(id) as HTMLInputElement;
+          if (el) el.value = value || '';
+        };
+        
+        setValue('valuePropsTitle', sectionsData.valuePropsTitle);
+        setValue('statsTitle', sectionsData.statsTitle);
+        setValue('statsSubtitle', sectionsData.statsSubtitle);
+        setValue('testimonialsTitle', sectionsData.testimonialsTitle);
+        setValue('testimonialsSubtitle', sectionsData.testimonialsSubtitle);
       }
-
+      
       if (statsData) {
-        const stat1 = document.getElementById('amigurumiCount') as HTMLInputElement;
-        const stat2 = document.getElementById('clientCount') as HTMLInputElement;
-        const stat3 = document.getElementById('rating') as HTMLInputElement;
-        const stat4 = document.getElementById('yearsExperience') as HTMLInputElement;
-
-        if (stat1) stat1.value = String(statsData.amigurumiCount || 0);
-        if (stat2) stat2.value = String(statsData.clientCount || 0);
-        if (stat3) stat3.value = String(statsData.rating || 0);
-        if (stat4) stat4.value = String(statsData.yearsExperience || 0);
+        const setValue = (id: string, value: any) => {
+          const el = document.getElementById(id) as HTMLInputElement;
+          if (el) el.value = String(value || 0);
+        };
+        
+        setValue('amigurumiCount', statsData.amigurumiCount);
+        setValue('clientCount', statsData.clientCount);
+        setValue('rating', statsData.rating);
+        setValue('yearsExperience', statsData.yearsExperience);
       }
     } catch (error) {
-      console.error('❌ Error cargando datos:', error);
+      console.error('❌ Error:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const showMessage = (text: string, success: boolean) => {
+    const msgDiv = document.getElementById('message');
+    if (msgDiv) {
+      msgDiv.textContent = text;
+      msgDiv.className = success
+        ? 'p-4 rounded-lg bg-green-50 text-green-800 mb-6'
+        : 'p-4 rounded-lg bg-red-50 text-red-800 mb-6';
+      msgDiv.style.display = 'block';
+      setTimeout(() => {
+        if (msgDiv) msgDiv.style.display = 'none';
+      }, 3000);
     }
   };
 
   const handleSaveTitles = async () => {
-    console.log('💾 Guardando títulos...');
-    
     try {
+      const getValue = (id: string) => {
+        const el = document.getElementById(id) as HTMLInputElement;
+        return el?.value || '';
+      };
+
       const sections = {
-        valuePropsTitle: (document.getElementById('valuePropsTitle') as HTMLInputElement)?.value || '',
-        statsTitle: (document.getElementById('statsTitle') as HTMLInputElement)?.value || '',
-        statsSubtitle: (document.getElementById('statsSubtitle') as HTMLInputElement)?.value || '',
-        testimonialsTitle: (document.getElementById('testimonialsTitle') as HTMLInputElement)?.value || '',
-        testimonialsSubtitle: (document.getElementById('testimonialsSubtitle') as HTMLInputElement)?.value || ''
+        valuePropsTitle: getValue('valuePropsTitle'),
+        statsTitle: getValue('statsTitle'),
+        statsSubtitle: getValue('statsSubtitle'),
+        testimonialsTitle: getValue('testimonialsTitle'),
+        testimonialsSubtitle: getValue('testimonialsSubtitle')
       };
 
       await db.updateEditableSections(sections);
-      
-      // Mostrar mensaje temporal
-      const msgDiv = document.getElementById('message');
-      if (msgDiv) {
-        msgDiv.textContent = '✅ Títulos guardados correctamente';
-        msgDiv.className = 'p-4 rounded-lg bg-green-50 text-green-800 mb-6';
-        msgDiv.style.display = 'block';
-        setTimeout(() => {
-          msgDiv.style.display = 'none';
-        }, 3000);
-      }
-
-      console.log('✅ Títulos guardados');
+      showMessage('✅ Títulos guardados correctamente', true);
     } catch (error) {
-      console.error('❌ Error guardando títulos:', error);
-      
-      const msgDiv = document.getElementById('message');
-      if (msgDiv) {
-        msgDiv.textContent = '❌ Error al guardar títulos';
-        msgDiv.className = 'p-4 rounded-lg bg-red-50 text-red-800 mb-6';
-        msgDiv.style.display = 'block';
-      }
+      console.error('❌ Error:', error);
+      showMessage('❌ Error al guardar títulos', false);
     }
   };
 
   const handleSaveStats = async () => {
-    console.log('💾 Guardando estadísticas...');
-    
     try {
+      const getValue = (id: string) => {
+        const el = document.getElementById(id) as HTMLInputElement;
+        return el?.value || '0';
+      };
+
       const stats = {
-        amigurumiCount: parseInt((document.getElementById('amigurumiCount') as HTMLInputElement)?.value || '0'),
-        clientCount: parseInt((document.getElementById('clientCount') as HTMLInputElement)?.value || '0'),
-        rating: parseFloat((document.getElementById('rating') as HTMLInputElement)?.value || '0'),
-        yearsExperience: parseInt((document.getElementById('yearsExperience') as HTMLInputElement)?.value || '0')
+        amigurumiCount: parseInt(getValue('amigurumiCount')),
+        clientCount: parseInt(getValue('clientCount')),
+        rating: parseFloat(getValue('rating')),
+        yearsExperience: parseInt(getValue('yearsExperience'))
       };
 
       await db.updateSiteStats(stats);
-      
-      const msgDiv = document.getElementById('message');
-      if (msgDiv) {
-        msgDiv.textContent = '✅ Estadísticas guardadas correctamente';
-        msgDiv.className = 'p-4 rounded-lg bg-green-50 text-green-800 mb-6';
-        msgDiv.style.display = 'block';
-        setTimeout(() => {
-          msgDiv.style.display = 'none';
-        }, 3000);
-      }
-
-      console.log('✅ Estadísticas guardadas');
+      showMessage('✅ Estadísticas guardadas correctamente', true);
     } catch (error) {
-      console.error('❌ Error guardando estadísticas:', error);
-      
-      const msgDiv = document.getElementById('message');
-      if (msgDiv) {
-        msgDiv.textContent = '❌ Error al guardar estadísticas';
-        msgDiv.className = 'p-4 rounded-lg bg-red-50 text-red-800 mb-6';
-        msgDiv.style.display = 'block';
-      }
+      console.error('❌ Error:', error);
+      showMessage('❌ Error al guardar estadísticas', false);
     }
   };
 
