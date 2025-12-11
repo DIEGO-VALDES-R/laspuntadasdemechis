@@ -8,6 +8,8 @@ interface State {
 }
 
 export default class SiteContentEditor extends Component<{}, State> {
+  private intervalId: number | null = null;
+
   constructor(props: {}) {
     super(props);
     this.state = {
@@ -18,6 +20,28 @@ export default class SiteContentEditor extends Component<{}, State> {
 
   componentDidMount() {
     this.loadData();
+    this.startInputProtection();
+  }
+
+  componentWillUnmount() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
+  }
+
+  startInputProtection = () => {
+    // Proteger inputs continuamente cada 100ms
+    this.intervalId = window.setInterval(() => {
+      const inputs = document.querySelectorAll('#valuePropsTitle, #statsTitle, #statsSubtitle, #testimonialsTitle, #testimonialsSubtitle, #amigurumiCount, #clientCount, #rating, #yearsExperience');
+      
+      inputs.forEach((input: any) => {
+        if (!input.dataset.protected) {
+          const clone = input.cloneNode(true);
+          clone.dataset.protected = 'true';
+          input.parentNode?.replaceChild(clone, input);
+        }
+      });
+    }, 100);
   }
 
   loadData = async () => {
@@ -27,20 +51,32 @@ export default class SiteContentEditor extends Component<{}, State> {
         db.getSiteStats()
       ]);
 
-      if (sectionsData) {
-        (document.getElementById('valuePropsTitle') as HTMLInputElement).value = sectionsData.valuePropsTitle || sectionsData.value_props_title || '';
-        (document.getElementById('statsTitle') as HTMLInputElement).value = sectionsData.statsTitle || sectionsData.stats_title || '';
-        (document.getElementById('statsSubtitle') as HTMLInputElement).value = sectionsData.statsSubtitle || sectionsData.stats_subtitle || '';
-        (document.getElementById('testimonialsTitle') as HTMLInputElement).value = sectionsData.testimonialsTitle || sectionsData.testimonials_title || '';
-        (document.getElementById('testimonialsSubtitle') as HTMLInputElement).value = sectionsData.testimonialsSubtitle || sectionsData.testimonials_subtitle || '';
-      }
+      setTimeout(() => {
+        if (sectionsData) {
+          const setValue = (id: string, value: any) => {
+            const el = document.getElementById(id) as HTMLInputElement;
+            if (el) el.value = value || '';
+          };
+          
+          setValue('valuePropsTitle', sectionsData.valuePropsTitle || sectionsData.value_props_title);
+          setValue('statsTitle', sectionsData.statsTitle || sectionsData.stats_title);
+          setValue('statsSubtitle', sectionsData.statsSubtitle || sectionsData.stats_subtitle);
+          setValue('testimonialsTitle', sectionsData.testimonialsTitle || sectionsData.testimonials_title);
+          setValue('testimonialsSubtitle', sectionsData.testimonialsSubtitle || sectionsData.testimonials_subtitle);
+        }
 
-      if (statsData) {
-        (document.getElementById('amigurumiCount') as HTMLInputElement).value = String(statsData.amigurumiCount || statsData.amigurumi_count || 0);
-        (document.getElementById('clientCount') as HTMLInputElement).value = String(statsData.clientCount || statsData.client_count || 0);
-        (document.getElementById('rating') as HTMLInputElement).value = String(statsData.rating || 0);
-        (document.getElementById('yearsExperience') as HTMLInputElement).value = String(statsData.yearsExperience || statsData.years_experience || 0);
-      }
+        if (statsData) {
+          const setValue = (id: string, value: any) => {
+            const el = document.getElementById(id) as HTMLInputElement;
+            if (el) el.value = String(value || 0);
+          };
+          
+          setValue('amigurumiCount', statsData.amigurumiCount || statsData.amigurumi_count);
+          setValue('clientCount', statsData.clientCount || statsData.client_count);
+          setValue('rating', statsData.rating);
+          setValue('yearsExperience', statsData.yearsExperience || statsData.years_experience);
+        }
+      }, 200);
     } catch (error) {
       console.error('Error:', error);
     }
@@ -55,12 +91,14 @@ export default class SiteContentEditor extends Component<{}, State> {
 
   handleSaveTitles = async () => {
     try {
+      const getValue = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value || '';
+
       const sections = {
-        valuePropsTitle: (document.getElementById('valuePropsTitle') as HTMLInputElement).value,
-        statsTitle: (document.getElementById('statsTitle') as HTMLInputElement).value,
-        statsSubtitle: (document.getElementById('statsSubtitle') as HTMLInputElement).value,
-        testimonialsTitle: (document.getElementById('testimonialsTitle') as HTMLInputElement).value,
-        testimonialsSubtitle: (document.getElementById('testimonialsSubtitle') as HTMLInputElement).value
+        valuePropsTitle: getValue('valuePropsTitle'),
+        statsTitle: getValue('statsTitle'),
+        statsSubtitle: getValue('statsSubtitle'),
+        testimonialsTitle: getValue('testimonialsTitle'),
+        testimonialsSubtitle: getValue('testimonialsSubtitle')
       };
 
       await db.updateEditableSections(sections);
@@ -73,11 +111,13 @@ export default class SiteContentEditor extends Component<{}, State> {
 
   handleSaveStats = async () => {
     try {
+      const getValue = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value || '0';
+
       const stats = {
-        amigurumiCount: parseInt((document.getElementById('amigurumiCount') as HTMLInputElement).value || '0'),
-        clientCount: parseInt((document.getElementById('clientCount') as HTMLInputElement).value || '0'),
-        rating: parseFloat((document.getElementById('rating') as HTMLInputElement).value || '0'),
-        yearsExperience: parseInt((document.getElementById('yearsExperience') as HTMLInputElement).value || '0')
+        amigurumiCount: parseInt(getValue('amigurumiCount')),
+        clientCount: parseInt(getValue('clientCount')),
+        rating: parseFloat(getValue('rating')),
+        yearsExperience: parseInt(getValue('yearsExperience'))
       };
 
       await db.updateSiteStats(stats);
@@ -112,6 +152,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="valuePropsTitle"
                 type="text"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Ej: ¿Por Qué Elegirnos?"
               />
@@ -124,6 +165,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="statsTitle"
                 type="text"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Ej: Nuestro Impacto"
               />
@@ -136,6 +178,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="statsSubtitle"
                 type="text"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Ej: Números que hablan por nosotros"
               />
@@ -148,6 +191,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="testimonialsTitle"
                 type="text"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Ej: Lo Que Dicen Nuestros Clientes"
               />
@@ -160,6 +204,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="testimonialsSubtitle"
                 type="text"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Ej: Más de 450 clientes satisfechos"
               />
@@ -187,6 +232,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="amigurumiCount"
                 type="number"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
               />
@@ -199,6 +245,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="clientCount"
                 type="number"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
               />
@@ -211,6 +258,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="rating"
                 type="number"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="1"
                 max="5"
@@ -225,6 +273,7 @@ export default class SiteContentEditor extends Component<{}, State> {
               <input
                 id="yearsExperience"
                 type="number"
+                data-protected="false"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 min="0"
               />

@@ -10,8 +10,26 @@ import {
 } from 'lucide-react';
 import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
 
-// Agregamos 'site-content' al tipo Tab
-type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'site-content';
+// Agregamos 'site-content' y 'insumos-amigurumi' al tipo Tab
+type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'site-content' | 'insumos-amigurumi';
+
+// 🆕 INTERFACES PARA INSUMOS POR AMIGURUMI
+interface InsumoAmigurumi {
+  id: string;
+  tipo: string;
+  marca: string;
+  referencia: string;
+  color: string;
+  cantidad: string;
+  unidad: string;
+}
+
+interface AmigurumiRecord {
+  id: string;
+  nombre: string;
+  insumos: InsumoAmigurumi[];
+  fechaActualizacion: string;
+}
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -46,6 +64,22 @@ const AdminDashboard: React.FC = () => {
     testimonialsSubtitle: 'Más de 450 clientes satisfechos'
   });
 
+  // 🆕 ESTADOS PARA INSUMOS POR AMIGURUMI
+  const [amigurumiRecords, setAmigurumiRecords] = useState<AmigurumiRecord[]>([]);
+  const [loadingAmigurumis, setLoadingAmigurumis] = useState(false);
+  const [isAmigurumiModalOpen, setIsAmigurumiModalOpen] = useState(false);
+  const [editingAmigurumi, setEditingAmigurumi] = useState<AmigurumiRecord | null>(null);
+  const [currentInsumoAmigurumi, setCurrentInsumoAmigurumi] = useState<InsumoAmigurumi>({
+    id: '',
+    tipo: 'lana',
+    marca: '',
+    referencia: '',
+    color: '',
+    cantidad: '',
+    unidad: 'gramos'
+  });
+  const [searchAmigurumi, setSearchAmigurumi] = useState('');
+
   // Modal States
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -63,16 +97,16 @@ const AdminDashboard: React.FC = () => {
   const [isSupplyModalOpen, setIsSupplyModalOpen] = useState(false);
   const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
 
-// 🆕 INVENTORY STATES
-const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
-const [editingInventoryItem, setEditingInventoryItem] = useState<InventoryItem | null>(null);
-const [activeInventoryCategory, setActiveInventoryCategory] = useState<'sizes' | 'packaging' | 'accessories'>('sizes');
+  // 🆕 INVENTORY STATES
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  const [editingInventoryItem, setEditingInventoryItem] = useState<InventoryItem | null>(null);
+  const [activeInventoryCategory, setActiveInventoryCategory] = useState<'sizes' | 'packaging' | 'accessories'>('sizes');
 
-// ============================================
-// 1. AGREGAR ESTOS ESTADOS AL INICIO DEL COMPONENTE
-// ============================================
-const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
+  // ============================================
+  // 1. AGREGAR ESTOS ESTADOS AL INICIO DEL COMPONENTE
+  // ============================================
+  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [newOrderData, setNewOrderData] = useState({
     clientEmail: '',
     clientName: '', // NUEVO
@@ -114,6 +148,162 @@ const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
     }
   };
 
+  // 🆕 FUNCIONES PARA INSUMOS DE AMIGURUMI
+  const loadAmigurumiRecords = async (): Promise<AmigurumiRecord[]> => {
+    setLoadingAmigurumis(true);
+    try {
+      const result = await window.storage.list('amigurumi:');
+      if (result && result.keys) {
+        const records = await Promise.all(
+          result.keys.map(async (key) => {
+            try {
+              const data = await window.storage.get(key);
+              return data ? JSON.parse(data.value) : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        setLoadingAmigurumis(false);
+        return records.filter(Boolean) as AmigurumiRecord[];
+      }
+      setLoadingAmigurumis(false);
+      return [];
+    } catch (error) {
+      console.log('No hay amigurumis guardados');
+      setLoadingAmigurumis(false);
+      return [];
+    }
+  };
+
+  const saveAmigurumiRecord = async (data: AmigurumiRecord) => {
+    try {
+      const key = `amigurumi:${data.id}`;
+      await window.storage.set(key, JSON.stringify(data));
+      await loadData();
+      alert('✅ Registro guardado correctamente');
+    } catch (error) {
+      console.error('Error al guardar amigurumi:', error);
+      alert('❌ Error al guardar el registro: ' + (error as Error).message);
+    }
+  };
+
+  const handleDeleteAmigurumiRecord = async (id: string) => {
+    if (!confirm('¿Eliminar este registro de amigurumi?')) return;
+    try {
+      await window.storage.delete(`amigurumi:${id}`);
+      await loadData();
+    } catch (error) {
+      console.error('Error al eliminar:', error);
+    }
+  };
+
+  const handleAddInsumoToAmigurumi = () => {
+    if (!editingAmigurumi) return;
+    if (!currentInsumoAmigurumi.marca || !currentInsumoAmigurumi.color) {
+      alert('Completa marca y color');
+      return;
+    }
+
+    // Validar que la cantidad sea un número válido si se proporciona
+    if (currentInsumoAmigurumi.cantidad && isNaN(Number(currentInsumoAmigurumi.cantidad))) {
+      alert('La cantidad debe ser un número válido');
+      return;
+    }
+    setEditingAmigurumi({
+      ...editingAmigurumi,
+      insumos: [
+        ...editingAmigurumi.insumos,
+        { ...currentInsumoAmigurumi, id: Date.now().toString() }
+      ]
+    });
+    setCurrentInsumoAmigurumi({
+      id: '',
+      tipo: 'lana',
+      marca: '',
+      referencia: '',
+      color: '',
+      cantidad: '',
+      unidad: 'gramos'
+    });
+  };
+
+  const handleRemoveInsumoFromAmigurumi = (id: string) => {
+    if (!editingAmigurumi) return;
+    setEditingAmigurumi({
+      ...editingAmigurumi,
+      insumos: editingAmigurumi.insumos.filter(i => i.id !== id)
+    });
+  };
+
+  // 🆕 FUNCIÓN PARA BUSCAR INSUMO EN STOCK
+  const handleReferenciaChange = (referencia: string) => {
+    const insumoEnStock = supplies.find(
+      s => s.reference.toLowerCase() === referencia.toLowerCase()
+    );
+
+    if (insumoEnStock) {
+      setCurrentInsumoAmigurumi({
+        ...currentInsumoAmigurumi,
+        referencia: referencia,
+        marca: insumoEnStock.name,
+        color: insumoEnStock.color
+      });
+    } else {
+      setCurrentInsumoAmigurumi({
+        ...currentInsumoAmigurumi,
+        referencia: referencia
+      });
+    }
+  };
+
+  const checkInsumoStock = (insumo: InsumoAmigurumi): { enStock: boolean; stockBajo: boolean; supply?: Supply } => {
+    const supply = supplies.find(
+      s => s.reference.toLowerCase() === insumo.referencia.toLowerCase() &&
+           s.color.toLowerCase() === insumo.color.toLowerCase()
+    );
+    
+    if (supply) {
+      return {
+        enStock: true,
+        stockBajo: supply.quantity <= supply.lowStockThreshold,
+        supply
+      };
+    }
+    
+    return { enStock: false, stockBajo: false };
+  };
+
+  const handleSaveAmigurumiRecord = async () => {
+    if (!editingAmigurumi) return;
+    if (!editingAmigurumi.nombre) {
+      alert('Ingresa el nombre del amigurumi');
+      return;
+    }
+    if (editingAmigurumi.insumos.length === 0) {
+      alert('Agrega al menos un insumo');
+      return;
+    }
+    const data: AmigurumiRecord = {
+      ...editingAmigurumi,
+      id: editingAmigurumi.id || Date.now().toString(),
+      fechaActualizacion: new Date().toISOString()
+    };
+    await saveAmigurumiRecord(data);
+    setIsAmigurumiModalOpen(false);
+    setEditingAmigurumi(null);
+  };
+
+  const openNewAmigurumiRecord = () => {
+    setEditingAmigurumi({
+      id: '',
+      nombre: '',
+      insumos: [],
+      fechaActualizacion: new Date().toISOString()
+    });
+    setIsAmigurumiModalOpen(true);
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -129,7 +319,6 @@ const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
         postsData, 
         challengesData, 
         referralsData,
-        // 🆕 AGREGAR ESTAS DOS LÍNEAS:
         statsData,
         sectionsData
       ] = await Promise.all([
@@ -144,7 +333,6 @@ const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
         db.getPosts(),
         db.getChallenges(),
         db.getAllReferrals(),
-        // 🆕 AGREGAR ESTAS DOS LÍNEAS:
         db.getSiteStats(),
         db.getEditableSections()
       ]);
@@ -160,9 +348,13 @@ const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
       setPosts(postsData);
       setChallenges(challengesData);
       setReferrals(referralsData);
-      // 🆕 AGREGAR ESTAS DOS LÍNEAS:
       setSiteStats(statsData);
       setEditableSections(sectionsData);
+      
+      // Cargar datos de amigurumi por separado
+      const amigurumiData = await loadAmigurumiRecords();
+      setAmigurumiRecords(amigurumiData);
+      
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -180,106 +372,103 @@ const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
     loadData();
   }, [navigate]);
 
-
-
   // ORDER HANDLERS
-// REEMPLAZA la función handleOpenOrder existente con esta:
-const handleOpenOrder = async (order: Order) => {
-  console.log('🔍 Abriendo pedido #', order.numero_seguimiento);
-  console.log('📸 final_image_url en el pedido:', order.final_image_url);
-  console.log('📦 Objeto completo:', order);
-  
-  setSelectedOrder(order);
-  setStatusUpdate(order.estado);
-  setTrackingGuide(order.guia_transportadora || '');
-  
-  // Limpiar estados de imagen final
-  setFinalImageFile(null);
-  setFinalImagePreview('');
-
-  // Buscar información del cliente usando el email del pedido
-  try {
-    const clientInfo = await db.getClientByEmail(order.clientEmail);
-    setOrderClient(clientInfo);
-  } catch (error) {
-    console.error('Error al cargar información del cliente:', error);
-    setOrderClient(null);
-  }
-
-  setIsOrderModalOpen(true);
-};
-
-const handleFinalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  // Crear preview
-  const reader = new FileReader();
-  reader.onloadend = () => {
-    setFinalImagePreview(reader.result as string);
-  };
-  reader.readAsDataURL(file);
-  setFinalImageFile(file);
-};
-
-const handleUploadFinalImage = async () => {
-  if (!finalImageFile || !selectedOrder) return;
-
-  setUploadingFinalImage(true);
-  try {
-    console.log('📤 Subiendo imagen final para pedido:', selectedOrder.id);
-    const imageUrl = await uploadImage(finalImageFile, 'orders');
-    console.log('✅ Imagen subida a Storage:', imageUrl);
+  const handleOpenOrder = async (order: Order) => {
+    console.log('🔍 Abriendo pedido #', order.numero_seguimiento);
+    console.log('📸 final_image_url en el pedido:', order.final_image_url);
+    console.log('📦 Objeto completo:', order);
     
-    if (imageUrl) {
-      // Actualizar el pedido con la URL de la imagen final
-      console.log('💾 Actualizando pedido en BD...');
-      await db.updateOrder(selectedOrder.id, {
-        final_image_url: imageUrl
-      });
-      console.log('✅ Pedido actualizado en BD');
+    setSelectedOrder(order);
+    setStatusUpdate(order.estado);
+    setTrackingGuide(order.guia_transportadora || '');
+    
+    // Limpiar estados de imagen final
+    setFinalImageFile(null);
+    setFinalImagePreview('');
 
-      alert('✅ Imagen final subida correctamente');
-      setFinalImageFile(null);
-      setFinalImagePreview('');
-      
-      // Actualizar el pedido seleccionado para mostrar la nueva imagen
-      setSelectedOrder({...selectedOrder, final_image_url: imageUrl});
-      console.log('✅ Estado local actualizado');
-      
-      await loadData();
-      console.log('✅ Datos recargados');
+    // Buscar información del cliente usando el email del pedido
+    try {
+      const clientInfo = await db.getClientByEmail(order.clientEmail);
+      setOrderClient(clientInfo);
+    } catch (error) {
+      console.error('Error al cargar información del cliente:', error);
+      setOrderClient(null);
     }
-  } catch (error) {
-    console.error('❌ Error uploading final image:', error);
-    alert('Error al subir la imagen final');
-  } finally {
-    setUploadingFinalImage(false);
-  }
-};
 
-const handleDeleteFinalImage = async () => {
-  if (!selectedOrder?.final_image_url) return;
-  
-  if (!window.confirm('¿Eliminar la imagen final del amigurumi?')) return;
+    setIsOrderModalOpen(true);
+  };
 
-  try {
-    // Eliminar de Supabase Storage
-    await deleteImage(selectedOrder.final_image_url);
+  const handleFinalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Crear preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFinalImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    setFinalImageFile(file);
+  };
+
+  const handleUploadFinalImage = async () => {
+    if (!finalImageFile || !selectedOrder) return;
+
+    setUploadingFinalImage(true);
+    try {
+      console.log('📤 Subiendo imagen final para pedido:', selectedOrder.id);
+      const imageUrl = await uploadImage(finalImageFile, 'orders');
+      console.log('✅ Imagen subida a Storage:', imageUrl);
+      
+      if (imageUrl) {
+        // Actualizar el pedido con la URL de la imagen final
+        console.log('💾 Actualizando pedido en BD...');
+        await db.updateOrder(selectedOrder.id, {
+          final_image_url: imageUrl
+        });
+        console.log('✅ Pedido actualizado en BD');
+
+        alert('✅ Imagen final subida correctamente');
+        setFinalImageFile(null);
+        setFinalImagePreview('');
+        
+        // Actualizar el pedido seleccionado para mostrar la nueva imagen
+        setSelectedOrder({...selectedOrder, final_image_url: imageUrl});
+        console.log('✅ Estado local actualizado');
+        
+        await loadData();
+        console.log('✅ Datos recargados');
+      }
+    } catch (error) {
+      console.error('❌ Error uploading final image:', error);
+      alert('Error al subir la imagen final');
+    } finally {
+      setUploadingFinalImage(false);
+    }
+  };
+
+  const handleDeleteFinalImage = async () => {
+    if (!selectedOrder?.final_image_url) return;
     
-    // Actualizar en la base de datos
-    await db.updateOrder(selectedOrder.id, {
-      final_image_url: null
-    });
+    if (!window.confirm('¿Eliminar la imagen final del amigurumi?')) return;
 
-    alert('✅ Imagen final eliminada');
-    setSelectedOrder({...selectedOrder, final_image_url: undefined});
-    loadData();
-  } catch (error) {
-    console.error('Error deleting final image:', error);
-    alert('Error al eliminar la imagen');
-  }
-};
+    try {
+      // Eliminar de Supabase Storage
+      await deleteImage(selectedOrder.final_image_url);
+      
+      // Actualizar en la base de datos
+      await db.updateOrder(selectedOrder.id, {
+        final_image_url: null
+      });
+
+      alert('✅ Imagen final eliminada');
+      setSelectedOrder({...selectedOrder, final_image_url: undefined});
+      loadData();
+    } catch (error) {
+      console.error('Error deleting final image:', error);
+      alert('Error al eliminar la imagen');
+    }
+  };
 
   const handleVerifyPayment = async () => {
     if (!selectedOrder) return;
@@ -333,115 +522,115 @@ const handleDeleteFinalImage = async () => {
   };
 
   // INVENTORY HANDLERS
-const openNewInventoryItem = () => {
-  setEditingInventoryItem({
-    id: `inv-${Date.now()}`,
-    category: activeInventoryCategory,
-    label: '',
-    price: 0
-  });
-  setIsInventoryModalOpen(true);
-};
+  const openNewInventoryItem = () => {
+    setEditingInventoryItem({
+      id: `inv-${Date.now()}`,
+      category: activeInventoryCategory,
+      label: '',
+      price: 0
+    });
+    setIsInventoryModalOpen(true);
+  };
 
-const handleSaveInventoryItem = async (e: React.MouseEvent) => {
-  e.preventDefault();
-  if (!editingInventoryItem || !editingInventoryItem.label || editingInventoryItem.price <= 0) {
-    alert('Completa todos los campos');
-    return;
-  }
-
-  try {
-    const exists = inventoryItems.some(i => i.id === editingInventoryItem.id);
-    if (exists) {
-      await db.updateInventoryItem(editingInventoryItem);
-    } else {
-      await db.addInventoryItem(editingInventoryItem);
+  const handleSaveInventoryItem = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!editingInventoryItem || !editingInventoryItem.label || editingInventoryItem.price <= 0) {
+      alert('Completa todos los campos');
+      return;
     }
-    setIsInventoryModalOpen(false);
-    setEditingInventoryItem(null);
+
+    try {
+      const exists = inventoryItems.some(i => i.id === editingInventoryItem.id);
+      if (exists) {
+        await db.updateInventoryItem(editingInventoryItem);
+      } else {
+        await db.addInventoryItem(editingInventoryItem);
+      }
+      setIsInventoryModalOpen(false);
+      setEditingInventoryItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error saving inventory item:', error);
+      alert('Error al guardar');
+    }
+  };
+
+  const handleDeleteInventoryItem = async (id: string) => {
+    if (!confirm('¿Eliminar este item del inventario?')) return;
+    await db.deleteInventoryItem(id);
     loadData();
-  } catch (error) {
-    console.error('Error saving inventory item:', error);
-    alert('Error al guardar');
-  }
-};
+  };
 
-const handleDeleteInventoryItem = async (id: string) => {
-  if (!confirm('¿Eliminar este item del inventario?')) return;
-  await db.deleteInventoryItem(id);
-  loadData();
-};
-
-// ============================================
-// 2. MODIFICAR LA FUNCIÓN handleCreateOrder
-// ============================================
-const handleCreateOrder = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!newOrderData.clientEmail || !newOrderData.nombre_producto || newOrderData.total_final <= 0) {
-    alert("Completa los campos obligatorios");
-    return;
-  }
-
-  try {
-    // 🆕 VERIFICAR SI EL CLIENTE EXISTE
-    console.log('🔍 Verificando si el cliente existe:', newOrderData.clientEmail);
-    let clientExists = await db.getClientByEmail(newOrderData.clientEmail);
-    
-    // 🆕 SI NO EXISTE, CREARLO AUTOMÁTICAMENTE
-    if (!clientExists) {
-      console.log('📝 Cliente no existe, creando automáticamente...');
-      
-      await db.registerClient({
-        nombre_completo: newOrderData.clientName || 'Cliente Manual',
-        email: newOrderData.clientEmail,
-        telefono: newOrderData.clientPhone || '',
-        cedula: '',
-        direccion: '',
-        password: `temp${Date.now()}` // Password temporal para clientes manuales
-      });
-      
-      console.log('✅ Cliente creado exitosamente');
-      
-      // Esperar un momento para que se registre en la BD
-      await new Promise(resolve => setTimeout(resolve, 500));
-    } else {
-      console.log('✅ Cliente ya existe en la base de datos');
+  // ============================================
+  // 2. MODIFICAR LA FUNCIÓN handleCreateOrder
+  // ============================================
+  const handleCreateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrderData.clientEmail || !newOrderData.nombre_producto || newOrderData.total_final <= 0) {
+      alert("Completa los campos obligatorios");
+      return;
     }
 
-    // CREAR EL PEDIDO
-    const saldo = newOrderData.total_final - newOrderData.monto_pagado;
-    const newOrder = {
-      numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
-      clientEmail: newOrderData.clientEmail,
-      nombre_producto: newOrderData.nombre_producto,
-      descripcion: newOrderData.descripcion || 'Pedido creado manualmente',
-      estado: (saldo === 0 ? 'Agendado' : 'En espera de agendar') as any,
-      fecha_solicitud: new Date().toISOString().split('T')[0],
-      total_final: newOrderData.total_final,
-      monto_pagado: newOrderData.monto_pagado,
-      saldo_pendiente: saldo,
-      imagen_url: 'https://placehold.co/400x400/e8e8e8/666666?text=Pedido+Manual',
-      desglose: { precio_base: newOrderData.total_final, empaque: 0, accesorios: 0, descuento: 0 }
-    };
+    try {
+      // 🆕 VERIFICAR SI EL CLIENTE EXISTE
+      console.log('🔍 Verificando si el cliente existe:', newOrderData.clientEmail);
+      let clientExists = await db.getClientByEmail(newOrderData.clientEmail);
+      
+      // 🆕 SI NO EXISTE, CREARLO AUTOMÁTICAMENTE
+      if (!clientExists) {
+        console.log('📝 Cliente no existe, creando automáticamente...');
+        
+        await db.registerClient({
+          nombre_completo: newOrderData.clientName || 'Cliente Manual',
+          email: newOrderData.clientEmail,
+          telefono: newOrderData.clientPhone || '',
+          cedula: '',
+          direccion: '',
+          password: `temp${Date.now()}` // Password temporal para clientes manuales
+        });
+        
+        console.log('✅ Cliente creado exitosamente');
+        
+        // Esperar un momento para que se registre en la BD
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        console.log('✅ Cliente ya existe en la base de datos');
+      }
 
-    console.log('💾 Guardando pedido:', newOrder.numero_seguimiento);
-    await db.addOrder(newOrder as any);
-    console.log('✅ Pedido guardado exitosamente');
-    
-    // Guardar el número de orden y mostrar opciones de notificación
-    setCreatedOrderNumber(newOrder.numero_seguimiento);
-    setShowNotificationOptions(true);
-    
-    // Recargar datos
-    await loadData();
-    
-    alert('✅ Pedido creado exitosamente');
-    
-  } catch (error) {
-    console.error('❌ Error al crear pedido:', error);
-    alert(`Error al crear el pedido: ${(error as Error).message}`);
-  }
-};
+      // CREAR EL PEDIDO
+      const saldo = newOrderData.total_final - newOrderData.monto_pagado;
+      const newOrder = {
+        numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
+        clientEmail: newOrderData.clientEmail,
+        nombre_producto: newOrderData.nombre_producto,
+        descripcion: newOrderData.descripcion || 'Pedido creado manualmente',
+        estado: (saldo === 0 ? 'Agendado' : 'En espera de agendar') as any,
+        fecha_solicitud: new Date().toISOString().split('T')[0],
+        total_final: newOrderData.total_final,
+        monto_pagado: newOrderData.monto_pagado,
+        saldo_pendiente: saldo,
+        imagen_url: 'https://placehold.co/400x400/e8e8e8/666666?text=Pedido+Manual',
+        desglose: { precio_base: newOrderData.total_final, empaque: 0, accesorios: 0, descuento: 0 }
+      };
+
+      console.log('💾 Guardando pedido:', newOrder.numero_seguimiento);
+      await db.addOrder(newOrder as any);
+      console.log('✅ Pedido guardado exitosamente');
+      
+      // Guardar el número de orden y mostrar opciones de notificación
+      setCreatedOrderNumber(newOrder.numero_seguimiento);
+      setShowNotificationOptions(true);
+      
+      // Recargar datos
+      await loadData();
+      
+      alert('✅ Pedido creado exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error al crear pedido:', error);
+      alert(`Error al crear el pedido: ${(error as Error).message}`);
+    }
+  };
 
   // ============================================
   // 3. AGREGAR FUNCIONES PARA ENVIAR MENSAJES
@@ -714,79 +903,243 @@ Puntadas de Mechis
     setIsChallengeModalOpen(true);
   };
 
-   // Función para manejar la subida de archivos para supplies
-const handleSupplyImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !editingSupply) return;
+  // Función para manejar la subida de archivos para supplies
+  const handleSupplyImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingSupply) return;
 
-  setUploadingImage(true);
-  
-  try {
-    const imageUrl = await uploadImage(file, 'supplies');
+    setUploadingImage(true);
     
-    if (imageUrl) {
-      setEditingSupply({ ...editingSupply, imageUrl });
-      alert('Imagen cargada exitosamente');
+    try {
+      const imageUrl = await uploadImage(file, 'supplies');
+      
+      if (imageUrl) {
+        setEditingSupply({ ...editingSupply, imageUrl });
+        alert('Imagen cargada exitosamente');
+      }
+    } catch (error) {
+      console.error('Error uploading:', error);
+      alert('Error al cargar la imagen');
+    } finally {
+      setUploadingImage(false);
     }
-  } catch (error) {
-    console.error('Error uploading:', error);
-    alert('Error al cargar la imagen');
-  } finally {
-    setUploadingImage(false);
-  }
-};
+  };
 
-// Actualizar handleDeleteSupply para eliminar también la imagen
-const handleDeleteSupply = async (id: string) => {
-  if (!confirm('¿Eliminar este insumo?')) return;
-  
-  const supply = supplies.find(s => s.id === id);
-  
-  // Eliminar imagen del storage si existe
-  if (supply?.imageUrl && supply.imageUrl.includes('supplies-images')) {
-    await deleteImage(supply.imageUrl);
-  }
-  
-  await db.deleteSupply(id);
-  loadData();
-};
-
-// Agrega estas funciones después de las funciones existentes
-const handleUpdateReferralStatus = async (referralId: string, status: string) => {
-  try {
-    await db.updateReferral(referralId, { status });
-    alert('Estado del referido actualizado');
+  // Actualizar handleDeleteSupply para eliminar también la imagen
+  const handleDeleteSupply = async (id: string) => {
+    if (!confirm('¿Eliminar este insumo?')) return;
+    
+    const supply = supplies.find(s => s.id === id);
+    
+    // Eliminar imagen del storage si existe
+    if (supply?.imageUrl && supply.imageUrl.includes('supplies-images')) {
+      await deleteImage(supply.imageUrl);
+    }
+    
+    await db.deleteSupply(id);
     loadData();
-  } catch (error) {
-    console.error('Error al actualizar estado del referido:', error);
-    alert('Error al actualizar estado del referido');
-  }
-};
+  };
 
-const handleAddReferral = async () => {
-  // Aquí puedes agregar un modal para agregar un nuevo referido
-  // Por ahora, solo mostramos un mensaje
-  const email = prompt('Ingrese el email del referido:');
-  if (!email) return;
-  
-  const referrerId = prompt('Ingrese el ID del referente:');
-  if (!referrerId) return;
-  
-  try {
-    await db.addReferral({
-      email,
-      referrerId,
-      status: 'pending',
-      discount: config.descuento_referido,
-      created_at: new Date().toISOString()
-    });
-    alert('Referido agregado correctamente');
-    loadData();
-  } catch (error) {
-    console.error('Error al agregar referido:', error);
-    alert('Error al agregar referido');
-  }
-};
+  // Agrega estas funciones después de las funciones existentes
+  const handleUpdateReferralStatus = async (referralId: string, status: string) => {
+    try {
+      await db.updateReferral(referralId, { status });
+      alert('Estado del referido actualizado');
+      loadData();
+    } catch (error) {
+      console.error('Error al actualizar estado del referido:', error);
+      alert('Error al actualizar estado del referido');
+    }
+  };
+
+  const handleAddReferral = async () => {
+    // Aquí puedes agregar un modal para agregar un nuevo referido
+    // Por ahora, solo mostramos un mensaje
+    const email = prompt('Ingrese el email del referido:');
+    if (!email) return;
+    
+    const referrerId = prompt('Ingrese el ID del referente:');
+    if (!referrerId) return;
+    
+    try {
+      await db.addReferral({
+        email,
+        referrerId,
+        status: 'pending',
+        discount: config.descuento_referido,
+        created_at: new Date().toISOString()
+      });
+      alert('Referido agregado correctamente');
+      loadData();
+    } catch (error) {
+      console.error('Error al agregar referido:', error);
+      alert('Error al agregar referido');
+    }
+  };
+
+  // 🆕 VISTA DE INSUMOS POR AMIGURUMI
+  const InsumosAmigurumiView = () => {
+    const filteredAmigurumis = amigurumiRecords.filter(a =>
+      a.nombre.toLowerCase().includes(searchAmigurumi.toLowerCase()) ||
+      a.insumos.some(i => 
+        i.marca.toLowerCase().includes(searchAmigurumi.toLowerCase()) ||
+        i.color.toLowerCase().includes(searchAmigurumi.toLowerCase())
+      )
+    );
+
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <Package className="text-purple-600"/> Insumos por Amigurumi
+          </h2>
+          <button 
+            onClick={openNewAmigurumiRecord}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
+          >
+            <Plus size={18}/> Nuevo Amigurumi
+          </button>
+        </div>
+
+        <div className="flex items-center gap-4 mb-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              value={searchAmigurumi}
+              onChange={(e) => setSearchAmigurumi(e.target.value)}
+              placeholder="Buscar amigurumi..."
+              className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 w-full"
+            />
+          </div>
+        </div>
+
+        {/* INDICADOR DE CARGA */}
+        {loadingAmigurumis && (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          </div>
+        )}
+
+        {!loadingAmigurumis && filteredAmigurumis.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+            <Package size={48} className="mx-auto text-gray-300 mb-4"/>
+            <p className="text-gray-500">
+              {searchAmigurumi ? 'No se encontraron amigurumis' : 'No hay amigurumis registrados'}
+            </p>
+          </div>
+        ) : (
+          !loadingAmigurumis && (
+            <div className="grid grid-cols-1 gap-4">
+              {filteredAmigurumis.map((amigurumi) => (
+                <div
+                  key={amigurumi.id}
+                  className="bg-white border-2 border-gray-200 rounded-xl p-5 hover:border-purple-300 transition-colors shadow-sm"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-purple-800">
+                        {amigurumi.nombre}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Actualizado: {new Date(amigurumi.fechaActualizacion).toLocaleDateString('es-CO')}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingAmigurumi(amigurumi);
+                          setIsAmigurumiModalOpen(true);
+                        }}
+                        className="bg-blue-100 text-blue-700 p-2 rounded-lg hover:bg-blue-200"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAmigurumiRecord(amigurumi.id)}
+                        className="bg-red-100 text-red-700 p-2 rounded-lg hover:bg-red-200"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-700 mb-3 text-sm flex items-center gap-2">
+                      <Package size={16}/> Lista de Insumos ({amigurumi.insumos.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {amigurumi.insumos.map((insumo) => {
+                        const stockInfo = checkInsumoStock(insumo);
+                        return (
+                          <div 
+                            key={insumo.id} 
+                            className={`rounded-lg p-3 border-2 ${
+                              stockInfo.enStock 
+                                ? stockInfo.stockBajo 
+                                  ? 'border-yellow-300 bg-yellow-50' 
+                                  : 'border-green-300 bg-green-50'
+                                : 'border-red-300 bg-red-50'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded shrink-0">
+                                {insumo.tipo}
+                              </span>
+                              <div className="text-sm flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-semibold text-gray-800">{insumo.marca}</span>
+                                  {stockInfo.enStock ? (
+                                    stockInfo.stockBajo ? (
+                                      <span className="text-xs bg-yellow-200 text-yellow-700 px-2 py-0.5 rounded font-medium">
+                                        ⚠️ Stock Bajo
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs bg-green-200 text-green-700 px-2 py-0.5 rounded font-medium">
+                                        ✅ Disponible
+                                      </span>
+                                    )
+                                  ) : (
+                                    <span className="text-xs bg-red-200 text-red-700 px-2 py-0.5 rounded font-medium">
+                                      ❌ Sin Stock
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-600">
+                                  <div>
+                                    <span className="font-medium">Color:</span> {insumo.color}
+                                  </div>
+                                  {insumo.referencia && (
+                                    <div>
+                                      <span className="font-medium">Ref:</span> {insumo.referencia}
+                                    </div>
+                                  )}
+                                  {insumo.cantidad && (
+                                    <div>
+                                      <span className="font-medium">Cantidad:</span> {insumo.cantidad} {insumo.unidad}
+                                    </div>
+                                  )}
+                                  {stockInfo.enStock && stockInfo.supply && (
+                                    <div className="col-span-2 text-xs text-gray-500 mt-1">
+                                      📦 Stock disponible: {stockInfo.supply.quantity} {insumo.unidad}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+    );
+  };
 
   // VIEWS
   const DashboardView = () => (
@@ -876,34 +1229,34 @@ const handleAddReferral = async () => {
   );
 
   const SuppliesView = () => (
-  <div className="space-y-6 animate-fade-in">
-    <div className="flex justify-between items-center">
-      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-        <Box className="text-amber-600"/> Insumos / Materia Prima
-      </h2>
-      <button onClick={openNewSupply} className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-amber-700">
-        <Plus size={18}/> Nuevo Insumo
-      </button>
-    </div>
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 text-gray-600">
-          <tr>
-            <th className="p-4">Imagen</th>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <Box className="text-amber-600"/> Insumos / Materia Prima
+        </h2>
+        <button onClick={openNewSupply} className="bg-amber-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-amber-700">
+          <Plus size={18}/> Nuevo Insumo
+        </button>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr>
+              <th className="p-4">Imagen</th>
               <th className="p-4">Producto</th>
-            <th className="p-4">Ref. / Detalles</th>
-            <th className="p-4 text-center">Cantidad</th>
-            <th className="p-4 text-right">Valor Unit.</th>
-            <th className="p-4 text-right">Valor Total</th>
-            <th className="p-4 text-center">Acciones</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {supplies.map(sup => {
-            const totalValue = sup.unitValue * sup.quantity;
-            const isLowStock = sup.quantity <= sup.lowStockThreshold;
-            return (
-              <tr key={sup.id} className={`hover:bg-gray-50 ${isLowStock ? 'bg-red-50' : ''}`}>
+              <th className="p-4">Ref. / Detalles</th>
+              <th className="p-4 text-center">Cantidad</th>
+              <th className="p-4 text-right">Valor Unit.</th>
+              <th className="p-4 text-right">Valor Total</th>
+              <th className="p-4 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {supplies.map(sup => {
+              const totalValue = sup.unitValue * sup.quantity;
+              const isLowStock = sup.quantity <= sup.lowStockThreshold;
+              return (
+                <tr key={sup.id} className={`hover:bg-gray-50 ${isLowStock ? 'bg-red-50' : ''}`}>
                   <td className="p-4">
                     {sup.imageUrl ? (
                       <img
@@ -923,129 +1276,130 @@ const handleAddReferral = async () => {
                   <td className="p-4">
                     <span className="font-bold text-gray-800">{sup.name}</span>
                   </td>
-                <td className="p-4">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-gray-500 uppercase">{sup.reference}</span>
-                    <span className="text-xs text-gray-600">Color: {sup.color}</span>
-                    <span className="text-xs text-gray-600">Num: {sup.number}</span>
-                  </div>
-                </td>
-                <td className="p-4 text-center">
-                  <span className={`font-bold ${isLowStock ? 'text-red-600' : 'text-gray-800'}`}>{sup.quantity}</span>
-                </td>
-                <td className="p-4 text-right text-gray-600">${sup.unitValue.toLocaleString()}</td>
-                <td className="p-4 text-right font-bold text-gray-800">${totalValue.toLocaleString()}</td>
-                <td className="p-4 text-center flex justify-center gap-2">
-                  <button onClick={() => { setEditingSupply(sup); setIsSupplyModalOpen(true); }} className="text-blue-500 p-1 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
-                  <button onClick={() => handleDeleteSupply(sup.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  <td className="p-4">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-gray-500 uppercase">{sup.reference}</span>
+                      <span className="text-xs text-gray-600">Color: {sup.color}</span>
+                      <span className="text-xs text-gray-600">Num: {sup.number}</span>
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className={`font-bold ${isLowStock ? 'text-red-600' : 'text-gray-800'}`}>{sup.quantity}</span>
+                  </td>
+                  <td className="p-4 text-right text-gray-600">${sup.unitValue.toLocaleString()}</td>
+                  <td className="p-4 text-right font-bold text-gray-800">${totalValue.toLocaleString()}</td>
+                  <td className="p-4 text-center flex justify-center gap-2">
+                    <button onClick={() => { setEditingSupply(sup); setIsSupplyModalOpen(true); }} className="text-blue-500 p-1 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
+                    <button onClick={() => handleDeleteSupply(sup.id)} className="text-red-500 p-1 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
+  );
 
-const InventoryView = () => (
-  <div className="space-y-6 animate-fade-in">
-    <div className="flex justify-between items-center">
-      <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-        <Package className="text-purple-600"/> Inventario de Productos
-      </h2>
-      <button 
-        onClick={openNewInventoryItem} 
-        className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
-      >
-        <Plus size={18}/> Agregar Item
-      </button>
-    </div>
+  const InventoryView = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <Package className="text-purple-600"/> Inventario de Productos
+        </h2>
+        <button 
+          onClick={openNewInventoryItem} 
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
+        >
+          <Plus size={18}/> Agregar Item
+        </button>
+      </div>
 
-    {/* Pestañas de categorías */}
-    <div className="flex gap-2 border-b">
-      <button
-        onClick={() => setActiveInventoryCategory('sizes')}
-        className={`px-4 py-2 font-medium transition-colors ${
-          activeInventoryCategory === 'sizes'
-            ? 'border-b-2 border-purple-600 text-purple-600'
-            : 'text-gray-600 hover:text-gray-800'
-        }`}
-      >
-        📏 Tamaños
-      </button>
-      <button
-        onClick={() => setActiveInventoryCategory('packaging')}
-        className={`px-4 py-2 font-medium transition-colors ${
-          activeInventoryCategory === 'packaging'
-            ? 'border-b-2 border-purple-600 text-purple-600'
-            : 'text-gray-600 hover:text-gray-800'
-        }`}
-      >
-        📦 Empaques
-      </button>
-      <button
-        onClick={() => setActiveInventoryCategory('accessories')}
-        className={`px-4 py-2 font-medium transition-colors ${
-          activeInventoryCategory === 'accessories'
-            ? 'border-b-2 border-purple-600 text-purple-600'
-            : 'text-gray-600 hover:text-gray-800'
-        }`}
-      >
-        ✨ Accesorios
-      </button>
-    </div>
+      {/* Pestañas de categorías */}
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => setActiveInventoryCategory('sizes')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeInventoryCategory === 'sizes'
+              ? 'border-b-2 border-purple-600 text-purple-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          📏 Tamaños
+        </button>
+        <button
+          onClick={() => setActiveInventoryCategory('packaging')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeInventoryCategory === 'packaging'
+              ? 'border-b-2 border-purple-600 text-purple-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          📦 Empaques
+        </button>
+        <button
+          onClick={() => setActiveInventoryCategory('accessories')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeInventoryCategory === 'accessories'
+              ? 'border-b-2 border-purple-600 text-purple-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          ✨ Accesorios
+        </button>
+      </div>
 
-    {/* Tabla de items */}
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 text-gray-600">
-          <tr>
-            <th className="p-4">Nombre</th>
-            <th className="p-4 text-right">Precio</th>
-            <th className="p-4 text-right">Acciones</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {inventoryItems
-            .filter(item => item.category === activeInventoryCategory)
-            .map(item => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="p-4 font-medium">{item.label}</td>
-                <td className="p-4 text-right font-bold text-gray-800">
-                  ${item.price.toLocaleString()}
-                </td>
-                <td className="p-4 text-right flex justify-end gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingInventoryItem(item);
-                      setIsInventoryModalOpen(true);
-                    }}
-                    className="text-blue-600 hover:bg-blue-50 p-2 rounded"
-                  >
-                    <Edit2 size={16}/>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteInventoryItem(item.id)}
-                    className="text-red-600 hover:bg-red-50 p-2 rounded"
-                  >
-                    <Trash2 size={16}/>
-                  </button>
-                </td>
-              </tr>
-            ))}
-          {inventoryItems.filter(item => item.category === activeInventoryCategory).length === 0 && (
+      {/* Tabla de items */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50 text-gray-600">
             <tr>
-              <td colSpan={3} className="p-8 text-center text-gray-500">
-                No hay items en esta categoría
-              </td>
+              <th className="p-4">Nombre</th>
+              <th className="p-4 text-right">Precio</th>
+              <th className="p-4 text-right">Acciones</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {inventoryItems
+              .filter(item => item.category === activeInventoryCategory)
+              .map(item => (
+                <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="p-4 font-medium">{item.label}</td>
+                  <td className="p-4 text-right font-bold text-gray-800">
+                    ${item.price.toLocaleString()}
+                  </td>
+                  <td className="p-4 text-right flex justify-end gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingInventoryItem(item);
+                        setIsInventoryModalOpen(true);
+                      }}
+                      className="text-blue-600 hover:bg-blue-50 p-2 rounded"
+                    >
+                      <Edit2 size={16}/>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteInventoryItem(item.id)}
+                      className="text-red-600 hover:bg-red-50 p-2 rounded"
+                    >
+                      <Trash2 size={16}/>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            {inventoryItems.filter(item => item.category === activeInventoryCategory).length === 0 && (
+              <tr>
+                <td colSpan={3} className="p-8 text-center text-gray-500">
+                  No hay items en esta categoría
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
+  );
+
   // CLIENTS VIEW
   const ClientsView = () => (
     <div className="space-y-6 animate-fade-in">
@@ -1082,92 +1436,92 @@ const InventoryView = () => (
   );
 
   // NUEVA VISTA DE REFERIDOS MEJORADA
-const ReferralsView = () => (
-  <div className="space-y-6 animate-fade-in">
-    <div className="flex justify-between items-center">
-      <h2 className="text-2xl font-bold text-gray-800">Gestión de Referidos</h2>
-      <button className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700">
-        <Plus size={18}/> Nuevo Referido
-      </button>
-    </div>
-    
-    {/* Estadísticas de referidos */}
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-        <div className="p-3 rounded-full bg-purple-100"><Users className="text-purple-600"/></div>
-        <div>
-          <p className="text-gray-500 text-sm">Total Referidos</p>
-          <p className="text-2xl font-bold">{referrals.length}</p>
+  const ReferralsView = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Gestión de Referidos</h2>
+        <button className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700">
+          <Plus size={18}/> Nuevo Referido
+        </button>
+      </div>
+      
+      {/* Estadísticas de referidos */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-3 rounded-full bg-purple-100"><Users className="text-purple-600"/></div>
+          <div>
+            <p className="text-gray-500 text-sm">Total Referidos</p>
+            <p className="text-2xl font-bold">{referrals.length}</p>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-3 rounded-full bg-green-100"><DollarSign className="text-green-600"/></div>
+          <div>
+            <p className="text-gray-500 text-sm">Referidos Activos</p>
+            <p className="text-2xl font-bold">{referrals.filter(r => r.status === 'active').length}</p>
+          </div>
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-3 rounded-full bg-yellow-100"><Trophy className="text-yellow-600"/></div>
+          <div>
+            <p className="text-gray-500 text-sm">Referidos Pendientes</p>
+            <p className="text-2xl font-bold">{referrals.filter(r => r.status === 'pending').length}</p>
+          </div>
         </div>
       </div>
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-        <div className="p-3 rounded-full bg-green-100"><DollarSign className="text-green-600"/></div>
-        <div>
-          <p className="text-gray-500 text-sm">Referidos Activos</p>
-          <p className="text-2xl font-bold">{referrals.filter(r => r.status === 'active').length}</p>
-        </div>
-      </div>
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-        <div className="p-3 rounded-full bg-yellow-100"><Trophy className="text-yellow-600"/></div>
-        <div>
-          <p className="text-gray-500 text-sm">Referidos Pendientes</p>
-          <p className="text-2xl font-bold">{referrals.filter(r => r.status === 'pending').length}</p>
-        </div>
-      </div>
-    </div>
-    
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-gray-50 text-gray-600">
-          <tr>
-            <th className="p-4">Referido</th>
-            <th className="p-4">Email</th>
-            <th className="p-4">Referido por</th>
-            <th className="p-4">Descuento</th>
-            <th className="p-4">Compras</th>
-            <th className="p-4">Estado</th>
-            <th className="p-4">Fecha de Registro</th>
-            <th className="p-4">Acciones</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {referrals.map(referral => (
-            <tr key={referral.id} className="hover:bg-gray-50">
-              <td className="p-4 font-bold">{referral.name}</td>
-              <td className="p-4">{referral.email}</td>
-              <td className="p-4">{referral.referredByName || 'N/A'}</td>
-              <td className="p-4">{referral.discount}%</td>
-              <td className="p-4">{referral.purchases || 0}</td>
-              <td className="p-4">
-                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                  referral.status === 'active' ? 'bg-green-100 text-green-700' : 
-                  referral.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                  'bg-gray-200 text-gray-600'
-                }`}>
-                  {referral.status === 'active' ? 'Activo' : 
-                   referral.status === 'pending' ? 'Pendiente' : 
-                   'Inactivo'}
-                </span>
-              </td>
-              <td className="p-4">{referral.created_at ? new Date(referral.created_at).toLocaleDateString() : 'N/A'}</td>
-              <td className="p-4 flex gap-2">
-                <button className="text-blue-500 hover:bg-blue-50 p-2 rounded">
-                  <Eye size={16}/>
-                </button>
-                <button className="text-green-500 hover:bg-green-50 p-2 rounded">
-                  <Users size={16}/>
-                </button>
-                <button onClick={() => handleDeleteReferral(referral.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
-                  <Trash2 size={16}/>
-                </button>
-              </td>
+      
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr>
+              <th className="p-4">Referido</th>
+              <th className="p-4">Email</th>
+              <th className="p-4">Referido por</th>
+              <th className="p-4">Descuento</th>
+              <th className="p-4">Compras</th>
+              <th className="p-4">Estado</th>
+              <th className="p-4">Fecha de Registro</th>
+              <th className="p-4">Acciones</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {referrals.map(referral => (
+              <tr key={referral.id} className="hover:bg-gray-50">
+                <td className="p-4 font-bold">{referral.name}</td>
+                <td className="p-4">{referral.email}</td>
+                <td className="p-4">{referral.referredByName || 'N/A'}</td>
+                <td className="p-4">{referral.discount}%</td>
+                <td className="p-4">{referral.purchases || 0}</td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                    referral.status === 'active' ? 'bg-green-100 text-green-700' : 
+                    referral.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                    'bg-gray-200 text-gray-600'
+                  }`}>
+                    {referral.status === 'active' ? 'Activo' : 
+                     referral.status === 'pending' ? 'Pendiente' : 
+                     'Inactivo'}
+                  </span>
+                </td>
+                <td className="p-4">{referral.created_at ? new Date(referral.created_at).toLocaleDateString() : 'N/A'}</td>
+                <td className="p-4 flex gap-2">
+                  <button className="text-blue-500 hover:bg-blue-50 p-2 rounded">
+                    <Eye size={16}/>
+                  </button>
+                  <button className="text-green-500 hover:bg-green-50 p-2 rounded">
+                    <Users size={16}/>
+                  </button>
+                  <button onClick={() => handleDeleteReferral(referral.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                    <Trash2 size={16}/>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
+  );
 
   // GALLERY VIEW
   const GalleryView = () => (
@@ -1540,13 +1894,14 @@ const ReferralsView = () => (
             { id: 'orders', label: 'Pedidos', icon: <ShoppingBag size={20}/> },
             { id: 'supplies', label: 'Insumos', icon: <Box size={20}/> },
             { id: 'inventory', label: 'Inventario', icon: <Package size={20}/> },
+            { id: 'insumos-amigurumi', label: 'Insumos x Amigurumi', icon: <Package size={20}/> },
             { id: 'clients', label: 'Clientes', icon: <Users size={20}/> },
             { id: 'referrals', label: 'Referidos', icon: <Users size={20}/> },
             { id: 'community', label: 'Comunidad', icon: <Heart size={20}/> },
             { id: 'challenges', label: 'Retos', icon: <Trophy size={20}/> },
             { id: 'gallery', label: 'Galería', icon: <ImageIcon size={20}/> },
             { id: 'content', label: 'Contenido Inicio', icon: <PenTool size={20}/> },
-            { id: 'site-content', label: 'Editar Contenido', icon: <Edit2 size={20}/> }, // 🆕 NUEVA OPCIÓN
+            { id: 'site-content', label: 'Editar Contenido', icon: <Edit2 size={20}/> },
             { id: 'settings', label: 'Configuración', icon: <Settings size={20}/> },
           ].map((item) => (
             <button
@@ -1566,6 +1921,7 @@ const ReferralsView = () => (
         {activeTab === 'orders' && <OrdersView />}
         {activeTab === 'supplies' && <SuppliesView />}
         {activeTab === 'inventory' && <InventoryView />}
+        {activeTab === 'insumos-amigurumi' && <InsumosAmigurumiView />}
         {activeTab === 'clients' && <ClientsView />}
         {activeTab === 'referrals' && <ReferralsView />}
         {activeTab === 'gallery' && <GalleryView />}
@@ -1573,7 +1929,7 @@ const ReferralsView = () => (
         {activeTab === 'community' && <CommunityView />}
         {activeTab === 'challenges' && <ChallengesView />}
         {activeTab === 'settings' && <SettingsView />}
-        {activeTab === 'site-content' && <SiteContentView />} {/* 🆕 NUEVA VISTA */}
+        {activeTab === 'site-content' && <SiteContentView />}
       </main>
 
       {/* MODALS */}
@@ -1661,264 +2017,264 @@ const ReferralsView = () => (
                 </div>
               </div>
             </div>
+            
             {/* Opciones de gestión */}
-<div className="space-y-4">
-  
-  {/* Sección de Imágenes del Pedido */}
-  <div className="bg-purple-50 p-4 rounded-xl space-y-4">
-    <h4 className="font-bold text-lg flex items-center gap-2">
-      <ImageIcon size={20} className="text-purple-600"/>
-      Imágenes del Pedido
-    </h4>
+            <div className="space-y-4">
+              
+              {/* Sección de Imágenes del Pedido */}
+              <div className="bg-purple-50 p-4 rounded-xl space-y-4">
+                <h4 className="font-bold text-lg flex items-center gap-2">
+                  <ImageIcon size={20} className="text-purple-600"/>
+                  Imágenes del Pedido
+                </h4>
 
-    {/* Imagen de Referencia */}
-    <div>
-      <p className="text-sm font-bold text-gray-700 mb-2">📸 Imagen de Referencia (lo que pidió)</p>
-      {selectedOrder.imagen_url ? (
-        <img 
-          src={selectedOrder.imagen_url} 
-          alt="Referencia" 
-          className="w-full h-48 object-cover rounded-lg border-2 border-gray-300"
-        />
-      ) : (
-        <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
-          Sin imagen de referencia
-        </div>
-      )}
-    </div>
+                {/* Imagen de Referencia */}
+                <div>
+                  <p className="text-sm font-bold text-gray-700 mb-2">📸 Imagen de Referencia (lo que pidió)</p>
+                  {selectedOrder.imagen_url ? (
+                    <img 
+                      src={selectedOrder.imagen_url} 
+                      alt="Referencia" 
+                      className="w-full h-48 object-cover rounded-lg border-2 border-gray-300"
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                      Sin imagen de referencia
+                    </div>
+                  )}
+                </div>
 
-    {/* Imagen Final del Amigurumi */}
-    <div>
-      <p className="text-sm font-bold text-gray-700 mb-2">✨ Imagen Final (producto terminado)</p>
-      
-      {selectedOrder.final_image_url ? (
-        <div className="relative">
-          <img 
-            src={selectedOrder.final_image_url} 
-            alt="Producto Final" 
-            className="w-full h-48 object-cover rounded-lg border-2 border-green-400"
-            onError={(e) => {
-              console.error('❌ Error cargando imagen final:', selectedOrder.final_image_url);
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-          <button
-            type="button"
-            onClick={handleDeleteFinalImage}
-            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
-          >
-            <X size={16}/>
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {/* Preview de la nueva imagen */}
-          {finalImagePreview && (
-            <div className="relative">
-              <img 
-                src={finalImagePreview} 
-                alt="Preview" 
-                className="w-full h-48 object-cover rounded-lg border-2 border-blue-400"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setFinalImageFile(null);
-                  setFinalImagePreview('');
-                }}
-                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                {/* Imagen Final del Amigurumi */}
+                <div>
+                  <p className="text-sm font-bold text-gray-700 mb-2">✨ Imagen Final (producto terminado)</p>
+                  
+                  {selectedOrder.final_image_url ? (
+                    <div className="relative">
+                      <img 
+                        src={selectedOrder.final_image_url} 
+                        alt="Producto Final" 
+                        className="w-full h-48 object-cover rounded-lg border-2 border-green-400"
+                        onError={(e) => {
+                          console.error('❌ Error cargando imagen final:', selectedOrder.final_image_url);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDeleteFinalImage}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                      >
+                        <X size={16}/>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Preview de la nueva imagen */}
+                      {finalImagePreview && (
+                        <div className="relative">
+                          <img 
+                            src={finalImagePreview} 
+                            alt="Preview" 
+                            className="w-full h-48 object-cover rounded-lg border-2 border-blue-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFinalImageFile(null);
+                              setFinalImagePreview('');
+                            }}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                          >
+                            <X size={16}/>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Input para subir imagen */}
+                      <label className="w-full border-2 border-dashed border-purple-300 rounded-lg p-6 cursor-pointer hover:bg-purple-50 flex flex-col items-center gap-2">
+                        <Upload size={28} className="text-purple-600" />
+                        <span className="font-medium text-purple-700 text-center">
+                          {uploadingFinalImage ? 'Subiendo imagen...' : 'Click para subir foto del amigurumi terminado'}
+                        </span>
+                        <span className="text-xs text-gray-500">Máx 5MB - JPG, PNG</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFinalImageUpload}
+                          disabled={uploadingFinalImage}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {/* Botón para guardar la imagen */}
+                      {finalImageFile && (
+                        <button
+                          type="button"
+                          onClick={handleUploadFinalImage}
+                          disabled={uploadingFinalImage}
+                          className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {uploadingFinalImage ? (
+                            <>
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                              Subiendo...
+                            </>
+                          ) : (
+                            <>
+                              <Upload size={18}/>
+                              Guardar Imagen Final
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Número de Guía Transportadora */}
+              <div className="bg-gray-100 p-4 rounded-xl">
+                <label className="block text-sm font-bold mb-2">Número de Guía Transportadora</label>
+                <input 
+                  type="text" 
+                  className="w-full border p-2 rounded-lg" 
+                  placeholder="Ej: Interrapidismo 1234567" 
+                  value={trackingGuide} 
+                  onChange={(e) => setTrackingGuide(e.target.value)}
+                />
+              </div>
+
+              {/* Estado del Pedido */}
+              <div>
+                <label className="block text-sm font-bold mb-2">Estado del Pedido</label>
+                <select 
+                  value={statusUpdate} 
+                  onChange={(e) => setStatusUpdate(e.target.value)} 
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="En espera de agendar">En espera de agendar</option>
+                  <option value="Agendado">Agendado</option>
+                  <option value="En proceso">En proceso</option>
+                  <option value="Listo para entregar">Listo para entregar</option>
+                  <option value="Entregado">Entregado</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+              </div>
+
+              {/* Botón Registrar Pago */}
+              {selectedOrder.saldo_pendiente > 0 && (
+                <button 
+                  onClick={handleVerifyPayment} 
+                  className="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700"
+                >
+                  Registrar Pago
+                </button>
+              )}
+
+              {/* Botón Guardar Cambios */}
+              <button 
+                onClick={handleUpdateStatusAndGuide} 
+                className="w-full bg-gray-900 text-white py-2 rounded-lg font-bold hover:bg-gray-800"
               >
-                <X size={16}/>
+                Guardar Cambios
               </button>
             </div>
-          )}
-
-          {/* Input para subir imagen */}
-          <label className="w-full border-2 border-dashed border-purple-300 rounded-lg p-6 cursor-pointer hover:bg-purple-50 flex flex-col items-center gap-2">
-            <Upload size={28} className="text-purple-600" />
-            <span className="font-medium text-purple-700 text-center">
-              {uploadingFinalImage ? 'Subiendo imagen...' : 'Click para subir foto del amigurumi terminado'}
-            </span>
-            <span className="text-xs text-gray-500">Máx 5MB - JPG, PNG</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFinalImageUpload}
-              disabled={uploadingFinalImage}
-              className="hidden"
-            />
-          </label>
-
-          {/* Botón para guardar la imagen */}
-          {finalImageFile && (
-            <button
-              type="button"
-              onClick={handleUploadFinalImage}
-              disabled={uploadingFinalImage}
-              className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {uploadingFinalImage ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  Subiendo...
-                </>
-              ) : (
-                <>
-                  <Upload size={18}/>
-                  Guardar Imagen Final
-                </>
-              )}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  </div>
-
-  {/* Número de Guía Transportadora */}
-  <div className="bg-gray-100 p-4 rounded-xl">
-    <label className="block text-sm font-bold mb-2">Número de Guía Transportadora</label>
-    <input 
-      type="text" 
-      className="w-full border p-2 rounded-lg" 
-      placeholder="Ej: Interrapidismo 1234567" 
-      value={trackingGuide} 
-      onChange={(e) => setTrackingGuide(e.target.value)}
-    />
-  </div>
-
-  {/* Estado del Pedido */}
-  <div>
-    <label className="block text-sm font-bold mb-2">Estado del Pedido</label>
-    <select 
-      value={statusUpdate} 
-      onChange={(e) => setStatusUpdate(e.target.value)} 
-      className="w-full p-2 border rounded"
-    >
-      <option value="En espera de agendar">En espera de agendar</option>
-      <option value="Agendado">Agendado</option>
-      <option value="En proceso">En proceso</option>
-      <option value="Listo para entregar">Listo para entregar</option>
-      <option value="Entregado">Entregado</option>
-      <option value="Cancelado">Cancelado</option>
-    </select>
-  </div>
-
-  {/* Botón Registrar Pago */}
-  {selectedOrder.saldo_pendiente > 0 && (
-    <button 
-      onClick={handleVerifyPayment} 
-      className="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700"
-    >
-      Registrar Pago
-    </button>
-  )}
-
-  {/* Botón Guardar Cambios */}
-  <button 
-    onClick={handleUpdateStatusAndGuide} 
-    className="w-full bg-gray-900 text-white py-2 rounded-lg font-bold hover:bg-gray-800"
-  >
-    Guardar Cambios
-  </button>
-</div>
-                      </div>
+          </div>
         </div>
       )}
 
-{/* MODAL DE INVENTARIO */}
-{isInventoryModalOpen && editingInventoryItem && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold">
-          {inventoryItems.some(i => i.id === editingInventoryItem.id)
-            ? 'Editar Item'
-            : 'Nuevo Item'}
-        </h3>
-        <button
-          onClick={() => {
-            setIsInventoryModalOpen(false);
-            setEditingInventoryItem(null);
-          }}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X size={24}/>
-        </button>
-      </div>
+      {/* MODAL DE INVENTARIO */}
+      {isInventoryModalOpen && editingInventoryItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">
+                {inventoryItems.some(i => i.id === editingInventoryItem.id)
+                  ? 'Editar Item'
+                  : 'Nuevo Item'}
+              </h3>
+              <button
+                onClick={() => {
+                  setIsInventoryModalOpen(false);
+                  setEditingInventoryItem(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24}/>
+              </button>
+            </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Categoría
-          </label>
-          <select
-            value={editingInventoryItem.category}
-            onChange={e =>
-              setEditingInventoryItem({
-                ...editingInventoryItem,
-                category: e.target.value as 'sizes' | 'packaging' | 'accessories'
-              })
-            }
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-          >
-            <option value="sizes">📏 Tamaño</option>
-            <option value="packaging">📦 Empaque</option>
-            <option value="accessories">✨ Accesorio</option>
-          </select>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Categoría
+                </label>
+                <select
+                  value={editingInventoryItem.category}
+                  onChange={e =>
+                    setEditingInventoryItem({
+                      ...editingInventoryItem,
+                      category: e.target.value as 'sizes' | 'packaging' | 'accessories'
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="sizes">📏 Tamaño</option>
+                  <option value="packaging">📦 Empaque</option>
+                  <option value="accessories">✨ Accesorio</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  value={editingInventoryItem.label}
+                  onChange={e =>
+                    setEditingInventoryItem({
+                      ...editingInventoryItem,
+                      label: e.target.value
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Ej: 15cm, Caja Premium, Base LED"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Precio ($)
+                </label>
+                <input
+                  type="number"
+                  value={editingInventoryItem.price}
+                  onChange={e =>
+                    setEditingInventoryItem({
+                      ...editingInventoryItem,
+                      price: parseFloat(e.target.value) || 0
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="0"
+                  min="0"
+                />
+              </div>
+
+              <button
+                onClick={handleSaveInventoryItem}
+                className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 font-bold"
+              >
+                <Save size={20}/>
+                Guardar
+              </button>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Nombre
-          </label>
-          <input
-            type="text"
-            value={editingInventoryItem.label}
-            onChange={e =>
-              setEditingInventoryItem({
-                ...editingInventoryItem,
-                label: e.target.value
-              })
-            }
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            placeholder="Ej: 15cm, Caja Premium, Base LED"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Precio ($)
-          </label>
-          <input
-            type="number"
-            value={editingInventoryItem.price}
-            onChange={e =>
-              setEditingInventoryItem({
-                ...editingInventoryItem,
-                price: parseFloat(e.target.value) || 0
-              })
-            }
-            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            placeholder="0"
-            min="0"
-          />
-        </div>
-
-        <button
-          onClick={handleSaveInventoryItem}
-          className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 font-bold"
-        >
-          <Save size={20}/>
-          Guardar
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-      {/* ============================================ */}
-      {/* 4. REEMPLAZAR EL MODAL COMPLETO */}
-      {/* ============================================ */}
+      {/* MODAL CREAR PEDIDO */}
       {isCreateOrderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -2100,214 +2456,216 @@ const ReferralsView = () => (
       )}
 
       {/* Supply Modal - Versión Limpia */}
-{isSupplyModalOpen && editingSupply && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-bold text-xl">
-          {supplies.find(s => s.id === editingSupply.id) ? 'Editar Insumo' : 'Nuevo Insumo'}
-        </h3>
-        <button onClick={() => setIsSupplyModalOpen(false)}>
-          <X size={24}/>
-        </button>
-      </div>
-      
-      <form onSubmit={handleSaveSupply} className="space-y-4">
-        {/* Nombre */}
-        <div>
-          <label className="text-sm font-bold">Nombre del Producto</label>
-          <input 
-            className="w-full border p-2 rounded-lg" 
-            value={editingSupply.name} 
-            onChange={e => setEditingSupply({...editingSupply, name: e.target.value})} 
-            required
-          />
-        </div>
-
-        {/* Referencia y Número */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-bold">Referencia</label>
-            <input 
-              className="w-full border p-2 rounded-lg" 
-              value={editingSupply.reference} 
-              onChange={e => setEditingSupply({...editingSupply, reference: e.target.value})} 
-              required
-            />
-          </div>
-          <div>
-            <label className="text-sm font-bold">Número / Calibre</label>
-            <input 
-              className="w-full border p-2 rounded-lg" 
-              value={editingSupply.number} 
-              onChange={e => setEditingSupply({...editingSupply, number: e.target.value})}
-            />
-          </div>
-        </div>
-
-        {/* Color y Cantidad */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-bold">Color</label>
-            <input 
-              className="w-full border p-2 rounded-lg" 
-              value={editingSupply.color} 
-              onChange={e => setEditingSupply({...editingSupply, color: e.target.value})} 
-              required
-            />
-          </div>
-          <div>
-            <label className="text-sm font-bold">Cantidad</label>
-            <input 
-              type="number" 
-              className="w-full border p-2 rounded-lg" 
-              value={editingSupply.quantity} 
-              onChange={e => setEditingSupply({...editingSupply, quantity: Number(e.target.value)})} 
-              required
-            />
-          </div>
-        </div>
-
-        {/* Valor Unitario y Alerta */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-bold">Valor Unitario ($)</label>
-            <input 
-              type="number" 
-              className="w-full border p-2 rounded-lg" 
-              value={editingSupply.unitValue} 
-              onChange={e => setEditingSupply({...editingSupply, unitValue: Number(e.target.value)})} 
-              required
-            />
-          </div>
-          <div>
-            <label className="text-sm font-bold">Alerta Stock Bajo</label>
-            <input 
-              type="number" 
-              className="w-full border p-2 rounded-lg" 
-              value={editingSupply.lowStockThreshold} 
-              onChange={e => setEditingSupply({...editingSupply, lowStockThreshold: Number(e.target.value)})} 
-              required
-            />
-          </div>
-        </div>
-
-        {/* IMAGEN - Versión simplificada con solo input de archivo */}
-        <div className="border-t pt-4">
-          <label className="text-sm font-bold block mb-2">Imagen del Producto</label>
-          
-          {/* Preview de la imagen actual */}
-          {editingSupply.imageUrl && (
-            <div className="mb-3 relative">
-              <img 
-                src={editingSupply.imageUrl} 
-                alt="Preview" 
-                className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
-              />
-              <button
-                type="button"
-                onClick={() => setEditingSupply({...editingSupply, imageUrl: ''})}
-                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
-              >
-                <X size={16}/>
+      {isSupplyModalOpen && editingSupply && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-xl">
+                {supplies.find(s => s.id === editingSupply.id) ? 'Editar Insumo' : 'Nuevo Insumo'}
+              </h3>
+              <button onClick={() => setIsSupplyModalOpen(false)}>
+                <X size={24}/>
               </button>
             </div>
-          )}
-
-          {/* Input de URL o archivo */}
-          <div className="space-y-3">
-            {/* Opción 1: URL directa */}
-            <div>
-              <input
-                type="text"
-                placeholder="O pega una URL de imagen..."
-                className="w-full border p-2 rounded-lg text-sm"
-                value={editingSupply.imageUrl || ''}
-                onChange={e => setEditingSupply({...editingSupply, imageUrl: e.target.value})}
-              />
-            </div>
-
-            {/* Opción 2: Subir archivo */}
-            <div className="relative">
-              <label className="w-full border-2 border-dashed border-amber-300 rounded-lg p-4 text-sm cursor-pointer hover:bg-amber-50 flex flex-col items-center gap-2">
-                <Upload size={24} className="text-amber-600" />
-                <span className="font-medium text-amber-700">
-                  {uploadingImage ? 'Subiendo...' : 'Click para subir archivo'}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleSupplyImageUpload}
-                  disabled={uploadingImage}
-                  className="hidden"
+            
+            <form onSubmit={handleSaveSupply} className="space-y-4">
+              {/* Nombre */}
+              <div>
+                <label className="text-sm font-bold">Nombre del Producto</label>
+                <input 
+                  className="w-full border p-2 rounded-lg" 
+                  value={editingSupply.name} 
+                  onChange={e => setEditingSupply({...editingSupply, name: e.target.value})} 
+                  required
                 />
-              </label>
-              {uploadingImage && (
-                <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <p className="text-xs text-gray-500 mt-2">
-            📁 Sube una imagen (máx 5MB) o pega una URL desde internet
-          </p>
-        </div>
+              </div>
 
-        {/* Botón Submit */}
-        <button 
-          type="submit" 
-          disabled={uploadingImage}
-          className="w-full bg-amber-600 text-white p-3 rounded-lg font-bold hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {uploadingImage ? (
-            <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              Subiendo imagen...
-            </>
-          ) : (
-            'Guardar Insumo'
-          )}
-        </button>
-      </form>
-    </div>
-  </div>
-)}
+              {/* Referencia y Número */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-bold">Referencia</label>
+                  <input 
+                    className="w-full border p-2 rounded-lg" 
+                    value={editingSupply.reference} 
+                    onChange={e => setEditingSupply({...editingSupply, reference: e.target.value})} 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold">Número / Calibre</label>
+                  <input 
+                    className="w-full border p-2 rounded-lg" 
+                    value={editingSupply.number} 
+                    onChange={e => setEditingSupply({...editingSupply, number: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              {/* Color y Cantidad */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-bold">Color</label>
+                  <input 
+                    className="w-full border p-2 rounded-lg" 
+                    value={editingSupply.color} 
+                    onChange={e => setEditingSupply({...editingSupply, color: e.target.value})} 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold">Cantidad</label>
+                  <input 
+                    type="number" 
+                    className="w-full border p-2 rounded-lg" 
+                    value={editingSupply.quantity} 
+                    onChange={e => setEditingSupply({...editingSupply, quantity: Number(e.target.value)})} 
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Valor Unitario y Alerta */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-bold">Valor Unitario ($)</label>
+                  <input 
+                    type="number" 
+                    className="w-full border p-2 rounded-lg" 
+                    value={editingSupply.unitValue} 
+                    onChange={e => setEditingSupply({...editingSupply, unitValue: Number(e.target.value)})} 
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-bold">Alerta Stock Bajo</label>
+                  <input 
+                    type="number" 
+                    className="w-full border p-2 rounded-lg" 
+                    value={editingSupply.lowStockThreshold} 
+                    onChange={e => setEditingSupply({...editingSupply, lowStockThreshold: Number(e.target.value)})} 
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* IMAGEN - Versión simplificada con solo input de archivo */}
+              <div className="border-t pt-4">
+                <label className="text-sm font-bold block mb-2">Imagen del Producto</label>
+                
+                {/* Preview de la imagen actual */}
+                {editingSupply.imageUrl && (
+                  <div className="mb-3 relative">
+                    <img 
+                      src={editingSupply.imageUrl} 
+                      alt="Preview" 
+                      className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditingSupply({...editingSupply, imageUrl: ''})}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+                    >
+                      <X size={16}/>
+                    </button>
+                  </div>
+                )}
+
+                {/* Input de URL o archivo */}
+                <div className="space-y-3">
+                  {/* Opción 1: URL directa */}
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="O pega una URL de imagen..."
+                      className="w-full border p-2 rounded-lg text-sm"
+                      value={editingSupply.imageUrl || ''}
+                      onChange={e => setEditingSupply({...editingSupply, imageUrl: e.target.value})}
+                    />
+                  </div>
+
+                  {/* Opción 2: Subir archivo */}
+                  <div className="relative">
+                    <label className="w-full border-2 border-dashed border-amber-300 rounded-lg p-4 text-sm cursor-pointer hover:bg-amber-50 flex flex-col items-center gap-2">
+                      <Upload size={24} className="text-amber-600" />
+                      <span className="font-medium text-amber-700">
+                        {uploadingImage ? 'Subiendo...' : 'Click para subir archivo'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSupplyImageUpload}
+                        disabled={uploadingImage}
+                        className="hidden"
+                      />
+                    </label>
+                    {uploadingImage && (
+                      <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <p className="text-xs text-gray-500 mt-2">
+                  📁 Sube una imagen (máx 5MB) o pega una URL desde internet
+                </p>
+              </div>
+
+              {/* Botón Submit */}
+              <button 
+                type="submit" 
+                disabled={uploadingImage}
+                className="w-full bg-amber-600 text-white p-3 rounded-lg font-bold hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {uploadingImage ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    Subiendo imagen...
+                  </>
+                ) : (
+                  'Guardar Insumo'
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Gallery Modal */}
-{isGalleryModalOpen && editingGallery && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
-      <h3 className="font-bold text-xl mb-4">Editar Galería</h3>
-      <form onSubmit={handleSaveGallery} className="space-y-4">
-        <div>
-          <label className="text-sm font-bold">Título</label>
-          <input className="w-full border p-2 rounded" value={editingGallery.title} onChange={(e) => setEditingGallery({...editingGallery, title: e.target.value})} required/>
+      {isGalleryModalOpen && editingGallery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
+            <h3 className="font-bold text-xl mb-4">Editar Galería</h3>
+            <form onSubmit={handleSaveGallery} className="space-y-4">
+              <div>
+                <label className="text-sm font-bold">Título</label>
+                <input className="w-full border p-2 rounded" value={editingGallery.title} onChange={(e) => setEditingGallery({...editingGallery, title: e.target.value})} required/>
+              </div>
+              <div>
+                <label className="text-sm font-bold">Descripción</label>
+                <textarea className="w-full border p-2 rounded" value={editingGallery.description} onChange={(e) => setEditingGallery({...editingGallery, description: e.target.value})} required/>
+              </div>
+              <div>
+                <label className="text-sm font-bold">Precio</label>
+                <input 
+                  type="number"
+                  placeholder="0"
+                  value={editingGallery.price || ''}
+                  onChange={(e) => setEditingGallery({...editingGallery, price: parseFloat(e.target.value) || 0})}
+                  className="w-full border p-2 rounded"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-bold">Imagen</label>
+                {editingGallery.imageUrl && <img src={editingGallery.imageUrl} alt="preview" className="w-full h-32 object-cover rounded mb-2"/>}
+                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setEditingGallery)}/>
+              </div>
+              <button type="submit" className="w-full bg-purple-600 text-white p-2 rounded font-bold">Guardar</button>
+            </form>
+          </div>
         </div>
-        <div>
-          <label className="text-sm font-bold">Descripción</label>
-          <textarea className="w-full border p-2 rounded" value={editingGallery.description} onChange={(e) => setEditingGallery({...editingGallery, description: e.target.value})} required/>
-        </div>
-        <div>
-          <label className="text-sm font-bold">Precio</label>
-          <input 
-            type="number"
-            placeholder="0"
-            value={editingGallery.price || ''}
-            onChange={(e) => setEditingGallery({...editingGallery, price: parseFloat(e.target.value) || 0})}
-            className="w-full border p-2 rounded"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-bold">Imagen</label>
-          {editingGallery.imageUrl && <img src={editingGallery.imageUrl} alt="preview" className="w-full h-32 object-cover rounded mb-2"/>}
-          <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setEditingGallery)}/>
-        </div>
-        <button type="submit" className="w-full bg-purple-600 text-white p-2 rounded font-bold">Guardar</button>
-      </form>
-    </div>
-  </div>
-)}
+      )}
+
       {/* Tejedora Modal */}
       {isTejedoraModalOpen && editingTejedora && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -2356,7 +2714,7 @@ const ReferralsView = () => (
 
       {/* Challenge Modal */}
       {isChallengeModalOpen && editingChallenge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">7:29 a. m. 3/12/2025
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
             <h3 className="font-bold text-xl mb-4">Editar Reto</h3>
             <form onSubmit={handleSaveChallenge} className="space-y-4">
@@ -2385,6 +2743,286 @@ const ReferralsView = () => (
               </div>
               <button type="submit" className="w-full bg-purple-600 text-white p-2 rounded font-bold">Guardar</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 MODAL DE INSUMOS POR AMIGURUMI - VERSIÓN MEJORADA */}
+      {isAmigurumiModalOpen && editingAmigurumi && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-purple-800">
+                {amigurumiRecords.some(a => a.id === editingAmigurumi.id) ? 'Editar' : 'Nuevo'} Amigurumi
+              </h3>
+              <button onClick={() => {
+                setIsAmigurumiModalOpen(false);
+                setEditingAmigurumi(null);
+                setCurrentInsumoAmigurumi({
+                  id: '',
+                  tipo: 'lana',
+                  marca: '',
+                  referencia: '',
+                  color: '',
+                  cantidad: '',
+                  unidad: 'gramos'
+                });
+              }}>
+                <X size={24}/>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Nombre del Amigurumi */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre del Amigurumi *
+                </label>
+                <input
+                  type="text"
+                  value={editingAmigurumi.nombre}
+                  onChange={(e) => setEditingAmigurumi({...editingAmigurumi, nombre: e.target.value})}
+                  placeholder="Ej: Osito Teddy, Conejito Rosa"
+                  className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              {/* Formulario para agregar insumos */}
+              <div className="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
+                <h4 className="font-semibold text-gray-800 mb-3">Agregar Insumo</h4>
+                
+                {/* Alerta de stock */}
+                {(() => {
+                  const stockInfo = supplies.find(
+                    s => s.reference.toLowerCase() === currentInsumoAmigurumi.referencia.toLowerCase()
+                  );
+                  
+                  if (!currentInsumoAmigurumi.referencia) return null;
+                  
+                  return (
+                    <div className={`mb-3 p-3 rounded-lg flex items-center gap-2 ${
+                      stockInfo 
+                        ? stockInfo.quantity <= stockInfo.lowStockThreshold 
+                          ? 'bg-yellow-50 border border-yellow-300' 
+                          : 'bg-green-50 border border-green-300'
+                        : 'bg-red-50 border border-red-300'
+                    }`}>
+                      {stockInfo ? (
+                        stockInfo.quantity <= stockInfo.lowStockThreshold ? (
+                          <>
+                            <span className="text-yellow-600 text-xl">⚠️</span>
+                            <span className="text-sm font-medium text-yellow-700">
+                              Stock bajo - Considera reabastecer pronto
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-green-600 text-xl">✅</span>
+                            <span className="text-sm font-medium text-green-700">
+                              Insumo disponible en stock
+                            </span>
+                          </>
+                        )
+                      ) : (
+                        <>
+                          <span className="text-red-600 text-xl">❌</span>
+                          <span className="text-sm font-medium text-red-700">
+                            Insumo NO encontrado en stock
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
+                    <select
+                      value={currentInsumoAmigurumi.tipo}
+                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, tipo: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    >
+                      <option value="lana">Lana</option>
+                      <option value="hilo">Hilo</option>
+                      <option value="relleno">Relleno</option>
+                      <option value="ojos">Ojos de Seguridad</option>
+                      <option value="fieltro">Fieltro</option>
+                      <option value="botones">Botones</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Referencia *
+                    </label>
+                    <input
+                      type="text"
+                      value={currentInsumoAmigurumi.referencia}
+                      onChange={(e) => handleReferenciaChange(e.target.value)}
+                      placeholder="REF-1234"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Marca *
+                    </label>
+                    <input
+                      type="text"
+                      value={currentInsumoAmigurumi.marca}
+                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, marca: e.target.value})}
+                      placeholder="Ej: Copito"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Color *
+                    </label>
+                    <input
+                      type="text"
+                      value={currentInsumoAmigurumi.color}
+                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, color: e.target.value})}
+                      placeholder="Blanco hueso"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
+                    <input
+                      type="text"
+                      value={currentInsumoAmigurumi.cantidad}
+                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, cantidad: e.target.value})}
+                      placeholder="50"
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Unidad</label>
+                    <select
+                      value={currentInsumoAmigurumi.unidad}
+                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, unidad: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                    >
+                      <option value="gramos">Gramos</option>
+                      <option value="metros">Metros</option>
+                      <option value="unidades">Unidades</option>
+                      <option value="pares">Pares</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAddInsumoToAmigurumi}
+                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
+                >
+                  <Plus size={16}/>
+                  Agregar Insumo
+                </button>
+              </div>
+
+              {/* Lista de insumos agregados */}
+              {editingAmigurumi.insumos.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-gray-800 mb-3">
+                    Insumos Agregados ({editingAmigurumi.insumos.length})
+                  </h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {editingAmigurumi.insumos.map((insumo) => {
+                      const stockInfo = checkInsumoStock(insumo);
+                      return (
+                        <div 
+                          key={insumo.id} 
+                          className={`bg-white border-2 rounded-lg p-3 flex justify-between items-start ${
+                            stockInfo.enStock 
+                              ? stockInfo.stockBajo 
+                                ? 'border-yellow-300 bg-yellow-50' 
+                                : 'border-green-300 bg-green-50'
+                              : 'border-red-300 bg-red-50'
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded">
+                                {insumo.tipo}
+                              </span>
+                              <span className="font-semibold text-gray-800">{insumo.marca}</span>
+                              {stockInfo.enStock ? (
+                                stockInfo.stockBajo ? (
+                                  <span className="text-xs bg-yellow-200 text-yellow-700 px-2 py-0.5 rounded font-medium">
+                                    ⚠️ Stock Bajo
+                                  </span>
+                                ) : (
+                                  <span className="text-xs bg-green-200 text-green-700 px-2 py-0.5 rounded font-medium">
+                                    ✅ En Stock
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-xs bg-red-200 text-red-700 px-2 py-0.5 rounded font-medium">
+                                  ❌ No disponible
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              <span className="font-medium">Color:</span> {insumo.color}
+                              {insumo.referencia && <span className="ml-3"><span className="font-medium">Ref:</span> {insumo.referencia}</span>}
+                              {insumo.cantidad && <span className="ml-3"><span className="font-medium">Cant:</span> {insumo.cantidad} {insumo.unidad}</span>}
+                            </div>
+                            {stockInfo.enStock && stockInfo.supply && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Stock disponible: {stockInfo.supply.quantity} {insumo.unidad}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleRemoveInsumoFromAmigurumi(insumo.id)}
+                            className="text-red-600 hover:text-red-700 p-1"
+                          >
+                            <Trash2 size={18}/>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Botones de acción */}
+              <div className="flex gap-3 pt-4 border-t">
+                <button
+                  onClick={handleSaveAmigurumiRecord}
+                  className="flex-1 flex items-center justify-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 font-medium"
+                >
+                  <Save size={20}/>
+                  Guardar Amigurumi
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAmigurumiModalOpen(false);
+                    setEditingAmigurumi(null);
+                    setCurrentInsumoAmigurumi({
+                      id: '',
+                      tipo: 'lana',
+                      marca: '',
+                      referencia: '',
+                      color: '',
+                      cantidad: '',
+                      unidad: 'gramos'
+                    });
+                  }}
+                  className="flex items-center gap-2 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 font-medium"
+                >
+                  <X size={20}/>
+                  Cancelar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

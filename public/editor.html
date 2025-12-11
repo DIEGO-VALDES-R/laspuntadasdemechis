@@ -1,0 +1,130 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Contenido - Puntadas de Mechis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-4xl mx-auto p-6 space-y-8">
+        <h2 class="text-2xl font-bold text-gray-800">📝 Editor de Contenido del Sitio</h2>
+        
+        <div id="message" class="hidden"></div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-purple-600 mb-4">📝 Títulos de Secciones</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Título "¿Por Qué Elegirnos?"</label>
+                    <input id="valuePropsTitle" type="text" class="w-full px-4 py-2 border rounded-lg" placeholder="Ej: ¿Por Qué Elegirnos?">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Título "Nuestro Impacto"</label>
+                    <input id="statsTitle" type="text" class="w-full px-4 py-2 border rounded-lg" placeholder="Ej: Nuestro Impacto">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Subtítulo Estadísticas</label>
+                    <input id="statsSubtitle" type="text" class="w-full px-4 py-2 border rounded-lg" placeholder="Ej: Números que hablan por nosotros">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Título Testimonios</label>
+                    <input id="testimonialsTitle" type="text" class="w-full px-4 py-2 border rounded-lg" placeholder="Ej: Lo Que Dicen Nuestros Clientes">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Subtítulo Testimonios</label>
+                    <input id="testimonialsSubtitle" type="text" class="w-full px-4 py-2 border rounded-lg" placeholder="Ej: Más de 450 clientes satisfechos">
+                </div>
+                <button onclick="saveTitles()" class="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700">Guardar Títulos</button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-blue-600 mb-4">📊 Estadísticas del Sitio</h3>
+            
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Amigurumis Creados</label>
+                    <input id="amigurumiCount" type="number" class="w-full px-4 py-2 border rounded-lg" min="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Clientes Felices</label>
+                    <input id="clientCount" type="number" class="w-full px-4 py-2 border rounded-lg" min="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Rating Promedio</label>
+                    <input id="rating" type="number" class="w-full px-4 py-2 border rounded-lg" min="1" max="5" step="0.1">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Años de Experiencia</label>
+                    <input id="yearsExperience" type="number" class="w-full px-4 py-2 border rounded-lg" min="0">
+                </div>
+            </div>
+            <button onclick="saveStats()" class="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700">Guardar Estadísticas</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://zvtkkdjawdqrgpawghni.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2dGtrZGphd2RxcmdwYXdnaG5pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU5NjUyNjIsImV4cCI6MjA2MTU0MTI2Mn0.bXZKpPQFT3jxqw-GZRjU-8CQlsyrmVsV4v1Ft5UHcxs';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function loadData() {
+            const { data: sections } = await supabase.from('editable_sections').select('*').single();
+            const { data: stats } = await supabase.from('site_stats').select('*').single();
+            
+            if (sections) {
+                document.getElementById('valuePropsTitle').value = sections.value_props_title || '';
+                document.getElementById('statsTitle').value = sections.stats_title || '';
+                document.getElementById('statsSubtitle').value = sections.stats_subtitle || '';
+                document.getElementById('testimonialsTitle').value = sections.testimonials_title || '';
+                document.getElementById('testimonialsSubtitle').value = sections.testimonials_subtitle || '';
+            }
+            
+            if (stats) {
+                document.getElementById('amigurumiCount').value = stats.amigurumi_count || 0;
+                document.getElementById('clientCount').value = stats.client_count || 0;
+                document.getElementById('rating').value = stats.rating || 0;
+                document.getElementById('yearsExperience').value = stats.years_experience || 0;
+            }
+        }
+
+        async function saveTitles() {
+            const sections = {
+                value_props_title: document.getElementById('valuePropsTitle').value,
+                stats_title: document.getElementById('statsTitle').value,
+                stats_subtitle: document.getElementById('statsSubtitle').value,
+                testimonials_title: document.getElementById('testimonialsTitle').value,
+                testimonials_subtitle: document.getElementById('testimonialsSubtitle').value
+            };
+            
+            await supabase.from('editable_sections').upsert([{ id: 1, ...sections }]);
+            showMessage('✅ Títulos guardados', true);
+        }
+
+        async function saveStats() {
+            const stats = {
+                amigurumi_count: parseInt(document.getElementById('amigurumiCount').value),
+                client_count: parseInt(document.getElementById('clientCount').value),
+                rating: parseFloat(document.getElementById('rating').value),
+                years_experience: parseInt(document.getElementById('yearsExperience').value)
+            };
+            
+            await supabase.from('site_stats').upsert([{ id: 1, ...stats }]);
+            showMessage('✅ Estadísticas guardadas', true);
+        }
+
+        function showMessage(text, success) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = success ? 'p-4 rounded-lg bg-green-50 text-green-800' : 'p-4 rounded-lg bg-red-50 text-red-800';
+            msg.classList.remove('hidden');
+            setTimeout(() => msg.classList.add('hidden'), 3000);
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
