@@ -1,5 +1,23 @@
-﻿import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
 import { Order, Client, InventoryItem, ProductConfig, GlobalConfig, GalleryItem, DEFAULT_CONFIG, Tejedora, HomeConfig, Post, Challenge, Supply, Expense, ReturnRecord } from '../types';
+
+// 🆕 INTERFACES PARA AMIGURUMI
+export interface InsumoAmigurumi {
+  id: string;
+  tipo: string;
+  marca: string;
+  referencia: string;
+  color: string;
+  cantidad: string;
+  unidad: string;
+}
+
+export interface AmigurumiRecord {
+  id: string;
+  nombre: string;
+  insumos: InsumoAmigurumi[];
+  fechaActualizacion: string; // camelCase en TypeScript
+}
 
 // =====================================================
 // MAPPING HELPERS (Database to TypeScript)
@@ -17,7 +35,7 @@ const mapOrder = (o: any): Order => ({
   monto_pagado: o.monto_pagado,
   saldo_pendiente: o.saldo_pendiente,
   imagen_url: o.imagen_url,
-  final_image_url: o.final_image_url, // â† ðŸ†• AGREGAR ESTA LÃNEA
+  final_image_url: o.final_image_url,
   descripcion: o.descripcion,
   desglose: o.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
   guia_transportadora: o.guia_transportadora,
@@ -103,7 +121,7 @@ const mapPost = (p: any): Post => ({
   imageUrl: p.image_url,
   description: p.description,
   likes: p.likes,
-  likedBy: p.liked_by || [],
+  likedBy: p.liked_by || [],  // Corregido: era p.likedBy
   timestamp: p.timestamp
 });
 
@@ -139,7 +157,7 @@ export const db = {
     return (data || []).map(mapOrder);
   },
 
-  addOrder: async (order: Omit<Order, 'id'>) => {
+  addOrder: async (order: Omit<Order, 'id' | 'created_at'>) => {
     const { error } = await supabase.from('orders').insert({
       numero_seguimiento: order.numero_seguimiento,
       client_email: order.clientEmail,
@@ -150,7 +168,7 @@ export const db = {
       monto_pagado: order.monto_pagado,
       saldo_pendiente: order.saldo_pendiente,
       imagen_url: order.imagen_url,
-      final_image_url: order.final_image_url || null, // â† ðŸ†• AGREGAR ESTA LÃNEA
+      final_image_url: order.final_image_url || null,
       descripcion: order.descripcion,
       desglose: order.desglose,
       guia_transportadora: order.guia_transportadora
@@ -159,24 +177,23 @@ export const db = {
     if (error) console.error('Error adding order:', error);
   },
 
-updateOrder: async (orderId: string, updates: Partial<Order>) => {
-  const dbUpdates: any = {};
-  if (updates.estado) dbUpdates.estado = updates.estado;
-  if (updates.guia_transportadora) dbUpdates.guia_transportadora = updates.guia_transportadora;
-  if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
-  if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
+  updateOrder: async (orderId: string, updates: Partial<Order>) => {
+    const dbUpdates: any = {};
+    if (updates.estado) dbUpdates.estado = updates.estado;
+    if (updates.guia_transportadora) dbUpdates.guia_transportadora = updates.guia_transportadora;
+    if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
+    if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
   
-  // âœ… AGREGAR ESTAS LÃNEAS:
-  if (updates.final_image_url !== undefined) dbUpdates.final_image_url = updates.final_image_url;
-  if (updates.fecha_entrega !== undefined) dbUpdates.fecha_entrega = updates.fecha_entrega;
+    if (updates.final_image_url !== undefined) dbUpdates.final_image_url = updates.final_image_url;
+    if (updates.fecha_entrega !== undefined) dbUpdates.fecha_entrega = updates.fecha_entrega;
 
-  const { error } = await supabase
-    .from('orders')
-    .update(dbUpdates)
-    .eq('id', orderId);
+    const { error } = await supabase
+      .from('orders')
+      .update(dbUpdates)
+      .eq('id', orderId);
 
-  if (error) console.error('Error updating order:', error);
-},
+    if (error) console.error('Error updating order:', error);
+  },
 
   deleteOrder: async (orderId: string) => {
     const { error } = await supabase
@@ -212,34 +229,30 @@ updateOrder: async (orderId: string, updates: Partial<Order>) => {
     return (data || []).map(mapOrder);
   },
 
-  // ðŸ”’ FUNCIÃ“N SEGURA - Solo pedidos del cliente especÃ­fico
-// DESPUÃ‰S (corregido):
-getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
-  console.log('ðŸ” Buscando pedidos para:', email);
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('client_email', email)
-    .order('created_at', { ascending: false }); // âœ… CAMPO CORRECTO
+  getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
+    console.log('🔍 Buscando pedidos para:', email);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('client_email', email)
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('âŒ Error al cargar pedidos:', error);
-    return [];
-  }
+    if (error) {
+      console.error('❌ Error al cargar pedidos:', error);
+      return [];
+    }
 
-  if (!data) {
-    console.log('âš ï¸ No se encontraron pedidos para este cliente');
-    return [];
-  }
+    if (!data) {
+      console.log('ℹ️ No se encontraron pedidos para este cliente');
+      return [];
+    }
 
-  console.log(`âœ… ${data.length} pedidos encontrados`);
-  return data.map(mapOrder);
-},
+    console.log(`✅ ${data.length} pedidos encontrados`);
+    return data.map(mapOrder);
+  },
 
-
-  // ðŸ”’ FUNCIÃ“N SEGURA - Validar pedido por nÃºmero Y email
   getOrderByNumberAndEmail: async (orderNumber: string, email: string): Promise<Order | null> => {
-    console.log('ðŸ” Buscando pedido:', orderNumber, 'para email:', email);
+    console.log('🔍 Buscando pedido:', orderNumber, 'para email:', email);
     const { data, error } = await supabase
       .from('orders')
       .select('*')
@@ -248,93 +261,92 @@ getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
       .single();
       
     if (error) {
-      console.error('âŒ Error:', error);
+      console.error('❌ Error:', error);
       return null;
     }
     
     if (!data) {
-      console.log('âš ï¸ Pedido no encontrado o email no coincide');
+      console.log('ℹ️ Pedido no encontrado o email no coincide');
       return null;
     }
     
-    console.log('âœ… Pedido encontrado');
+    console.log('✅ Pedido encontrado');
     return mapOrder(data);
   },
 
   // --- CLIENTS ---
-getAllClients: async (): Promise<Client[]> => {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) {
-    console.error('Error fetching clients:', error);
-    return [];
-  }
-  return (data || []).map(mapClient);
-},
-
-// ðŸ”’ FUNCIÃ“N SEGURA - Obtener cliente por email
-getClientByEmail: async (email: string): Promise<Client | null> => {
-  console.log('ðŸ” Buscando cliente:', email);
-  
-  try {
+  getAllClients: async (): Promise<Client[]> => {
     const { data, error } = await supabase
       .from('clients')
       .select('*')
-      .eq('email', email)
-      .maybeSingle(); // â† Cambiar de .single() a .maybeSingle()
-
+      .order('created_at', { ascending: false });
+  
     if (error) {
-      console.error('âŒ Error al buscar cliente:', error);
+      console.error('Error fetching clients:', error);
+      return [];
+    }
+    return (data || []).map(mapClient);
+  },
+
+  getClientByEmail: async (email: string): Promise<Client | null> => {
+    console.log('🔍 Buscando cliente:', email);
+  
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Error al buscar cliente:', error);
+        return null;
+      }
+
+      if (!data) {
+        console.log('ℹ️ Cliente NO encontrado');
+        return null;
+      }
+
+      console.log('✅ Cliente encontrado:', data.nombre_completo);
+      return mapClient(data);
+    } catch (error) {
+      console.error('❌ Excepción al buscar cliente:', error);
       return null;
     }
+  },
 
-    if (!data) {
-      console.log('âš ï¸ Cliente NO encontrado');
-      return null;
+  registerClient: async (clientData: any) => {
+    const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
+  
+    const { error } = await supabase.from('clients').insert({
+      nombre_completo: clientData.nombre_completo,
+      email: clientData.email,
+      cedula: clientData.cedula,
+      telefono: clientData.telefono,
+      direccion: clientData.direccion,
+      password: clientData.password,
+      codigo_referido: code
+    });
+  
+    if (error) {
+      console.error('Error registering client:', error);
+      throw error;
     }
+  
+    localStorage.setItem('puntadas_user', clientData.email);
+    localStorage.setItem('puntadas_role', 'client');
+  },
 
-    console.log('âœ… Cliente encontrado:', data.nombre_completo);
-    return mapClient(data);
-  } catch (error) {
-    console.error('âŒ ExcepciÃ³n al buscar cliente:', error);
-    return null;
-  }
-},
+  deleteClient: async (clientId: string) => {
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', clientId);
+  
+    if (error) console.error('Error deleting client:', error);
+  },
 
-registerClient: async (clientData: any) => {
-  // âœ… CORREGIDO: Ahora usa nombre_completo
-  const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
-  
-  const { error } = await supabase.from('clients').insert({
-    nombre_completo: clientData.nombre_completo, // âœ… Ya correcto
-    email: clientData.email,
-    cedula: clientData.cedula,
-    telefono: clientData.telefono,
-    direccion: clientData.direccion,
-    password: clientData.password,
-    codigo_referido: code
-  });
-  
-  if (error) {
-    console.error('Error registering client:', error);
-    throw error;
-  }
-  
-  localStorage.setItem('puntadas_user', clientData.email);
-  localStorage.setItem('puntadas_role', 'client');
-},
-
-deleteClient: async (clientId: string) => {
-  const { error } = await supabase
-    .from('clients')
-    .delete()
-    .eq('id', clientId);
-  
-  if (error) console.error('Error deleting client:', error);
-},
   // --- SUPPLIES ---
   getSupplies: async (): Promise<Supply[]> => {
     const { data, error } = await supabase
@@ -443,110 +455,108 @@ deleteClient: async (clientId: string) => {
   },
 
   // --- INVENTORY (Product Config) ---
-getAllInventoryItems: async (): Promise<InventoryItem[]> => {
-  return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
-},
+  getAllInventoryItems: async (): Promise<InventoryItem[]> => {
+    return [...DEFAULT_CONFIG.sizes, ...DEFAULT_CONFIG.packaging, ...DEFAULT_CONFIG.accessories];
+  },
 
-// Carga desde Supabase
-getInventory: async (): Promise<ProductConfig> => {
-  try {
+  getInventory: async (): Promise<ProductConfig> => {
+    try {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('*')
+        .order('price', { ascending: true });
+    
+      if (error || !data || data.length === 0) {
+        console.log('ℹ️ No hay inventario en BD, usando valores por defecto');
+        return DEFAULT_CONFIG;
+      }
+    
+      const sizes = data.filter(i => i.category === 'sizes').map(i => ({
+        id: i.id,
+        category: i.category as 'sizes',
+        label: i.label,
+        price: i.price
+      }));
+    
+      const packaging = data.filter(i => i.category === 'packaging').map(i => ({
+        id: i.id,
+        category: i.category as 'packaging',
+        label: i.label,
+        price: i.price
+      }));
+    
+      const accessories = data.filter(i => i.category === 'accessories').map(i => ({
+        id: i.id,
+        category: i.category as 'accessories',
+        label: i.label,
+        price: i.price
+      }));
+    
+      console.log('✅ Inventario cargado:', { 
+        sizes: sizes.length, 
+        packaging: packaging.length, 
+        accessories: accessories.length 
+      });
+    
+      return { sizes, packaging, accessories };
+    } catch (error) {
+      console.error('❌ Error loading inventory:', error);
+      return DEFAULT_CONFIG;
+    }
+  },
+
+  getInventoryItems: async (): Promise<InventoryItem[]> => {
     const { data, error } = await supabase
       .from('inventory_items')
       .select('*')
+      .order('category', { ascending: true })
       .order('price', { ascending: true });
-    
-    if (error || !data || data.length === 0) {
-      console.log('âš ï¸ No hay inventario en BD, usando valores por defecto');
-      return DEFAULT_CONFIG;
+  
+    if (error) {
+      console.error('Error fetching inventory items:', error);
+      return [];
     }
-    
-    // Agrupar por categorÃ­a
-    const sizes = data.filter(i => i.category === 'sizes').map(i => ({
-      id: i.id,
-      category: i.category as 'sizes',
-      label: i.label,
-      price: i.price
-    }));
-    
-    const packaging = data.filter(i => i.category === 'packaging').map(i => ({
-      id: i.id,
-      category: i.category as 'packaging',
-      label: i.label,
-      price: i.price
-    }));
-    
-    const accessories = data.filter(i => i.category === 'accessories').map(i => ({
-      id: i.id,
-      category: i.category as 'accessories',
-      label: i.label,
-      price: i.price
-    }));
-    
-    console.log('âœ… Inventario cargado:', { 
-      sizes: sizes.length, 
-      packaging: packaging.length, 
-      accessories: accessories.length 
-    });
-    
-    return { sizes, packaging, accessories };
-  } catch (error) {
-    console.error('âŒ Error loading inventory:', error);
-    return DEFAULT_CONFIG;
-  }
-},
-
-// ðŸ†• CRUD para inventory_items
-getInventoryItems: async (): Promise<InventoryItem[]> => {
-  const { data, error } = await supabase
-    .from('inventory_items')
-    .select('*')
-    .order('category', { ascending: true })
-    .order('price', { ascending: true });
   
-  if (error) {
-    console.error('Error fetching inventory items:', error);
-    return [];
-  }
-  
-  return (data || []).map(item => ({
-    id: item.id,
-    category: item.category,
-    label: item.label,
-    price: item.price
-  }));
-},
-
-addInventoryItem: async (item: Omit<InventoryItem, 'id'>) => {
-  const { error } = await supabase.from('inventory_items').insert({
-    category: item.category,
-    label: item.label,
-    price: item.price
-  });
-  
-  if (error) console.error('Error adding inventory item:', error);
-},
-
-updateInventoryItem: async (item: InventoryItem) => {
-  const { error } = await supabase
-    .from('inventory_items')
-    .update({
+    return (data || []).map(item => ({
+      id: item.id,
       category: item.category,
       label: item.label,
       price: item.price
-    })
-    .eq('id', item.id);
-  
-  if (error) console.error('Error updating inventory item:', error);
-},
+    }));
+  },
 
-deleteInventoryItem: async (id: string) => {
-  const { error } = await supabase
-    .from('inventory_items')
-    .delete()
-    .eq('id', id);
+  addInventoryItem: async (item: Omit<InventoryItem, 'id'>) => {
+    const { error } = await supabase.from('inventory_items').insert({
+      category: item.category,
+      label: item.label,
+      price: item.price
+    });
   
-  if (error) console.error('Error deleting inventory item:', error);
-},
+    if (error) console.error('Error adding inventory item:', error);
+  },
+
+  updateInventoryItem: async (item: InventoryItem) => {
+    const { error } = await supabase
+      .from('inventory_items')
+      .update({
+        category: item.category,
+        label: item.label,
+        price: item.price
+      })
+      .eq('id', item.id);
+  
+    if (error) console.error('Error updating inventory item:', error);
+  },
+
+  deleteInventoryItem: async (id: string) => {
+    const { error } = await supabase
+      .from('inventory_items')
+      .delete()
+      .eq('id', id);
+  
+    if (error) console.error('Error deleting inventory item:', error);
+  },
+
   // --- GALLERY ---
   getGallery: async (): Promise<GalleryItem[]> => {
     const { data, error } = await supabase
@@ -841,7 +851,6 @@ deleteInventoryItem: async (id: string) => {
   // --- REFERRALS ---
   getAllReferrals: async (): Promise<any[]> => {
     try {
-      // Obtener referidos
       const { data, error } = await supabase
         .from('referrals')
         .select('*')
@@ -856,7 +865,6 @@ deleteInventoryItem: async (id: string) => {
         return [];
       }
       
-      // Obtener informaciÃ³n de clientes por separado
       const referrerIds = [...new Set(data.map(r => r.referrer_id).filter(Boolean))];
       
       if (referrerIds.length > 0) {
@@ -896,7 +904,7 @@ deleteInventoryItem: async (id: string) => {
     return data || [];
   },
 
-deleteReferral: async (id: string) => {
+  deleteReferral: async (id: string) => {
     const { error } = await supabase
       .from('referrals')
       .delete()
@@ -904,6 +912,7 @@ deleteReferral: async (id: string) => {
     
     if (error) console.error('Error deleting referral:', error);
   },
+
   updateReferral: async (referralId: string, updates: any) => {
     const { error } = await supabase
       .from('referrals')
@@ -912,6 +921,7 @@ deleteReferral: async (id: string) => {
     
     if (error) console.error('Error updating referral:', error);
   },
+
   addReferral: async (referral: any) => {
     const { error } = await supabase.from('referrals').insert(referral);
     
@@ -1053,5 +1063,94 @@ deleteReferral: async (id: string) => {
       .upsert([{ id: 1, ...sections }]);
     
     if (error) throw error;
+  },
+
+  // 🆕 FUNCIONES PARA AMIGURUMI RECORDS
+  getAmigurumiRecords: async (): Promise<{ data: AmigurumiRecord[] | null, error: any }> => {
+    try {
+      const { data, error } = await supabase
+        .from('amigurumi_records')
+        .select('*')
+        .order('fecha_actualizacion', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching amigurumi records:', error);
+        return { data: null, error };
+      }
+      
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('Exception in getAmigurumiRecords:', error);
+      return { data: null, error };
+    }
+  },
+
+  createAmigurumiRecord: async (amigurumiData: AmigurumiRecord): Promise<{ data: AmigurumiRecord[] | null, error: any }> => {
+    try {
+      const { data, error } = await supabase
+        .from('amigurumi_records')
+        .insert([{
+          id: amigurumiData.id,
+          nombre: amigurumiData.nombre,
+          insumos: amigurumiData.insumos,
+          fecha_actualizacion: amigurumiData.fechaActualizacion // Corregido: usar snake_case para la BD
+        }])
+        .select();
+      
+      if (error) {
+        console.error('Error creating amigurumi record:', error);
+        return { data: null, error };
+      }
+      
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('Exception in createAmigurumiRecord:', error);
+      return { data: null, error };
+    }
+  },
+
+  updateAmigurumiRecord: async (id: string, amigurumiData: AmigurumiRecord): Promise<{ data: AmigurumiRecord[] | null, error: any }> => {
+    try {
+      const { data, error } = await supabase
+        .from('amigurumi_records')
+        .update({
+          nombre: amigurumiData.nombre,
+          insumos: amigurumiData.insumos,
+          fecha_actualizacion: amigurumiData.fechaActualizacion // Corregido: usar snake_case para la BD
+        })
+        .eq('id', id)
+        .select();
+      
+      if (error) {
+        console.error('Error updating amigurumi record:', error);
+        return { data: null, error };
+      }
+      
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('Exception in updateAmigurumiRecord:', error);
+      return { data: null, error };
+    }
+  },
+
+  deleteAmigurumiRecord: async (id: string): Promise<{ data: any, error: any }> => {
+    try {
+      const { data, error } = await supabase
+        .from('amigurumi_records')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting amigurumi record:', error);
+        return { data: null, error };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error('Exception in deleteAmigurumiRecord:', error);
+      return { data: null, error };
+    }
   }
 };
+
+export default db;

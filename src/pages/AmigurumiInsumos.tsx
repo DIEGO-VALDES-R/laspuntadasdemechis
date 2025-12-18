@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Search, Package } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Search } from 'lucide-react';
+import { db } from '../services/db';
 
 interface Insumo {
   id: string;
@@ -11,7 +12,7 @@ interface Insumo {
   unidad: string;
 }
 
-interface Amigurumi {
+interface AmigurumiRecord {
   id: string;
   nombre: string;
   insumos: Insumo[];
@@ -19,10 +20,11 @@ interface Amigurumi {
 }
 
 export default function AmigurumiInsumos() {
-  const [amigurumis, setAmigurumis] = useState<Amigurumi[]>([]);
+  const [amigurumis, setAmigurumis] = useState<AmigurumiRecord[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '',
     insumos: [] as Insumo[]
@@ -43,43 +45,89 @@ export default function AmigurumiInsumos() {
 
   const loadData = async () => {
     try {
-      const result = await window.storage.list('amigurumi:');
-      if (result && result.keys) {
-        const loadedAmigurumis = await Promise.all(
-          result.keys.map(async (key) => {
-            try {
-              const data = await window.storage.get(key);
-              return data ? JSON.parse(data.value) : null;
-            } catch {
-              return null;
-            }
-          })
-        );
-        setAmigurumis(loadedAmigurumis.filter(Boolean) as Amigurumi[]);
+      setLoading(true);
+      console.log('🔄 Cargando datos...');
+      
+      const { data, error } = await db.getAmigurumiRecords();
+      
+      if (error) {
+        console.error('❌ Error:', error);
+        throw error;
       }
+      
+      console.log('✅ Datos cargados:', data);
+      setAmigurumis(data || []);
     } catch (error) {
-      console.log('No hay datos guardados aún');
+      console.error('❌ Error al cargar datos:', error);
+      alert('Error al cargar los datos: ' + (error as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const saveData = async (data: Amigurumi) => {
+  const saveData = async (nombre: string, insumos: Insumo[]) => {
     try {
-      const key = `amigurumi:${data.id}`;
-      await window.storage.set(key, JSON.stringify(data));
+      setLoading(true);
+      console.log('💾 Guardando...', { nombre, insumos, editingId });
+      
+      const amigurumiData: AmigurumiRecord = {
+        id: editingId || crypto.randomUUID(),
+        nombre,
+        insumos,
+        fechaActualizacion: new Date().toISOString()
+      };
+      
+      if (editingId) {
+        console.log('📝 Actualizando amigurumi ID:', editingId);
+        const { error } = await db.updateAmigurumiRecord(editingId, amigurumiData);
+        
+        if (error) {
+          console.error('❌ Error al actualizar:', error);
+          throw error;
+        }
+        
+        alert('✅ Amigurumi actualizado exitosamente');
+      } else {
+        console.log('🆕 Creando nuevo amigurumi');
+        const { error } = await db.createAmigurumiRecord(amigurumiData);
+        
+        if (error) {
+          console.error('❌ Error al crear:', error);
+          throw error;
+        }
+        
+        alert('✅ Amigurumi guardado exitosamente');
+      }
+      
       await loadData();
     } catch (error) {
-      console.error('Error al guardar:', error);
-      alert('Error al guardar los datos');
+      console.error('❌ Error al guardar:', error);
+      alert('Error al guardar los datos: ' + (error as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const deleteAmigurumi = async (id: string) => {
     if (window.confirm('¿Estás seguro de eliminar este amigurumi?')) {
       try {
-        await window.storage.delete(`amigurumi:${id}`);
+        setLoading(true);
+        console.log('🗑️ Eliminando amigurumi ID:', id);
+        
+        const { error } = await db.deleteAmigurumiRecord(id);
+        
+        if (error) {
+          console.error('❌ Error al eliminar:', error);
+          throw error;
+        }
+        
         await loadData();
+        alert('✅ Amigurumi eliminado exitosamente');
       } catch (error) {
-        console.error('Error al eliminar:', error);
+        console.error('❌ Error al eliminar:', error);
+        alert('Error al eliminar: ' + (error as Error).message);
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -121,18 +169,15 @@ export default function AmigurumiInsumos() {
       return;
     }
 
-    const amigurumiData: Amigurumi = {
-      ...formData,
-      id: editingId || Date.now().toString(),
-      fechaActualizacion: new Date().toISOString()
-    };
-
-    await saveData(amigurumiData);
+    await saveData(formData.nombre, formData.insumos);
     handleCancel();
   };
 
-  const handleEdit = (amigurumi: Amigurumi) => {
-    setFormData(amigurumi);
+  const handleEdit = (amigurumi: AmigurumiRecord) => {
+    setFormData({
+      nombre: amigurumi.nombre,
+      insumos: amigurumi.insumos || []
+    });
     setEditingId(amigurumi.id);
     setIsEditing(true);
   };
@@ -170,7 +215,8 @@ export default function AmigurumiInsumos() {
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
-              className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              disabled={loading}
+              className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50"
             >
               <Plus size={20} />
               Nuevo Amigurumi
@@ -343,14 +389,16 @@ export default function AmigurumiInsumos() {
               <div className="flex gap-3">
                 <button
                   onClick={handleSaveAmigurumi}
-                  className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50"
                 >
                   <Save size={20} />
-                  Guardar Amigurumi
+                  {loading ? 'Guardando...' : 'Guardar Amigurumi'}
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="flex items-center gap-2 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium disabled:opacity-50"
                 >
                   <X size={20} />
                   Cancelar
@@ -377,7 +425,11 @@ export default function AmigurumiInsumos() {
             </div>
           </div>
 
-          {filteredAmigurumis.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">
+              Cargando...
+            </div>
+          ) : filteredAmigurumis.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               {searchTerm ? 'No se encontraron amigurumis' : 'No hay amigurumis registrados aún'}
             </div>
@@ -400,13 +452,15 @@ export default function AmigurumiInsumos() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleEdit(amigurumi)}
-                        className="bg-blue-100 text-blue-700 p-2 rounded-lg hover:bg-blue-200 transition-colors"
+                        disabled={loading}
+                        className="bg-blue-100 text-blue-700 p-2 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button
                         onClick={() => deleteAmigurumi(amigurumi.id)}
-                        className="bg-red-100 text-red-700 p-2 rounded-lg hover:bg-red-200 transition-colors"
+                        disabled={loading}
+                        className="bg-red-100 text-red-700 p-2 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -418,7 +472,7 @@ export default function AmigurumiInsumos() {
                       Lista de Insumos:
                     </h4>
                     <div className="space-y-2">
-                      {amigurumi.insumos.map((insumo) => (
+                      {(amigurumi.insumos || []).map((insumo) => (
                         <div key={insumo.id} className="bg-white rounded-lg p-2 border border-gray-200">
                           <div className="flex items-start gap-2">
                             <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded shrink-0">
