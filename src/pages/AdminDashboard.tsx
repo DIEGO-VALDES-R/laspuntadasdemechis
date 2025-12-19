@@ -6,12 +6,16 @@ import { db } from '../services/db';
 import {
   LayoutDashboard, ShoppingCart, Users, Package, DollarSign, Settings,
   Search, Eye, X, Save, ShoppingBag, Plus, Trash2, Edit2, 
-  Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText
+  Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText, Star
 } from 'lucide-react';
 import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
 
-// Agregamos 'site-content' y 'insumos-amigurumi' al tipo Tab
-type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'site-content' | 'insumos-amigurumi';
+// ========================================
+// TIPOS DE DATOS
+// ========================================
+
+// Agregamos 'site-content', 'insumos-amigurumi' y 'testimonials' al tipo Tab
+type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'site-content' | 'insumos-amigurumi' | 'testimonials';
 
 // 🆕 INTERFACES PARA INSUMOS POR AMIGURUMI
 interface InsumoAmigurumi {
@@ -31,12 +35,23 @@ interface AmigurumiRecord {
   fechaActualizacion: string;
 }
 
+// ========================================
+// COMPONENTE PRINCIPAL - ADMIN DASHBOARD
+// ========================================
+
 const AdminDashboard: React.FC = () => {
+  // ========================================
+  // HOOKS Y VARIABLES GLOBALES
+  // ========================================
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [loading, setLoading] = useState(true);
 
-  // Data State
+  // ========================================
+  // ESTADOS PARA DATOS DE LA APLICACIÓN
+  // ========================================
+  
+  // Datos principales
   const [orders, setOrders] = useState<Order[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
@@ -88,20 +103,56 @@ const AdminDashboard: React.FC = () => {
     unidad: 'gramos'
   });
 
-  // Modal States
+  // ========================================
+  // ESTADOS PARA MODALES
+  // ========================================
+  
+  // Modales de pedidos
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderClient, setOrderClient] = useState<Client | null>(null);
+  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
+  const [newOrderData, setNewOrderData] = useState({
+    clientEmail: '',
+    clientName: '',
+    clientPhone: '',
+    nombre_producto: '',
+    descripcion: '',
+    total_final: 0,
+    monto_pagado: 0
+  });
+  const [showNotificationOptions, setShowNotificationOptions] = useState(false);
+  const [createdOrderNumber, setCreatedOrderNumber] = useState('');
+
+  // Estados para actualización de pedidos
+  const [statusUpdate, setStatusUpdate] = useState('');
+  const [trackingGuide, setTrackingGuide] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [finalImageFile, setFinalImageFile] = useState<File | null>(null);
+  const [finalImagePreview, setFinalImagePreview] = useState<string>('');
+  const [uploadingFinalImage, setUploadingFinalImage] = useState(false);
+  
+  // Modales de clientes
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  
+  // Modales de galería
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
   const [editingGallery, setEditingGallery] = useState<GalleryItem | null>(null);
+  
+  // Modales de tejedoras
   const [isTejedoraModalOpen, setIsTejedoraModalOpen] = useState(false);
   const [editingTejedora, setEditingTejedora] = useState<Tejedora | null>(null);
+  
+  // Modales de retos
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null);
+  
+  // Modales de publicaciones
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
+  
+  // Modales de insumos
   const [isSupplyModalOpen, setIsSupplyModalOpen] = useState(false);
   const [editingSupply, setEditingSupply] = useState<Supply | null>(null);
 
@@ -111,31 +162,10 @@ const AdminDashboard: React.FC = () => {
   const [editingInventoryItem, setEditingInventoryItem] = useState<InventoryItem | null>(null);
   const [activeInventoryCategory, setActiveInventoryCategory] = useState<'sizes' | 'packaging' | 'accessories'>('sizes');
 
-  // ============================================
-  // 1. AGREGAR ESTOS ESTADOS AL INICIO DEL COMPONENTE
-  // ============================================
-  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
-  const [newOrderData, setNewOrderData] = useState({
-    clientEmail: '',
-    clientName: '', // NUEVO
-    clientPhone: '', // NUEVO
-    nombre_producto: '',
-    descripcion: '',
-    total_final: 0,
-    monto_pagado: 0
-  });
-  const [showNotificationOptions, setShowNotificationOptions] = useState(false);
-  const [createdOrderNumber, setCreatedOrderNumber] = useState('');
-
-  // Status update
-  const [statusUpdate, setStatusUpdate] = useState('');
-  const [trackingGuide, setTrackingGuide] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [finalImageFile, setFinalImageFile] = useState<File | null>(null);
-  const [finalImagePreview, setFinalImagePreview] = useState<string>('');
-  const [uploadingFinalImage, setUploadingFinalImage] = useState(false);
+  // ========================================
+  // FUNCIONES PARA GUARDAR CONTENIDO DEL SITIO
+  // ========================================
   
-  // 🆕 FUNCIONES PARA GUARDAR CONTENIDO DEL SITIO
   const handleSaveSiteStats = async () => {
     try {
       await db.updateSiteStats(siteStats);
@@ -156,7 +186,10 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // 🆕 FUNCIONES PARA INSUMOS DE AMIGURUMI
+  // ========================================
+  // FUNCIONES PARA INSUMOS DE AMIGURUMI
+  // ========================================
+  
   const loadAmigurumiRecords = async (): Promise<AmigurumiRecord[]> => {
     try {
       const { data, error } = await db.getAmigurumiRecords();
@@ -316,6 +349,10 @@ const AdminDashboard: React.FC = () => {
     setIsAmigurumiModalOpen(true);
   };
 
+  // ========================================
+  // CARGA DE DATOS INICIAL
+  // ========================================
+  
   const loadData = async () => {
     setLoading(true);
     try {
@@ -384,7 +421,10 @@ const AdminDashboard: React.FC = () => {
     loadData();
   }, [navigate]);
 
-  // ORDER HANDLERS
+  // ========================================
+  // MANEJO DE PEDIDOS
+  // ========================================
+  
   const handleOpenOrder = async (order: Order) => {
     console.log('🔍 Abriendo pedido #', order.numero_seguimiento);
     console.log('📸 final_image_url en el pedido:', order.final_image_url);
@@ -533,49 +573,10 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // INVENTORY HANDLERS
-  const openNewInventoryItem = () => {
-    setEditingInventoryItem({
-      id: `inv-${Date.now()}`,
-      category: activeInventoryCategory,
-      label: '',
-      price: 0
-    });
-    setIsInventoryModalOpen(true);
-  };
-
-  const handleSaveInventoryItem = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!editingInventoryItem || !editingInventoryItem.label || editingInventoryItem.price <= 0) {
-      alert('Completa todos los campos');
-      return;
-    }
-
-    try {
-      const exists = inventoryItems.some(i => i.id === editingInventoryItem.id);
-      if (exists) {
-        await db.updateInventoryItem(editingInventoryItem);
-      } else {
-        await db.addInventoryItem(editingInventoryItem);
-      }
-      setIsInventoryModalOpen(false);
-      setEditingInventoryItem(null);
-      loadData();
-    } catch (error) {
-      console.error('Error saving inventory item:', error);
-      alert('Error al guardar');
-    }
-  };
-
-  const handleDeleteInventoryItem = async (id: string) => {
-    if (!confirm('¿Eliminar este item del inventario?')) return;
-    await db.deleteInventoryItem(id);
-    loadData();
-  };
-
-  // ============================================
-  // 2. MODIFICAR LA FUNCIÓN handleCreateOrder
-  // ============================================
+  // ========================================
+  // MANEJO DE CREACIÓN DE PEDIDOS
+  // ========================================
+  
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOrderData.clientEmail || !newOrderData.nombre_producto || newOrderData.total_final <= 0) {
@@ -644,9 +645,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  // ============================================
-  // 3. AGREGAR FUNCIONES PARA ENVIAR MENSAJES
-  // ============================================
   const sendEmailNotification = () => {
     const saldo = newOrderData.total_final - newOrderData.monto_pagado;
     const subject = `Nuevo Pedido #${createdOrderNumber} - Puntadas de Mechis`;
@@ -714,7 +712,10 @@ Puntadas de Mechis
     });
   };
 
-  // REFERRAL HANDLERS
+  // ========================================
+  // MANEJO DE REFERIDOS
+  // ========================================
+  
   const handleDeleteReferral = async (id: string) => {
     if (confirm("¿Eliminar este referido?")) {
       await db.deleteReferral(id);
@@ -722,7 +723,10 @@ Puntadas de Mechis
     }
   };
 
-  // SUPPLY HANDLERS
+  // ========================================
+  // MANEJO DE INSUMOS
+  // ========================================
+  
   const handleSaveSupply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingSupply) {
@@ -751,7 +755,10 @@ Puntadas de Mechis
     setIsSupplyModalOpen(true);
   };
 
-  // CLIENT HANDLERS
+  // ========================================
+  // MANEJO DE CLIENTES
+  // ========================================
+  
   const handleDeleteClient = async (e: React.MouseEvent, clientId: string) => {
     e.stopPropagation();
     if (window.confirm('¿Eliminar este cliente?')) {
@@ -760,7 +767,10 @@ Puntadas de Mechis
     }
   };
 
-  // GALLERY HANDLERS
+  // ========================================
+  // MANEJO DE GALERÍA
+  // ========================================
+  
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: any) => void) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -803,7 +813,10 @@ Puntadas de Mechis
     setIsGalleryModalOpen(true);
   };
 
-  // CONTENT HANDLERS
+  // ========================================
+  // MANEJO DE CONTENIDO DEL HOME
+  // ========================================
+  
   const handleSaveHomeConfig = async () => {
     await db.saveHomeConfig(homeConfig);
     alert('Configuración guardada');
@@ -822,6 +835,10 @@ Puntadas de Mechis
     }
   };
 
+  // ========================================
+  // MANEJO DE TEJEDORAS
+  // ========================================
+  
   const handleSaveTejedora = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingTejedora) {
@@ -841,7 +858,10 @@ Puntadas de Mechis
     }
   };
 
-  // COMMUNITY HANDLERS
+  // ========================================
+  // MANEJO DE PUBLICACIONES DE COMUNIDAD
+  // ========================================
+  
   const handleSavePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingPost) {
@@ -878,7 +898,10 @@ Puntadas de Mechis
     setIsPostModalOpen(true);
   };
 
-  // CHALLENGES HANDLERS
+  // ========================================
+  // MANEJO DE RETOS
+  // ========================================
+  
   const handleSaveChallenge = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingChallenge) {
@@ -915,7 +938,53 @@ Puntadas de Mechis
     setIsChallengeModalOpen(true);
   };
 
-  // Función para manejar la subida de archivos para supplies
+  // ========================================
+  // MANEJO DE INVENTARIO
+  // ========================================
+  
+  const openNewInventoryItem = () => {
+    setEditingInventoryItem({
+      id: `inv-${Date.now()}`,
+      category: activeInventoryCategory,
+      label: '',
+      price: 0
+    });
+    setIsInventoryModalOpen(true);
+  };
+
+  const handleSaveInventoryItem = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!editingInventoryItem || !editingInventoryItem.label || editingInventoryItem.price <= 0) {
+      alert('Completa todos los campos');
+      return;
+    }
+
+    try {
+      const exists = inventoryItems.some(i => i.id === editingInventoryItem.id);
+      if (exists) {
+        await db.updateInventoryItem(editingInventoryItem);
+      } else {
+        await db.addInventoryItem(editingInventoryItem);
+      }
+      setIsInventoryModalOpen(false);
+      setEditingInventoryItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error saving inventory item:', error);
+      alert('Error al guardar');
+    }
+  };
+
+  const handleDeleteInventoryItem = async (id: string) => {
+    if (!confirm('¿Eliminar este item del inventario?')) return;
+    await db.deleteInventoryItem(id);
+    loadData();
+  };
+
+  // ========================================
+  // MANEJO DE ARCHIVOS DE INSUMOS
+  // ========================================
+  
   const handleSupplyImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !editingSupply) return;
@@ -952,7 +1021,10 @@ Puntadas de Mechis
     loadData();
   };
 
-  // Agrega estas funciones después de las funciones existentes
+  // ========================================
+  // MANEJO DE ESTADOS DE REFERIDOS
+  // ========================================
+  
   const handleUpdateReferralStatus = async (referralId: string, status: string) => {
     try {
       await db.updateReferral(referralId, { status });
@@ -989,7 +1061,10 @@ Puntadas de Mechis
     }
   };
 
-  // 🆕 VISTA DE INSUMOS POR AMIGURUMI - INTEGRADA CON SUPABASE
+  // ========================================
+  // VISTA DE INSUMOS POR AMIGURUMI
+  // ========================================
+  
   const InsumosAmigurumiView = () => {
     const [amigurumis, setAmigurumis] = useState<AmigurumiRecord[]>([]);
     const [isEditing, setIsEditing] = useState(false);
@@ -1448,7 +1523,11 @@ Puntadas de Mechis
     );
   };
 
-  // VIEWS
+  // ========================================
+  // VISTAS DEL DASHBOARD
+  // ========================================
+  
+  // Vista principal del dashboard
   const DashboardView = () => (
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-gray-800">Panel de Control</h2>
@@ -1485,6 +1564,7 @@ Puntadas de Mechis
     </div>
   );
 
+  // Vista de gestión de pedidos
   const OrdersView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1535,6 +1615,7 @@ Puntadas de Mechis
     </div>
   );
 
+  // Vista de gestión de insumos
   const SuppliesView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1608,6 +1689,7 @@ Puntadas de Mechis
     </div>
   );
 
+  // Vista de gestión de inventario
   const InventoryView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1707,7 +1789,7 @@ Puntadas de Mechis
     </div>
   );
 
-  // CLIENTS VIEW
+  // Vista de gestión de clientes
   const ClientsView = () => (
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-gray-800">Clientes</h2>
@@ -1742,7 +1824,7 @@ Puntadas de Mechis
     </div>
   );
 
-  // NUEVA VISTA DE REFERIDOS MEJORADA
+  // Vista de gestión de referidos
   const ReferralsView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1830,7 +1912,7 @@ Puntadas de Mechis
     </div>
   );
 
-  // GALLERY VIEW
+  // Vista de gestión de galería
   const GalleryView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1860,320 +1942,318 @@ Puntadas de Mechis
     </div>
   );
 
-  // CONTENT VIEW - VERSIÓN CORREGIDA
-  // Reemplaza la función ContentView en AdminDashboard.tsx con esta versión corregida:
+  // Vista de gestión de contenido del home
+  const ContentView = () => {
+    // 🆕 Estados locales para evitar el problema del cursor
+    const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
+    const [localCardPrice2, setLocalCardPrice2] = useState(homeConfig.cardPrice2 || '$27.00');
+    const [localCardPrice3, setLocalCardPrice3] = useState(homeConfig.cardPrice3 || '$26.00');
+    const [localCardPrice4, setLocalCardPrice4] = useState(homeConfig.cardPrice4 || '$25.00');
 
-const ContentView = () => {
-  // 🆕 Estados locales para evitar el problema del cursor
-  const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
-  const [localCardPrice2, setLocalCardPrice2] = useState(homeConfig.cardPrice2 || '$27.00');
-  const [localCardPrice3, setLocalCardPrice3] = useState(homeConfig.cardPrice3 || '$26.00');
-  const [localCardPrice4, setLocalCardPrice4] = useState(homeConfig.cardPrice4 || '$25.00');
+    // Sincronizar con homeConfig cuando cambia
+    useEffect(() => {
+      setLocalCardPrice1(homeConfig.cardPrice1 || '$30.00');
+      setLocalCardPrice2(homeConfig.cardPrice2 || '$27.00');
+      setLocalCardPrice3(homeConfig.cardPrice3 || '$26.00');
+      setLocalCardPrice4(homeConfig.cardPrice4 || '$25.00');
+    }, [homeConfig]);
 
-  // Sincronizar con homeConfig cuando cambia
-  useEffect(() => {
-    setLocalCardPrice1(homeConfig.cardPrice1 || '$30.00');
-    setLocalCardPrice2(homeConfig.cardPrice2 || '$27.00');
-    setLocalCardPrice3(homeConfig.cardPrice3 || '$26.00');
-    setLocalCardPrice4(homeConfig.cardPrice4 || '$25.00');
-  }, [homeConfig]);
-
-  // 🆕 Función para manejar la subida de imágenes de tarjetas
-  const handleCardImageUpload = (e: React.ChangeEvent<HTMLInputElement>, cardNumber: 2 | 3 | 4 | 5) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 800000) {
-        alert("Imagen muy pesada (máx 800KB)");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const imageUrl = ev.target?.result as string;
-        // Guardar en homeConfig según el número de tarjeta
-        if (cardNumber === 2) {
-          setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
-        } else if (cardNumber === 3) {
-          setHomeConfig(prev => ({ ...prev, cardImage3: imageUrl }));
-        } else if (cardNumber === 4) {
-          setHomeConfig(prev => ({ ...prev, cardImage4: imageUrl }));
-        } else if (cardNumber === 5) {
-          setHomeConfig(prev => ({ ...prev, cardImage5: imageUrl }));
+    // 🆕 Función para manejar la subida de imágenes de tarjetas
+    const handleCardImageUpload = (e: React.ChangeEvent<HTMLInputElement>, cardNumber: 2 | 3 | 4 | 5) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        if (file.size > 800000) {
+          alert("Imagen muy pesada (máx 800KB)");
+          return;
         }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // 🆕 Guardar con los precios actualizados
-  const handleSaveContentConfig = async () => {
-    try {
-      const updatedConfig = {
-        ...homeConfig,
-        cardPrice1: localCardPrice1,
-        cardPrice2: localCardPrice2,
-        cardPrice3: localCardPrice3,
-        cardPrice4: localCardPrice4
-      };
-      
-      console.log('💾 Guardando configuración:', updatedConfig);
-      
-      const result = await db.saveHomeConfig(updatedConfig);
-      
-      if (result.error) {
-        console.error('❌ Error al guardar:', result.error);
-        alert('❌ Error al guardar: ' + result.error.message);
-        return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const imageUrl = ev.target?.result as string;
+          // Guardar en homeConfig según el número de tarjeta
+          if (cardNumber === 2) {
+            setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
+          } else if (cardNumber === 3) {
+            setHomeConfig(prev => ({ ...prev, cardImage3: imageUrl }));
+          } else if (cardNumber === 4) {
+            setHomeConfig(prev => ({ ...prev, cardImage4: imageUrl }));
+          } else if (cardNumber === 5) {
+            setHomeConfig(prev => ({ ...prev, cardImage5: imageUrl }));
+          }
+        };
+        reader.readAsDataURL(file);
       }
-      
-      setHomeConfig(updatedConfig);
-      alert('✅ Contenido actualizado correctamente');
-      await loadData();
-    } catch (error) {
-      console.error('❌ Error inesperado:', error);
-      alert('❌ Error al guardar: ' + (error as Error).message);
-    }
+    };
+
+    // 🆕 Guardar con los precios actualizados
+    const handleSaveContentConfig = async () => {
+      try {
+        const updatedConfig = {
+          ...homeConfig,
+          cardPrice1: localCardPrice1,
+          cardPrice2: localCardPrice2,
+          cardPrice3: localCardPrice3,
+          cardPrice4: localCardPrice4
+        };
+        
+        console.log('💾 Guardando configuración:', updatedConfig);
+        
+        const result = await db.saveHomeConfig(updatedConfig);
+        
+        if (result.error) {
+          console.error('❌ Error al guardar:', result.error);
+          alert('❌ Error al guardar: ' + result.error.message);
+          return;
+        }
+        
+        setHomeConfig(updatedConfig);
+        alert('✅ Contenido actualizado correctamente');
+        await loadData();
+      } catch (error) {
+        console.error('❌ Error inesperado:', error);
+        alert('❌ Error al guardar: ' + (error as Error).message);
+      }
+    };
+
+    return (
+      <div className="space-y-8 animate-fade-in">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-800">Gestión de Contenido</h2>
+        </div>
+        
+        {/* Logo Principal */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <ImageIcon size={20}/> Logo Principal (Izquierda)
+          </h3>
+          <div>
+            <label className="block text-sm font-medium mb-2">Logo del Sitio</label>
+            {homeConfig.heroImage1 && (
+              <img 
+                src={homeConfig.heroImage1} 
+                alt="Logo" 
+                className="w-40 h-40 object-contain rounded-lg mb-2 border-2 border-gray-200 bg-white p-2"
+              />
+            )}
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={(e) => handleHeroUpload(e, 'heroImage1')} 
+              className="text-sm w-full"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Este logo aparece en la columna izquierda sobre el texto
+            </p>
+          </div>
+        </div>
+
+        {/* Tarjetas Flotantes */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <ImageIcon size={20}/> Tarjetas Flotantes (Derecha)
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* TARJETA 1 (Verde) */}
+            <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                <h4 className="font-bold text-green-800">Tarjeta 1 (Verde)</h4>
+              </div>
+              
+              {/* Imagen */}
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-2">Imagen</label>
+                {homeConfig.heroImage2 && (
+                  <img 
+                    src={homeConfig.heroImage2} 
+                    alt="Tarjeta 1" 
+                    className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-green-300"
+                  />
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => handleCardImageUpload(e, 2)} 
+                  className="text-sm w-full"
+                />
+              </div>
+
+              {/* Precio */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Precio</label>
+                <input
+                  type="text"
+                  value={localCardPrice1}
+                  onChange={(e) => setLocalCardPrice1(e.target.value)}
+                  onBlur={() => setHomeConfig(prev => ({...prev, cardPrice1: localCardPrice1}))}
+                  className="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:outline-none focus:border-green-500"
+                  placeholder="$30.00"
+                />
+              </div>
+            </div>
+
+            {/* TARJETA 2 (Morada) */}
+            <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+                <h4 className="font-bold text-purple-800">Tarjeta 2 (Morada)</h4>
+              </div>
+              
+              {/* Imagen */}
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-2">Imagen</label>
+                {homeConfig.cardImage3 && (
+                  <img 
+                    src={homeConfig.cardImage3} 
+                    alt="Tarjeta 2" 
+                    className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-purple-300"
+                  />
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => handleCardImageUpload(e, 3)} 
+                  className="text-sm w-full"
+                />
+              </div>
+
+              {/* Precio */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Precio</label>
+                <input
+                  type="text"
+                  value={localCardPrice2}
+                  onChange={(e) => setLocalCardPrice2(e.target.value)}
+                  onBlur={() => setHomeConfig(prev => ({...prev, cardPrice2: localCardPrice2}))}
+                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  placeholder="$27.00"
+                />
+              </div>
+            </div>
+
+            {/* TARJETA 3 (Amarilla) */}
+            <div className="border-2 border-yellow-200 rounded-xl p-4 bg-yellow-50">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+                <h4 className="font-bold text-yellow-800">Tarjeta 3 (Amarilla)</h4>
+              </div>
+              
+              {/* Imagen */}
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-2">Imagen</label>
+                {homeConfig.cardImage4 && (
+                  <img 
+                    src={homeConfig.cardImage4} 
+                    alt="Tarjeta 3" 
+                    className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-yellow-300"
+                  />
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => handleCardImageUpload(e, 4)} 
+                  className="text-sm w-full"
+                />
+              </div>
+
+              {/* Precio */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Precio</label>
+                <input
+                  type="text"
+                  value={localCardPrice3}
+                  onChange={(e) => setLocalCardPrice3(e.target.value)}
+                  onBlur={() => setHomeConfig(prev => ({...prev, cardPrice3: localCardPrice3}))}
+                  className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500"
+                  placeholder="$26.00"
+                />
+              </div>
+            </div>
+
+            {/* TARJETA 4 (Rosa) */}
+            <div className="border-2 border-pink-200 rounded-xl p-4 bg-pink-50">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-4 h-4 bg-pink-500 rounded-full"></div>
+                <h4 className="font-bold text-pink-800">Tarjeta 4 (Rosa)</h4>
+              </div>
+              
+              {/* Imagen */}
+              <div className="mb-3">
+                <label className="block text-sm font-medium mb-2">Imagen</label>
+                {homeConfig.cardImage5 && (
+                  <img 
+                    src={homeConfig.cardImage5} 
+                    alt="Tarjeta 4" 
+                    className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-pink-300"
+                  />
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => handleCardImageUpload(e, 5)} 
+                  className="text-sm w-full"
+                />
+              </div>
+
+              {/* Precio */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Precio</label>
+                <input
+                  type="text"
+                  value={localCardPrice4}
+                  onChange={(e) => setLocalCardPrice4(e.target.value)}
+                  onBlur={() => setHomeConfig(prev => ({...prev, cardPrice4: localCardPrice4}))}
+                  className="w-full px-3 py-2 border-2 border-pink-300 rounded-lg focus:outline-none focus:border-pink-500"
+                  placeholder="$25.00"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Botón Guardar */}
+          <div className="mt-6 text-right">
+            <button 
+              onClick={handleSaveContentConfig} 
+              className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-8 py-3 rounded-lg font-bold hover:from-pink-700 hover:to-purple-700 shadow-lg flex items-center gap-2 ml-auto"
+            >
+              <Save size={20}/>
+              Guardar Todo el Contenido
+            </button>
+          </div>
+        </div>
+
+        {/* Tejedoras */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold flex items-center gap-2"><Users size={20}/> Equipo de Tejedoras</h3>
+            <button
+              onClick={() => { setEditingTejedora({ id: `tej-${Date.now()}`, nombre: '', especialidad: '', imageUrl: '' }); setIsTejedoraModalOpen(true); }}
+              className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2"
+            >
+              <Plus size={16}/> Agregar
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tejedoras.map(t => (
+              <div key={t.id} className="border border-gray-100 rounded-lg p-3 flex gap-3 items-center">
+                <img src={t.imageUrl} alt={t.nombre} className="w-12 h-12 rounded-full object-cover"/>
+                <div className="flex-1">
+                  <p className="font-bold text-sm">{t.nombre}</p>
+                  <p className="text-xs text-gray-500">{t.especialidad}</p>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => { setEditingTejedora(t); setIsTejedoraModalOpen(true); }} className="p-1 text-blue-500"><Edit2 size={16}/></button>
+                  <button onClick={() => handleDeleteTejedora(t.id)} className="p-1 text-red-500"><Trash2 size={16}/></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Gestión de Contenido</h2>
-      </div>
-      
-      {/* Logo Principal */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <ImageIcon size={20}/> Logo Principal (Izquierda)
-        </h3>
-        <div>
-          <label className="block text-sm font-medium mb-2">Logo del Sitio</label>
-          {homeConfig.heroImage1 && (
-            <img 
-              src={homeConfig.heroImage1} 
-              alt="Logo" 
-              className="w-40 h-40 object-contain rounded-lg mb-2 border-2 border-gray-200 bg-white p-2"
-            />
-          )}
-          <input 
-            type="file" 
-            accept="image/*" 
-            onChange={(e) => handleHeroUpload(e, 'heroImage1')} 
-            className="text-sm w-full"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Este logo aparece en la columna izquierda sobre el texto
-          </p>
-        </div>
-      </div>
-
-      {/* Tarjetas Flotantes */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <ImageIcon size={20}/> Tarjetas Flotantes (Derecha)
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* TARJETA 1 (Verde) */}
-          <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-              <h4 className="font-bold text-green-800">Tarjeta 1 (Verde)</h4>
-            </div>
-            
-            {/* Imagen */}
-            <div className="mb-3">
-              <label className="block text-sm font-medium mb-2">Imagen</label>
-              {homeConfig.heroImage2 && (
-                <img 
-                  src={homeConfig.heroImage2} 
-                  alt="Tarjeta 1" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-green-300"
-                />
-              )}
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 2)} 
-                className="text-sm w-full"
-              />
-            </div>
-
-            {/* Precio */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Precio</label>
-              <input
-                type="text"
-                value={localCardPrice1}
-                onChange={(e) => setLocalCardPrice1(e.target.value)}
-                onBlur={() => setHomeConfig(prev => ({...prev, cardPrice1: localCardPrice1}))}
-                className="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:outline-none focus:border-green-500"
-                placeholder="$30.00"
-              />
-            </div>
-          </div>
-
-          {/* TARJETA 2 (Morada) */}
-          <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
-              <h4 className="font-bold text-purple-800">Tarjeta 2 (Morada)</h4>
-            </div>
-            
-            {/* Imagen */}
-            <div className="mb-3">
-              <label className="block text-sm font-medium mb-2">Imagen</label>
-              {homeConfig.cardImage3 && (
-                <img 
-                  src={homeConfig.cardImage3} 
-                  alt="Tarjeta 2" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-purple-300"
-                />
-              )}
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 3)} 
-                className="text-sm w-full"
-              />
-            </div>
-
-            {/* Precio */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Precio</label>
-              <input
-                type="text"
-                value={localCardPrice2}
-                onChange={(e) => setLocalCardPrice2(e.target.value)}
-                onBlur={() => setHomeConfig(prev => ({...prev, cardPrice2: localCardPrice2}))}
-                className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500"
-                placeholder="$27.00"
-              />
-            </div>
-          </div>
-
-          {/* TARJETA 3 (Amarilla) */}
-          <div className="border-2 border-yellow-200 rounded-xl p-4 bg-yellow-50">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-              <h4 className="font-bold text-yellow-800">Tarjeta 3 (Amarilla)</h4>
-            </div>
-            
-            {/* Imagen */}
-            <div className="mb-3">
-              <label className="block text-sm font-medium mb-2">Imagen</label>
-              {homeConfig.cardImage4 && (
-                <img 
-                  src={homeConfig.cardImage4} 
-                  alt="Tarjeta 3" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-yellow-300"
-                />
-              )}
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 4)} 
-                className="text-sm w-full"
-              />
-            </div>
-
-            {/* Precio */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Precio</label>
-              <input
-                type="text"
-                value={localCardPrice3}
-                onChange={(e) => setLocalCardPrice3(e.target.value)}
-                onBlur={() => setHomeConfig(prev => ({...prev, cardPrice3: localCardPrice3}))}
-                className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500"
-                placeholder="$26.00"
-              />
-            </div>
-          </div>
-
-          {/* TARJETA 4 (Rosa) */}
-          <div className="border-2 border-pink-200 rounded-xl p-4 bg-pink-50">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-4 h-4 bg-pink-500 rounded-full"></div>
-              <h4 className="font-bold text-pink-800">Tarjeta 4 (Rosa)</h4>
-            </div>
-            
-            {/* Imagen */}
-            <div className="mb-3">
-              <label className="block text-sm font-medium mb-2">Imagen</label>
-              {homeConfig.cardImage5 && (
-                <img 
-                  src={homeConfig.cardImage5} 
-                  alt="Tarjeta 4" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-pink-300"
-                />
-              )}
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 5)} 
-                className="text-sm w-full"
-              />
-            </div>
-
-            {/* Precio */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Precio</label>
-              <input
-                type="text"
-                value={localCardPrice4}
-                onChange={(e) => setLocalCardPrice4(e.target.value)}
-                onBlur={() => setHomeConfig(prev => ({...prev, cardPrice4: localCardPrice4}))}
-                className="w-full px-3 py-2 border-2 border-pink-300 rounded-lg focus:outline-none focus:border-pink-500"
-                placeholder="$25.00"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Botón Guardar */}
-        <div className="mt-6 text-right">
-          <button 
-            onClick={handleSaveContentConfig} 
-            className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-8 py-3 rounded-lg font-bold hover:from-pink-700 hover:to-purple-700 shadow-lg flex items-center gap-2 ml-auto"
-          >
-            <Save size={20}/>
-            Guardar Todo el Contenido
-          </button>
-        </div>
-      </div>
-
-      {/* Tejedoras - MANTÉN TU CÓDIGO ACTUAL */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold flex items-center gap-2"><Users size={20}/> Equipo de Tejedoras</h3>
-          <button
-            onClick={() => { setEditingTejedora({ id: `tej-${Date.now()}`, nombre: '', especialidad: '', imageUrl: '' }); setIsTejedoraModalOpen(true); }}
-            className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2"
-          >
-            <Plus size={16}/> Agregar
-          </button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tejedoras.map(t => (
-            <div key={t.id} className="border border-gray-100 rounded-lg p-3 flex gap-3 items-center">
-              <img src={t.imageUrl} alt={t.nombre} className="w-12 h-12 rounded-full object-cover"/>
-              <div className="flex-1">
-                <p className="font-bold text-sm">{t.nombre}</p>
-                <p className="text-xs text-gray-500">{t.especialidad}</p>
-              </div>
-              <div className="flex gap-1">
-                <button onClick={() => { setEditingTejedora(t); setIsTejedoraModalOpen(true); }} className="p-1 text-blue-500"><Edit2 size={16}/></button>
-                <button onClick={() => handleDeleteTejedora(t.id)} className="p-1 text-red-500"><Trash2 size={16}/></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-  // COMMUNITY VIEW
+  // Vista de gestión de comunidad
   const CommunityView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -2208,7 +2288,7 @@ const ContentView = () => {
     </div>
   );
 
-  // CHALLENGES VIEW
+  // Vista de gestión de retos
   const ChallengesView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -2262,7 +2342,7 @@ const ContentView = () => {
     </div>
   );
 
-  // SETTINGS VIEW
+  // Vista de configuración global
   const SettingsView = () => (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-gray-800">Configuración Global</h2>
@@ -2285,7 +2365,7 @@ const ContentView = () => {
     </div>
   );
 
-  // 🆕 SITE CONTENT VIEW
+  // 🆕 Vista de edición de contenido del sitio
   const SiteContentView = () => (
     <div className="space-y-8 animate-fade-in">
       <h2 className="text-2xl font-bold">📝 Editor de Contenido del Sitio</h2>
@@ -2438,14 +2518,23 @@ const ContentView = () => {
     </div>
   );
 
+  // ========================================
+  // INDICADOR DE CARGA
+  // ========================================
+  
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
     </div>;
   }
 
+  // ========================================
+  // RENDERIZADO PRINCIPAL
+  // ========================================
+  
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50">
+      {/* Barra lateral de navegación */}
       <aside className="w-full md:w-64 bg-white border-r border-gray-200 shadow-sm z-10">
         <div className="p-6">
           <h1 className="text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">Admin Panel</h1>
@@ -2466,6 +2555,7 @@ const ContentView = () => {
             { id: 'content', label: 'Contenido Inicio', icon: <PenTool size={20}/> },
             { id: 'site-content', label: 'Editar Contenido', icon: <Edit2 size={20}/> },
             { id: 'quote-generator', label: 'Cotizaciones', icon: <FileText size={20}/>, action: () => navigate('/admin/quote-generator') },
+            { id: 'testimonials', label: 'Testimonios', icon: <Star size={20}/>, action: () => navigate('/admin/testimonials') },
             { id: 'settings', label: 'Configuración', icon: <Settings size={20}/> },
           ].map((item) => (
             <button
@@ -2480,6 +2570,7 @@ const ContentView = () => {
         </nav>
       </aside>
 
+      {/* Contenido principal */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'orders' && <OrdersView />}
@@ -2496,9 +2587,11 @@ const ContentView = () => {
         {activeTab === 'site-content' && <SiteContentView />}
       </main>
 
-      {/* MODALES */}
+      {/* ========================================
+       MODALES
+       ======================================== */}
       
-      {/* Order Modal - MODIFICADO PARA MOSTRAR INFORMACIÓN DEL CLIENTE */}
+      {/* Modal de detalles de pedido */}
       {isOrderModalOpen && selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -2747,7 +2840,7 @@ const ContentView = () => {
         </div>
       )}
 
-      {/* MODAL DE INVENTARIO */}
+      {/* Modal de inventario */}
       {isInventoryModalOpen && editingInventoryItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
@@ -2838,7 +2931,7 @@ const ContentView = () => {
         </div>
       )}
 
-      {/* MODAL CREAR PEDIDO */}
+      {/* Modal de creación de pedido */}
       {isCreateOrderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -3019,7 +3112,7 @@ const ContentView = () => {
         </div>
       )}
 
-      {/* Supply Modal - Versión Limpia */}
+      {/* Modal de insumos */}
       {isSupplyModalOpen && editingSupply && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -3195,7 +3288,7 @@ const ContentView = () => {
         </div>
       )}
 
-      {/* Gallery Modal */}
+      {/* Modal de galería */}
       {isGalleryModalOpen && editingGallery && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
@@ -3230,7 +3323,7 @@ const ContentView = () => {
         </div>
       )}
 
-      {/* Tejedora Modal */}
+      {/* Modal de tejedoras */}
       {isTejedoraModalOpen && editingTejedora && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
@@ -3255,7 +3348,7 @@ const ContentView = () => {
         </div>
       )}
 
-      {/* Post Modal */}
+      {/* Modal de publicaciones */}
       {isPostModalOpen && editingPost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
@@ -3276,7 +3369,7 @@ const ContentView = () => {
         </div>
       )}
 
-      {/* Challenge Modal */}
+      {/* Modal de retos */}
       {isChallengeModalOpen && editingChallenge && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
@@ -3311,7 +3404,7 @@ const ContentView = () => {
         </div>
       )}
 
-      {/* MODAL DE INSUMOS POR AMIGURUMI */}
+      {/* Modal de insumos por amigurumi */}
       {isAmigurumiModalOpen && editingAmigurumi && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">

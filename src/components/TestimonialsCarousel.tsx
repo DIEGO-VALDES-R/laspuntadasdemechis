@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 import { Star } from 'lucide-react';
+import { db } from '../services/db';
 
 interface Testimonial {
   id: string;
   name: string;
   rating: number;
   comment: string;
-  imageUrl?: string;
+  image_url?: string;
+  is_active?: boolean;
+  display_order?: number;
 }
 
 interface TestimonialsCarouselProps {
@@ -17,46 +20,54 @@ interface TestimonialsCarouselProps {
   subtitle?: string;
 }
 
-const testimonials: Testimonial[] = [
-  {
-    id: '1',
-    name: 'María González',
-    rating: 5,
-    comment: '¡El amigurumi de mi perro quedó idéntico! Súper recomendado, el detalle y calidad es increíble.',
-    imageUrl: 'https://i.pravatar.cc/150?img=1'
-  },
-  {
-    id: '2',
-    name: 'Carlos Ramírez',
-    rating: 5,
-    comment: 'Pedí un personaje de anime y quedó perfecto. La atención fue excelente y la entrega rápida.',
-    imageUrl: 'https://i.pravatar.cc/150?img=2'
-  },
-  {
-    id: '3',
-    name: 'Ana Martínez',
-    rating: 5,
-    comment: 'El mejor regalo que pude dar. Mi hija está feliz con su unicornio personalizado.',
-    imageUrl: 'https://i.pravatar.cc/150?img=3'
-  },
-];
-
 const TestimonialsCarousel: React.FC<TestimonialsCarouselProps> = ({ 
   title = 'Lo Que Dicen Nuestros Clientes',
   subtitle = 'Más de 450 clientes satisfechos'
 }) => {
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadTestimonials();
+  }, []);
+
+  const loadTestimonials = async () => {
+    try {
+      const data = await db.getActiveTestimonials();
+      setTestimonials(data);
+    } catch (error) {
+      console.error('Error loading testimonials:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <section className="bg-gradient-to-br from-purple-50 to-pink-50 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-gray-600">Cargando testimonios...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (testimonials.length === 0) {
+    return null; // No mostrar la sección si no hay testimonios
+  }
+
   const settings = {
     dots: true,
-    infinite: true,
+    infinite: testimonials.length > 3,
     speed: 500,
-    slidesToShow: 3,
+    slidesToShow: Math.min(3, testimonials.length),
     slidesToScroll: 1,
-    autoplay: true,
+    autoplay: testimonials.length > 3,
     autoplaySpeed: 4000,
     responsive: [
       {
         breakpoint: 1024,
-        settings: { slidesToShow: 2 }
+        settings: { slidesToShow: Math.min(2, testimonials.length) }
       },
       {
         breakpoint: 640,
@@ -72,17 +83,22 @@ const TestimonialsCarousel: React.FC<TestimonialsCarouselProps> = ({
           <h2 className="text-3xl font-bold text-gray-900">{title}</h2>
           <p className="text-gray-600 mt-2">{subtitle}</p>
         </div>
-
         <Slider {...settings}>
           {testimonials.map(testimonial => (
             <div key={testimonial.id} className="px-3">
               <div className="bg-white rounded-2xl shadow-lg p-6 h-full">
                 <div className="flex items-center gap-4 mb-4">
-                  <img
-                    src={testimonial.imageUrl}
-                    alt={testimonial.name}
-                    className="w-16 h-16 rounded-full object-cover"
-                  />
+                  {testimonial.image_url ? (
+                    <img
+                      src={testimonial.image_url}
+                      alt={testimonial.name}
+                      className="w-16 h-16 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold text-xl">
+                      {testimonial.name.charAt(0)}
+                    </div>
+                  )}
                   <div>
                     <h4 className="font-bold text-gray-800">{testimonial.name}</h4>
                     <div className="flex gap-1">

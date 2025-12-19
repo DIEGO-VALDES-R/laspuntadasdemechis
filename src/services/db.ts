@@ -1,42 +1,5 @@
 import { supabase } from './supabaseClient';
-import { Order, Client, InventoryItem, ProductConfig, GlobalConfig, GalleryItem, DEFAULT_CONFIG, Tejedora, HomeConfig, Post, Challenge, Supply, Expense, ReturnRecord } from '../types';
-
-// 🆕 INTERFACES PARA AMIGURUMI
-export interface InsumoAmigurumi {
-  id: string;
-  tipo: string;
-  marca: string;
-  referencia: string;
-  color: string;
-  cantidad: string;
-  unidad: string;
-}
-
-export interface AmigurumiRecord {
-  id: string;
-  nombre: string;
-  insumos: InsumoAmigurumi[];
-  fechaActualizacion: string; // camelCase en TypeScript
-}
-
-// 🆕 INTERFAZ PARA COTIZACIONES
-export interface QuoteData {
-  id?: string;
-  clientName: string;
-  clientEmail: string;
-  clientPhone: string;
-  productName: string;
-  description: string;
-  basePrice: number;
-  selectedSizeId?: string;
-  selectedPackagingId?: string;
-  selectedAccessories: string[];
-  imageUrl?: string;
-  notes?: string;
-  status?: 'pending' | 'sent' | 'approved' | 'rejected';
-  createdAt?: string;
-  totalAmount?: number;
-}
+import { Order, Client, InventoryItem, ProductConfig, GlobalConfig, GalleryItem, DEFAULT_CONFIG, Tejedora, HomeConfig, Post, Challenge, Supply, Expense, ReturnRecord, QuoteData, Testimonial, AmigurumiRecord, InsumoAmigurumi } from '../types';
 
 // =====================================================
 // MAPPING HELPERS (Database to TypeScript)
@@ -140,7 +103,7 @@ const mapPost = (p: any): Post => ({
   imageUrl: p.image_url,
   description: p.description,
   likes: p.likes,
-  likedBy: p.liked_by || [],  // Corregido: era p.likedBy
+  likedBy: p.liked_by || [],
   timestamp: p.timestamp
 });
 
@@ -168,6 +131,43 @@ const mapHomeConfig = (c: any): HomeConfig => ({
   cardPrice3: c.card_price3,
   cardPrice4: c.card_price4
 });
+
+// 🆕 FUNCIÓN AUXILIAR PARA CALCULAR EL TOTAL DE UNA COTIZACIÓN
+function calculateQuoteTotal(quoteData: QuoteData, inventoryItems?: InventoryItem[]): number {
+  let total = 0;
+  
+  // Si hay un tamaño seleccionado, usar su precio como base (NO como adicional)
+  if (quoteData.selectedSizeId && inventoryItems) {
+    const size = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
+    if (size) {
+      total = size.price; // Usar el precio del tamaño como total base
+    }
+  }
+  // Si NO hay tamaño seleccionado, usar el precio base
+  else if (quoteData.basePrice > 0) {
+    total = quoteData.basePrice;
+  }
+  
+  // Añadir precio del empaque
+  if (quoteData.selectedPackagingId && inventoryItems) {
+    const packaging = inventoryItems.find(item => item.id === quoteData.selectedPackagingId);
+    if (packaging) {
+      total += packaging.price;
+    }
+  }
+  
+  // Añadir precio de los accesorios
+  if (quoteData.selectedAccessories && inventoryItems) {
+    quoteData.selectedAccessories.forEach(accId => {
+      const accessory = inventoryItems.find(item => item.id === accId);
+      if (accessory) {
+        total += accessory.price;
+      }
+    });
+  }
+  
+  return total;
+}
 
 // =====================================================
 // DATABASE SERVICE
@@ -201,7 +201,7 @@ export const db = {
       imagen_url: order.imagen_url,
       final_image_url: order.final_image_url || null,
       descripcion: order.descripcion,
-      desglose: order.desglose,
+      desglose: order.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
       guia_transportadora: order.guia_transportadora
     });
     
@@ -411,7 +411,7 @@ export const db = {
       quantity: supply.quantity,
       color: supply.color,
       number: supply.number,
-      low_stock_threshold: supply.lowStockThreshold,
+      low_stock_threshold: supply.low_stock_threshold,
       image_url: supply.imageUrl 
     });
   
@@ -428,7 +428,7 @@ export const db = {
         quantity: supply.quantity,
         color: supply.color,
         number: supply.number,
-        low_stock_threshold: supply.lowStockThreshold,
+        low_stock_threshold: supply.low_stock_threshold,
         image_url: supply.imageUrl 
       })
       .eq('id', supply.id);
@@ -562,7 +562,7 @@ export const db = {
       label: item.label,
       price: item.price
     });
-  
+    
     if (error) console.error('Error adding inventory item:', error);
   },
 
@@ -673,7 +673,6 @@ export const db = {
   },
 
   // --- HOME CONFIG ---
-  // Guardar configuración del home (usando columnas directas)
   saveHomeConfig: async (config: HomeConfig) => {
     try {
       console.log('📝 Guardando en Supabase con columnas directas...', config);
@@ -708,7 +707,6 @@ export const db = {
     }
   },
 
-  // Obtener configuración del home (usando columnas directas)
   getHomeConfig: async (): Promise<HomeConfig> => {
     try {
       console.log('📖 Cargando home config desde Supabase...');
@@ -736,7 +734,7 @@ export const db = {
           cardPrice1: '$30.00',
           cardPrice2: '$27.00',
           cardPrice3: '$26.00',
-          cardPrice4: '$25.00',
+          cardPrice4: '25.00',
         };
         await db.saveHomeConfig(defaultConfig);
         return defaultConfig;
@@ -793,9 +791,12 @@ export const db = {
         id: t.id,
         nombre: t.nombre,
         especialidad: t.especialidad,
-        image_url: t.imageUrl
+        image_url: t.image_url
       });
-      if (error) console.error('Error saving tejedora:', error);
+      
+      if (error) {
+        console.error('Error saving tejedora:', error);
+      }
     }
   },
 
@@ -805,7 +806,9 @@ export const db = {
       .delete()
       .eq('id', id);
     
-    if (error) console.error('Error deleting tejedora:', error);
+    if (error) {
+      console.error('Error deleting tejedora:', error);
+    }
   },
 
   // --- POSTS ---
@@ -822,7 +825,7 @@ export const db = {
     return (data || []).map(mapPost);
   },
 
-  addPost: async (post: Omit<Post, 'id'>) => {
+  addPost: async (post: Omit<Post, 'id' | 'created_at' | 'updated_at'>) => {
     const { error } = await supabase.from('posts').insert({
       user_id: post.userId,
       user_name: post.userName,
@@ -831,11 +834,13 @@ export const db = {
       image_url: post.imageUrl,
       description: post.description,
       likes: post.likes,
-      liked_by: post.likedBy,
+      liked_by: post.likedBy || [],
       timestamp: post.timestamp
     });
     
-    if (error) console.error('Error adding post:', error);
+    if (error) {
+      console.error('Error adding post:', error);
+    }
   },
 
   updatePost: async (post: Post) => {
@@ -849,7 +854,9 @@ export const db = {
       })
       .eq('id', post.id);
     
-    if (error) console.error('Error updating post:', error);
+    if (error) {
+      console.error('Error updating post:', error);
+    }
   },
 
   deletePost: async (id: string) => {
@@ -858,7 +865,9 @@ export const db = {
       .delete()
       .eq('id', id);
     
-    if (error) console.error('Error deleting post:', error);
+    if (error) {
+      console.error('Error deleting post:', error);
+    }
   },
 
   toggleLikePost: async (postId: string, userEmail: string): Promise<Post[]> => {
@@ -899,20 +908,18 @@ export const db = {
     return (data || []).map(mapChallenge);
   },
 
-  addChallenge: async (challenge: Omit<Challenge, 'id'>) => {
-    const { error } = await supabase.from('challenges').insert({
-      title: challenge.title,
-      description: challenge.description,
-      image_url: challenge.imageUrl,
-      start_date: challenge.startDate,
-      end_date: challenge.endDate,
-      difficulty: challenge.difficulty,
-      reward: challenge.reward,
-      participants: challenge.participants,
-      status: challenge.status
-    });
+  addChallenge: async (challenge: Omit<Challenge, 'id' | 'created_at' | 'updated_at'>) => {
+    const { error } = await supabase
+      .from('challenges')
+      .insert([{
+        ...challenge,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }]);
     
-    if (error) console.error('Error adding challenge:', error);
+    if (error) {
+      console.error('Error adding challenge:', error);
+    }
   },
 
   updateChallenge: async (challenge: Challenge) => {
@@ -931,7 +938,9 @@ export const db = {
       })
       .eq('id', challenge.id);
     
-    if (error) console.error('Error updating challenge:', error);
+    if (error) {
+      console.error('Error updating challenge:', error);
+    }
   },
 
   deleteChallenge: async (id: string) => {
@@ -940,19 +949,23 @@ export const db = {
       .delete()
       .eq('id', id);
     
-    if (error) console.error('Error deleting challenge:', error);
+    if (error) {
+      console.error('Error deleting challenge:', error);
+    }
   },
 
   // --- REFERRALS ---
   getAllReferrals: async (): Promise<any[]> => {
     try {
+      console.log('🔄 Obteniendo referidos...');
+      
       const { data, error } = await supabase
         .from('referrals')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('Error fetching referrals:', error);
+        console.error('❌ Error fetching referrals:', error);
         return [];
       }
       
@@ -966,7 +979,8 @@ export const db = {
         const { data: clientsData } = await supabase
           .from('clients')
           .select('id, nombre_completo')
-          .in('id', referrerIds);
+          .in('id', referrerIds)
+          .order('nombre_completo', { ascending: true });
         
         const clientsMap = new Map(
           (clientsData || []).map(c => [c.id, c.nombre_completo])
@@ -980,7 +994,7 @@ export const db = {
       
       return data.map(r => ({ ...r, referredByName: 'N/A' }));
     } catch (error) {
-      console.error('Error in getAllReferrals:', error);
+      console.error('Error en getAllReferrals:', error);
       return [];
     }
   },
@@ -1005,22 +1019,28 @@ export const db = {
       .delete()
       .eq('id', id);
     
-    if (error) console.error('Error deleting referral:', error);
+    if (error) {
+      console.error('Error deleting referral:', error);
+    }
   },
 
   updateReferral: async (referralId: string, updates: any) => {
     const { error } = await supabase
       .from('referrals')
       .update(updates)
-      .eq('id', referralId);
+      .eq('referrer_id', referralId);
     
-    if (error) console.error('Error updating referral:', error);
+    if (error) {
+      console.error('Error updating referral:', error);
+    }
   },
 
   addReferral: async (referral: any) => {
     const { error } = await supabase.from('referrals').insert(referral);
     
-    if (error) console.error('Error adding referral:', error);
+    if (error) {
+      console.error('Error adding referral:', error);
+    }
   },
 
   // ========== VALUE PROPS ==========
@@ -1043,7 +1063,9 @@ export const db = {
       .from('value_props')
       .insert([prop]);
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error saving value prop:', error);
+    }
   },
 
   updateValueProp: async (id: string, updates: any): Promise<void> => {
@@ -1052,7 +1074,9 @@ export const db = {
       .update(updates)
       .eq('id', id);
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating value prop:', error);
+    }
   },
 
   deleteValueProp: async (id: string): Promise<void> => {
@@ -1061,7 +1085,9 @@ export const db = {
       .delete()
       .eq('id', id);
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error deleting value prop:', error);
+    }
   },
 
   // ========== SITE STATS ==========
@@ -1088,58 +1114,173 @@ export const db = {
       .from('site_stats')
       .upsert([{ id: 1, ...stats }]);
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating site stats:', error);
+    }
   },
 
   // ========== TESTIMONIALS ==========
-  getTestimonials: async (): Promise<any[]> => {
-    const { data, error } = await supabase
-      .from('testimonials')
-      .select('*')
-      .order('date', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching testimonials:', error);
+  getActiveTestimonials: async (): Promise<Testimonial[]> => {
+    try {
+      console.log('🔄 Obteniendo testimonios activos...');
+      
+      const { data, error } = await supabase
+        .from('testimonials')
+        .select('*')
+        .eq('active', true)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Error fetching active testimonials:', error);
+        throw error;
+      }
+      
+      console.log('✅ Testimonios activos cargados:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error in getActiveTestimonials:', error);
       return [];
     }
-    
-    return data || [];
   },
 
-  saveTestimonial: async (testimonial: any): Promise<void> => {
-    const { error } = await supabase
-      .from('testimonials')
-      .insert([testimonial]);
-    
-    if (error) throw error;
+  getAllTestimonials: async (): Promise<Testimonial[]> => {
+    try {
+      console.log('🔄 Obteniendo todos los testimonios...');
+      
+      const { data, error } = await supabase
+        .from('testimonials')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Error fetching all testimonials:', error);
+        throw error;
+      }
+      
+      console.log('✅ Todos los testimonios cargados:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error in getAllTestimonials:', error);
+      return [];
+    }
   },
 
-  updateTestimonial: async (id: string, updates: any): Promise<void> => {
-    const { error } = await supabase
-      .from('testimonials')
-      .update(updates)
-      .eq('id', id);
-    
-    if (error) throw error;
+  createTestimonial: async (testimonial: Omit<Testimonial, 'id' | 'created_at' | 'updated_at'>) => {
+    try {
+      console.log('➕ Creando nuevo testimonio:', testimonial);
+      
+      const { data, error } = await supabase
+        .from('testimonials')
+        .insert([{
+          ...testimonial,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ Error de Supabase:', error);
+        throw new Error(`Error al crear testimonio: ${error.message}`);
+      }
+      
+      console.log('✅ Testimonio creado correctamente:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en createTestimonial:', error);
+      throw error;
+    }
   },
 
-  deleteTestimonial: async (id: string): Promise<void> => {
-    const { error } = await supabase
-      .from('testimonials')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+  updateTestimonial: async (id: string, updates: Partial<Testimonial>) => {
+    try {
+      console.log('🔄 Actualizando testimonio:', { id, updates });
+      
+      // Validar que el ID exista
+      const { data: existingTestimonial, error: fetchError } = await supabase
+        .from('testimonials')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) {
+        console.error('❌ Error al buscar testimonio:', fetchError);
+        throw new Error(`No se encontró el testimonio con ID ${id}: ${fetchError.message}`);
+      }
+      
+      if (!existingTestimonial) {
+        console.error('❌ Testimonio no encontrado');
+        throw new Error(`No se encontró el testimonio con ID ${id}`);
+      }
+      
+      console.log('✅ Testimonio encontrado:', existingTestimonial);
+      
+      // Actualizar el testimonio
+      const { data, error } = await supabase
+        .from('testimonials')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select();
+      
+      if (error) {
+        console.error('❌ Error de Supabase:', error);
+        throw new Error(`Error al actualizar testimonio: ${error.message}`);
+      }
+      
+      console.log('✅ Testimonio actualizado correctamente:', data);
+      return data;
+    } catch (error) {
+      console.error('❌ Error en updateTestimonial:', error);
+      throw error;
+    }
+  },
+
+  deleteTestimonial: async (id: string) => {
+    try {
+      console.log('🗑️ Eliminando testimonio:', id);
+      
+      const { error } = await supabase
+        .from('testimonials')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('❌ Error de Supabase:', error);
+        throw new Error(`Error al eliminar el testimonio: ${error.message}`);
+      }
+      
+      console.log('✅ Testimonio eliminado correctamente');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Error en deleteTestimonial:', error);
+      return { error: null };
+    }
   },
 
   // ========== EDITABLE SECTIONS ==========
   getEditableSections: async (): Promise<any> => {
-    const { data, error } = await supabase
-      .from('editable_sections')
-      .select('*')
-      .single();
-    
-    if (error) {
+    try {
+      const { data, error } = await supabase
+        .from('editable_sections')
+        .select('*')
+        .single();
+      
+      if (error) {
+        return {
+          valuePropsTitle: '¿Por Qué Elegirnos?',
+          statsTitle: 'Nuestro Impacto',
+          statsSubtitle: 'Números que hablan por nosotros',
+          testimonialsTitle: 'Lo Que Dicen Nuestros Clientes',
+          testimonialsSubtitle: 'Más de 450 clientes satisfechos'
+        };
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('❌ Error loading editable sections:', error);
       return {
         valuePropsTitle: '¿Por Qué Elegirnos?',
         statsTitle: 'Nuestro Impacto',
@@ -1148,8 +1289,6 @@ export const db = {
         testimonialsSubtitle: 'Más de 450 clientes satisfechos'
       };
     }
-    
-    return data;
   },
 
   updateEditableSections: async (sections: any): Promise<void> => {
@@ -1157,11 +1296,105 @@ export const db = {
       .from('editable_sections')
       .upsert([{ id: 1, ...sections }]);
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error updating editable sections:', error);
+    }
   },
 
-    // 🆕 FUNCIONES PARA COTIZACIONES
+  // --- AMIGURUMI RECORDS ---
+  getAmigurumiRecords: async () => {
+    try {
+      console.log('🔄 Obteniendo registros de amigurumis...');
+      
+      const { data, error } = await supabase
+        .from('amigurumi_records')
+        .select('*')
+        .order('fecha_actualizacion', { ascending: false });
+      
+      if (error) {
+        console.error('❌ Error fetching amigurumi records:', error);
+        return { data: null, error };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error('❌ Error en getAmigurumiRecords:', error);
+      return { data: null, error };
+    }
+  },
+
+  createAmigurumiRecord: async (record: AmigurumiRecord) => {
+    try {
+      console.log('➕ Creando registro de amigurumi:', record);
+      
+      const { data, error } = await supabase
+        .from('amigurumi_records')
+        .insert([record])
+        .select();
+      
+      if (error) {
+        console.error('❌ Error creando registro de amigurumi:', error);
+        return { data: null, error };
+      }
+      
+      console.log('✅ Registro de amigurumi creado:', data);
+      return { data, error: null };
+    } catch (error) {
+      console.error('❌ Error en createAmigurumiRecord:', error);
+      return { data: null, error };
+    }
+  },
+
+  updateAmigurumiRecord: async (id: string, record: Partial<AmigurumiRecord>) => {
+    try {
+      console.log('🔄 Actualizando registro de amigurumi:', { id, record });
+      
+      const { data, error } = await supabase
+        .from('amigurumi_records')
+        .update(record)
+        .eq('id', id)
+        .select();
+      
+      if (error) {
+        console.error('❌ Error al actualizar registro de amigurumi:', error);
+        return { data: null, error };
+      }
+      
+      console.log('✅ Registro de amigurumi actualizado:', data);
+      return { data, error: null };
+    } catch (error) {
+      console.error('❌ Error en updateAmigurumiRecord:', error);
+      return { data: null, error };
+    }
+  },
+
+  deleteAmigurumiRecord: async (id: string) => {
+    try {
+      console.log('🗑️ Eliminando registro de amigurumi:', id);
+      
+      const { error } = await supabase
+        .from('amigurumi_records')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('❌ Error al eliminar registro de amigurumi:', error);
+        return { error: null };
+      }
+      
+      console.log('✅ Registro de amigurumi eliminado correctamente');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Error en deleteAmigurumiRecord:', error);
+      return { error: null };
+    }
+  },
+
+  // --- QUOTES ---
   saveQuote: async (quoteData: QuoteData) => {
+    // Obtener los items del inventario para calcular el total
+    const inventoryItems = await db.getInventoryItems();
+    
     const { data, error } = await supabase
       .from('quotes')
       .insert([{
@@ -1181,7 +1414,11 @@ export const db = {
       }])
       .select();
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error saving quote:', error);
+      throw new Error(`Error al guardar la cotización: ${error.message}`);
+    }
+    
     return data;
   },
 
@@ -1191,8 +1428,12 @@ export const db = {
       .select('*')
       .order('created_at', { ascending: false });
     
-    if (error) throw error;
-    return data;
+    if (error) {
+      console.error('❌ Error fetching quotes:', error);
+      return [];
+    }
+    
+    return data || [];
   },
 
   getQuoteById: async (id: string) => {
@@ -1202,25 +1443,29 @@ export const db = {
       .eq('id', id)
       .single();
     
-    if (error) throw error;
+    if (error || !data) {
+      console.error('❌ Error al obtener cotización:', error);
+      return null;
+    }
+    
     return data;
   },
 
   updateQuote: async (id: string, updates: Partial<QuoteData>) => {
     const dbUpdates: any = {};
     
-    if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName;
-    if (updates.clientEmail !== undefined) dbUpdates.client_email = updates.clientEmail;
-    if (updates.clientPhone !== undefined) dbUpdates.client_phone = updates.clientPhone;
-    if (updates.productName !== undefined) dbUpdates.product_name = updates.productName;
+    if (updates.client_name !== undefined) dbUpdates.client_name = updates.client_name;
+    if (updates.client_email !== undefined) dbUpdates.client_email = updates.client_email;
+    if (updates.client_phone !== undefined) dbUpdates.client_phone = updates.client_phone;
+    if (updates.product_name !== undefined) dbUpdates.product_name = updates.product_name;
     if (updates.description !== undefined) dbUpdates.description = updates.description;
-    if (updates.basePrice !== undefined) dbUpdates.base_price = updates.basePrice;
-    if (updates.selectedSizeId !== undefined) dbUpdates.selected_size_id = updates.selectedSizeId;
-    if (updates.selectedPackagingId !== undefined) dbUpdates.selected_packaging_id = updates.selectedPackagingId;
-    if (updates.selectedAccessories !== undefined) dbUpdates.selected_accessories = updates.selectedAccessories;
-    if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
+    if (updates.base_price !== undefined) dbUpdates.base_price = updates.base_price;
+    if (updates.selected_size_id !== undefined) dbUpdates.selected_size_id = updates.selected_size_id;
+    if (updates.selected_packaging_id !== undefined) dbUpdates.selected_packaging_id = updates.selected_packaging_id;
+    if (updates.selected_accessories !== undefined) dbUpdates.selected_accessories = updates.selected_accessories;
+    if (updates.image_url !== undefined) dbUpdates.image_url = updates.image_url;
     if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
-    if (updates.totalAmount !== undefined) dbUpdates.total_amount = updates.totalAmount;
+    if (updates.total_amount !== undefined) dbUpdates.total_amount = updates.total_amount;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     
     const { data, error } = await supabase
@@ -1229,7 +1474,11 @@ export const db = {
       .eq('id', id)
       .select();
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error al actualizar cotización:', error);
+      throw new Error(`Error al actualizar la cotización: ${error.message}`);
+    }
+    
     return data;
   },
 
@@ -1239,45 +1488,10 @@ export const db = {
       .delete()
       .eq('id', id);
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error al eliminar cotización:', error);
+    }
   }
 };
-
-// 🆕 FUNCIÓN AUXILIAR PARA CALCULAR EL TOTAL DE UNA COTIZACIÓN
-function calculateQuoteTotal(quoteData: QuoteData, inventoryItems?: InventoryItem[]): number {
-  let total = 0;
-  
-  // Si hay un tamaño seleccionado, usar su precio como base (NO como adicional)
-  if (quoteData.selectedSizeId && inventoryItems) {
-    const size = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
-    if (size) {
-      total = size.price; // Usar el precio del tamaño como total base
-    }
-  }
-  // Si NO hay tamaño seleccionado, usar el precio base
-  else if (quoteData.basePrice > 0) {
-    total = quoteData.basePrice;
-  }
-  
-  // Añadir precio del empaque
-  if (quoteData.selectedPackagingId && inventoryItems) {
-    const packaging = inventoryItems.find(item => item.id === quoteData.selectedPackagingId);
-    if (packaging) {
-      total += packaging.price;
-    }
-  }
-  
-  // Añadir precio de los accesorios
-  if (quoteData.selectedAccessories && inventoryItems) {
-    quoteData.selectedAccessories.forEach(accId => {
-      const accessory = inventoryItems.find(item => item.id === accId);
-      if (accessory) {
-        total += accessory.price;
-      }
-    });
-  }
-  
-  return total;
-}
 
 export default db;

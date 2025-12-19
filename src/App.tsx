@@ -13,7 +13,8 @@ import Community from './pages/Community';
 import Challenges from './pages/Challenges';
 import Accounting from './pages/Accounting';
 import SiteContentEditor from './pages/SiteContentEditor';
-import QuoteGenerator from './pages/QuoteGenerator'; // Importación añadida
+import QuoteGenerator from './pages/QuoteGenerator';
+import TestimonialsView from './pages/admin/TestimonialsView'; // Importación añadida
 
 const ADMIN_EMAIL = 'puntadasdemechis@gmail.com';
 
@@ -125,33 +126,33 @@ const App: React.FC = () => {
   };
 
   // En App.tsx, reemplaza la función handleLogout (línea ~90):
-const handleLogout = async () => {
-  try {
-    // 1. Cerrar sesión en Supabase
-    await supabase.auth.signOut();
-    
-    // 2. Limpiar localStorage
-    localStorage.removeItem('puntadas_user');
-    localStorage.removeItem('puntadas_role');
-    localStorage.removeItem('puntadas_user_id');
-    
-    // 3. Actualizar estado local
-    setUserEmail(null);
-    setIsAdmin(false);
-    
-    // 4. Redirigir ANTES de disparar el evento storage
-    window.location.href = '/#/login';
-    
-    // 5. Solo después de redirigir, disparar evento
-    setTimeout(() => {
-      window.dispatchEvent(new Event('storage'));
-    }, 100);
-  } catch (error) {
-    console.error('Error al cerrar sesión:', error);
-    // Forzar redirección incluso si hay error
-    window.location.href = '/#/login';
-  }
-};
+  const handleLogout = async () => {
+    try {
+      // 1. Cerrar sesión en Supabase
+      await supabase.auth.signOut();
+      
+      // 2. Limpiar localStorage
+      localStorage.removeItem('puntadas_user');
+      localStorage.removeItem('puntadas_role');
+      localStorage.removeItem('puntadas_user_id');
+      
+      // 3. Actualizar estado local
+      setUserEmail(null);
+      setIsAdmin(false);
+      
+      // 4. Redirigir ANTES de disparar el evento storage
+      window.location.href = '/#/login';
+      
+      // 5. Solo después de redirigir, disparar evento
+      setTimeout(() => {
+        window.dispatchEvent(new Event('storage'));
+      }, 100);
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      // Forzar redirección incluso si hay error
+      window.location.href = '/#/login';
+    }
+  };
 
   if (loading) {
     return (
@@ -235,6 +236,15 @@ const handleLogout = async () => {
             element={
               <ProtectedRoute requireAuth={true} requireAdmin={true}>
                 <QuoteGenerator />
+              </ProtectedRoute>
+            }
+          />
+          {/* 🔒 Nueva ruta para Testimonios */}
+          <Route
+            path="/admin/testimonials"
+            element={
+              <ProtectedRoute requireAuth={true} requireAdmin={true}>
+                <TestimonialsView />
               </ProtectedRoute>
             }
           />

@@ -57,6 +57,18 @@ export interface Referral {
   descuento_otorgado: boolean;
 }
 
+export interface Testimonial {
+  id: string;
+  name: string;
+  rating: number;
+  comment: string;
+  image_url?: string;
+  is_active?: boolean;
+  display_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // New Types for Dynamic Management
 export interface InventoryItem {
   id: string;
