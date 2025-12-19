@@ -52,7 +52,15 @@ const QuoteGenerator: React.FC = () => {
     notes: ''
   });
 
-  // Función de carga con manejo de errores
+  const generateQuoteNumber = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `${year}${month}${day}-${random}`;
+  };
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
@@ -84,7 +92,6 @@ const QuoteGenerator: React.FC = () => {
       setInventoryItems(inventoryData);
       setHomeConfig(homeData);
       
-      // Cargar cotizaciones guardadas
       await loadSavedQuotes();
       
     } catch (error) {
@@ -162,11 +169,8 @@ const QuoteGenerator: React.FC = () => {
     }
   };
 
-  // CORREGIDO: Función para manejar la selección de tamaño
   const handleSizeSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedSize = inventoryItems.find(item => item.id === e.target.value);
-    
-    // Si hay un tamaño seleccionado, el precio base es 0 y el total será solo el precio del tamaño
     const newBasePrice = selectedSize ? 0 : quoteData.basePrice;
     
     setQuoteData({ 
@@ -175,15 +179,12 @@ const QuoteGenerator: React.FC = () => {
       basePrice: newBasePrice
     });
     
-    // Limpiar cualquier error
     setError(null);
   };
 
-  // CORREGIDO: Función para manejar cambios en el precio base
   const handleBasePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newBasePrice = Number(e.target.value);
     
-    // Si hay un tamaño seleccionado, no permitir modificar el precio base
     if (quoteData.selectedSizeId) {
       setError('No puedes modificar el precio base cuando hay un tamaño seleccionado');
       return;
@@ -196,20 +197,15 @@ const QuoteGenerator: React.FC = () => {
   const calculateTotal = () => {
     let total = 0;
     
-    // Si hay un tamaño seleccionado, usar su precio como base
     if (quoteData.selectedSizeId) {
       const selectedSize = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
       if (selectedSize) {
-        total = selectedSize.price; // Usar el precio del tamaño como total base
+        total = selectedSize.price;
       }
-    }
-    
-    // Si NO hay tamaño seleccionado, usar el precio base
-    else if (quoteData.basePrice > 0) {
+    } else if (quoteData.basePrice > 0) {
       total = quoteData.basePrice;
     }
     
-    // Añadir precio del empaque
     if (quoteData.selectedPackagingId) {
       const selectedPackaging = inventoryItems.find(item => item.id === quoteData.selectedPackagingId);
       if (selectedPackaging) {
@@ -217,7 +213,6 @@ const QuoteGenerator: React.FC = () => {
       }
     }
     
-    // Añadir precio de los accesorios
     if (quoteData.selectedAccessories && quoteData.selectedAccessories.length > 0) {
       quoteData.selectedAccessories.forEach(accId => {
         const accessory = inventoryItems.find(item => item.id === accId);
@@ -236,7 +231,6 @@ const QuoteGenerator: React.FC = () => {
       return;
     }
 
-    // Verificar que haya un tamaño o un precio base
     if (!quoteData.selectedSizeId && quoteData.basePrice <= 0) {
       setError('Por favor selecciona un tamaño o especifica un precio base');
       return;
@@ -273,7 +267,6 @@ const QuoteGenerator: React.FC = () => {
       console.log('✅ Cotización guardada:', data);
       alert('Cotización guardada correctamente');
       
-      // Limpiar formulario
       setQuoteData({
         clientName: '',
         clientEmail: '',
@@ -288,7 +281,6 @@ const QuoteGenerator: React.FC = () => {
         notes: ''
       });
       
-      // Recargar cotizaciones
       await loadSavedQuotes();
       
     } catch (error) {
@@ -299,206 +291,376 @@ const QuoteGenerator: React.FC = () => {
     }
   };
 
-  // Reemplaza la función generatePDF completa con esta versión
-const generatePDF = async () => {  // ⬅️ AGREGAR async AQUÍ
-  if (!quoteData.clientName || !quoteData.clientEmail || !quoteData.productName) {
-    setError('Por favor completa los campos obligatorios del cliente y del producto');
-    return;
-  }
-
-  // Verificar que haya un tamaño o un precio base
-  if (!quoteData.selectedSizeId && quoteData.basePrice <= 0) {
-    setError('Por favor selecciona un tamaño o especifica un precio base');
-    return;
-  }
-
-  try {
-    console.log('📄 Generando PDF...');
-    const doc = new jsPDF();
-    const total = calculateTotal();
-
-    // Colores pasteles para el PDF
-    const coralRGB = [212, 115, 94];
-    const sageGreenRGB = [169, 180, 161];
-    const pastelPinkRGB = [255, 214, 224];
-
-    // Header SIN logo primero
-    doc.setFillColor(...coralRGB);
-    doc.rect(0, 0, 210, 40, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PUNTADAS DE MECHIS', 105, 20, { align: 'center' });
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Cotización de Amigurumi', 105, 30, { align: 'center' });
-
-    // Logo en la parte superior
-    if (homeConfig?.heroImage1) {
-      try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = homeConfig.heroImage1;
-        
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-        });
-        
-        doc.addImage(img, 'JPEG', 20, 45, 40, 40);
-      } catch (error) {
-        console.warn('No se pudo cargar el logo:', error);
-      }
+  const generatePDF = async () => {
+    if (!quoteData.clientName || !quoteData.clientEmail || !quoteData.productName) {
+      setError('Por favor completa los campos obligatorios del cliente y del producto');
+      return;
     }
 
-    // Información del cliente
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('INFORMACIÓN DEL CLIENTE', 20, 95);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Nombre: ${quoteData.clientName}`, 20, 105);
-    doc.text(`Email: ${quoteData.clientEmail}`, 20, 112);
-    doc.text(`Teléfono: ${quoteData.clientPhone}`, 20, 119);
-    doc.text(`Fecha: ${new Date().toLocaleDateString('es-CO')}`, 20, 126);
-
-    // Información del producto
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('DETALLES DEL PRODUCTO', 20, 140);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Producto: ${quoteData.productName}`, 20, 150);
-    
-    // Descripción con salto de línea
-    if (quoteData.description) {
-      const splitDescription = doc.splitTextToSize(quoteData.description, 170);
-      doc.text(splitDescription, 20, 157);
+    if (!quoteData.selectedSizeId && quoteData.basePrice <= 0) {
+      setError('Por favor selecciona un tamaño o especifica un precio base');
+      return;
     }
 
-    // Tamaño seleccionado
-    if (quoteData.selectedSizeId) {
-      const selectedSize = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
-      if (selectedSize) {
-        doc.text(`Tamaño: ${selectedSize.label}`, 20, 170);
-      }
-    }
-
-    // Imagen del producto (si existe)
-    let yPosition = 185;
-    if (quoteData.imageUrl) {
-      try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = quoteData.imageUrl;
-        
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-        });
-        
-        doc.addImage(img, 'JPEG', 20, yPosition, 60, 60);
-        yPosition += 70;
-      } catch (error) {
-        console.warn('No se pudo cargar la imagen del producto:', error);
-        // Placeholder
-        doc.setFillColor(240, 240, 240);
-        doc.rect(20, yPosition, 60, 60, 'F');
-        doc.setTextColor(150, 150, 150);
-        doc.text('Imagen no disponible', 50, yPosition + 30, { align: 'center' });
-        yPosition += 70;
-      }
-    }
-
-    // Tabla de desglose de precios
-    const tableData: any[] = [];
-    
-    if (quoteData.selectedSizeId) {
-      const selectedSize = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
-      if (selectedSize) {
-        tableData.push([`Tamaño: ${selectedSize.label}`, `$${selectedSize.price.toLocaleString()}`]);
-      }
-    } else if (quoteData.basePrice > 0) {
-      tableData.push(['Precio Base', `$${quoteData.basePrice.toLocaleString()}`]);
-    }
-    
-    if (quoteData.selectedPackagingId) {
-      const selectedPackaging = inventoryItems.find(item => item.id === quoteData.selectedPackagingId);
-      if (selectedPackaging) {
-        tableData.push([`Empaque: ${selectedPackaging.label}`, `$${selectedPackaging.price.toLocaleString()}`]);
-      }
-    }
-    
-    if (quoteData.selectedAccessories && quoteData.selectedAccessories.length > 0) {
-      quoteData.selectedAccessories.forEach(accId => {
-        const accessory = inventoryItems.find(item => item.id === accId);
-        if (accessory) {
-          tableData.push([`Accesorio: ${accessory.label}`, `$${accessory.price.toLocaleString()}`]);
-        }
-      });
-    }
-
-    // Tabla con colores pasteles
-    autoTable(doc, {
-      startY: yPosition,
-      head: [['Concepto', 'Valor']],
-      body: tableData,
-      foot: [['TOTAL', `$${total.toLocaleString()}`]],
-      theme: 'striped',
-      headStyles: { 
-        fillColor: coralRGB, 
-        textColor: [255, 255, 255], 
-        fontSize: 11, 
-        fontStyle: 'bold' 
-      },
-      footStyles: { 
-        fillColor: sageGreenRGB, 
-        textColor: [255, 255, 255], 
-        fontSize: 12, 
-        fontStyle: 'bold' 
-      },
-      styles: { fontSize: 10 },
-      margin: { left: 20, right: 20 }
-    });
-
-    // Notas adicionales
-    if (quoteData.notes) {
-      const finalY = (doc as any).lastAutoTable.finalY + 15;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text('NOTAS ADICIONALES:', 20, finalY);
+    try {
+      console.log('📄 Generando PDF con diseño mejorado...');
+      const doc = new jsPDF();
+      const total = calculateTotal();
+      const quoteNumber = generateQuoteNumber();
       
-      doc.setFont('helvetica', 'normal');
+      // Colores del nuevo diseño
+      const roseRGB = [244, 114, 182]; // rose-400
+      const emeraldRGB = [16, 185, 129]; // emerald-500
+      const slateRGB = [71, 85, 105]; // slate-600
+
+      // Header con gradiente simulado (rose a orange)
+      doc.setFillColor(...roseRGB);
+      doc.rect(0, 0, 210, 35, 'F');
+      
+      // Función para dibujar texto con contorno blanco
+      const drawOutlinedText = (text: string, x: number, y: number, fillColor: number[]) => {
+        const outlineOffset = 0.3;
+        
+        // Dibujar contorno blanco
+        doc.setTextColor(255, 255, 255);
+        doc.text(text, x - outlineOffset, y - outlineOffset);
+        doc.text(text, x + outlineOffset, y - outlineOffset);
+        doc.text(text, x - outlineOffset, y + outlineOffset);
+        doc.text(text, x + outlineOffset, y + outlineOffset);
+        doc.text(text, x - outlineOffset, y);
+        doc.text(text, x + outlineOffset, y);
+        doc.text(text, x, y - outlineOffset);
+        doc.text(text, x, y + outlineOffset);
+        
+        // Dibujar texto con color de relleno
+        doc.setTextColor(...fillColor);
+        doc.text(text, x, y);
+      };
+      
+      // Título principal con estilo multicolor y contorno blanco
+      const titleText = 'PUNTADAS DE MECHIS';
+      const titleColors = [
+        [255, 107, 129], // Rosa vibrante
+        [255, 154, 0],   // Naranja
+        [76, 175, 80],   // Verde
+        [156, 39, 176],  // Púrpura
+        [33, 150, 243],  // Azul
+        [255, 193, 7],   // Amarillo
+      ];
+      
+      let xPos = 30;
+      const fontSize = 28;
+      const yPosition = 18;
+      
+      // Dividir el texto en partes y aplicar diferentes colores
+      const words = titleText.split(' ');
+      const colorsPerWord = [
+        titleColors[0], // PUNTADAS - Rosa
+        titleColors[1], // DE - Naranja
+        titleColors[2], // MECHIS - Verde
+      ];
+      
+      // Calcular el ancho total para centrar
+      let totalWidth = 0;
+      doc.setFontSize(fontSize);
+      doc.setFont('helvetica', 'bold');
+      words.forEach((word, index) => {
+        totalWidth += doc.getTextWidth(word) + (index < words.length - 1 ? doc.getTextWidth(' ') : 0);
+      });
+      
+      // Posición inicial para centrar
+      xPos = (210 - totalWidth) / 2;
+      
+      // Dibujar cada palabra con su color y contorno
+      words.forEach((word, index) => {
+        drawOutlinedText(word, xPos, yPosition, colorsPerWord[index]);
+        xPos += doc.getTextWidth(word) + doc.getTextWidth(' ');
+      });
+      
+      // CAMBIO: Subtítulo dentro del header
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('hilos que conectan corazones', 105, 26, { align: 'center' });
+
+      // Número de cotización en header (derecha) - COLOR BLANCO
+      doc.setTextColor(255, 255, 255);
       doc.setFontSize(9);
-      const splitNotes = doc.splitTextToSize(quoteData.notes, 170);
-      doc.text(splitNotes, 20, finalY + 7);
+      doc.text('Cotización', 170, 12);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`#${quoteNumber}`, 170, 19);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(new Date().toLocaleDateString('es-CO'), 170, 26);
+
+      // CAMBIO: Subtítulo fuera del header y antes del logo
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Cotización de Amigurumi', 105, 42, { align: 'center' });
+
+      // Logo en la parte superior
+      if (homeConfig?.heroImage1) {
+        try {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = homeConfig.heroImage1;
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          
+          doc.addImage(img, 'JPEG', 20, 50, 40, 40);
+        } catch (error) {
+          console.warn('No se pudo cargar el logo:', error);
+        }
+      }
+
+      let currentY = 95;
+
+      // Sección: Información del Cliente
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Información del Cliente', 20, currentY);
+      
+      currentY += 8;
+      
+      // Información del cliente con texto simple
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Nombre: ${quoteData.clientName}`, 20, currentY);
+      currentY += 6;
+      doc.text(`Email: ${quoteData.clientEmail}`, 20, currentY);
+      currentY += 6;
+      doc.text(`Teléfono: ${quoteData.clientPhone || 'N/A'}`, 20, currentY);
+      currentY += 6;
+      doc.text(`Válida hasta: ${new Date(Date.now() + 7*24*60*60*1000).toLocaleDateString('es-CO')}`, 20, currentY);
+      
+      currentY += 12;
+
+      // Sección: Detalles del Producto
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Detalles del Producto', 20, currentY);
+      
+      currentY += 6;
+
+      // Card del producto con fondo degradado
+      doc.setFillColor(255, 228, 230); // rose-50
+      doc.rect(20, currentY, 170, 18, 'F');
+      
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(31, 41, 55);
+      doc.text(quoteData.productName, 23, currentY + 6);
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(75, 85, 99);
+      doc.text(quoteData.description || 'Sin descripción', 23, currentY + 12);
+      
+      if (quoteData.selectedSizeId) {
+        const selectedSize = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
+        if (selectedSize) {
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(225, 29, 72); // rose-600
+          doc.text(`Tamaño: ${selectedSize.label}`, 23, currentY + 16);
+        }
+      }
+
+      currentY += 22;
+
+      // Imagen del producto (si existe) - REDUCIDA DE TAMAÑO
+      if (quoteData.imageUrl) {
+        try {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = quoteData.imageUrl;
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          
+          doc.addImage(img, 'JPEG', 20, currentY, 40, 40); // Cambiado de 60x60 a 40x40
+          currentY += 45;
+        } catch (error) {
+          console.warn('No se pudo cargar la imagen del producto:', error);
+          // Placeholder
+          doc.setFillColor(240, 240, 240);
+          doc.rect(20, currentY, 40, 40, 'F'); // Placeholder más pequeño
+          doc.setTextColor(150, 150, 150);
+          doc.text('Imagen no disponible', 40, currentY + 20, { align: 'center' });
+          currentY += 45;
+        }
+      }
+
+      // Tabla de Items
+      const tableData: any[] = [];
+      
+      if (quoteData.selectedSizeId) {
+        const selectedSize = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
+        if (selectedSize) {
+          tableData.push([
+            { content: `Tamaño: ${selectedSize.label}`, styles: { fontStyle: 'bold' } },
+            { content: '1', styles: { halign: 'right' } },
+            { content: `$${selectedSize.price.toLocaleString()}`, styles: { halign: 'right', fontStyle: 'bold' } }
+          ]);
+        }
+      } else if (quoteData.basePrice > 0) {
+        tableData.push([
+          { content: 'Precio Base', styles: { fontStyle: 'bold' } },
+          { content: '1', styles: { halign: 'right' } },
+          { content: `$${quoteData.basePrice.toLocaleString()}`, styles: { halign: 'right', fontStyle: 'bold' } }
+        ]);
+      }
+      
+      if (quoteData.selectedPackagingId) {
+        const selectedPackaging = inventoryItems.find(item => item.id === quoteData.selectedPackagingId);
+        if (selectedPackaging) {
+          tableData.push([
+            { content: `Empaque: ${selectedPackaging.label}`, styles: { fontStyle: 'bold' } },
+            { content: '1', styles: { halign: 'right' } },
+            { content: `$${selectedPackaging.price.toLocaleString()}`, styles: { halign: 'right', fontStyle: 'bold' } }
+          ]);
+        }
+      }
+      
+      if (quoteData.selectedAccessories && quoteData.selectedAccessories.length > 0) {
+        quoteData.selectedAccessories.forEach(accId => {
+          const accessory = inventoryItems.find(item => item.id === accId);
+          if (accessory) {
+            tableData.push([
+              { content: `Accesorio: ${accessory.label}`, styles: { fontStyle: 'bold' } },
+              { content: '1', styles: { halign: 'right' } },
+              { content: `$${accessory.price.toLocaleString()}`, styles: { halign: 'right', fontStyle: 'bold' } }
+            ]);
+          }
+        });
+      }
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Concepto', 'Cant.', 'Valor']],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: roseRGB,
+          textColor: [255, 255, 255],
+          fontSize: 11,
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        bodyStyles: {
+          fontSize: 9
+        },
+        alternateRowStyles: {
+          fillColor: [249, 250, 251] // gray-50
+        },
+        margin: { left: 20, right: 20 }
+      });
+
+      currentY = (doc as any).lastAutoTable.finalY + 8;
+
+      // CAMBIO: Texto de entrega y altura dinámica de la caja
+      const deliveryText = 'Cada pieza se elabora bajo pedido. Tiempos de entrega según agenda de producción. Consulta disponibilidad.';
+      const splitDeliveryText = doc.splitTextToSize(deliveryText, 160);
+      const deliveryTextHeight = splitDeliveryText.length * 4; // Altura aproximada del texto
+      const totalBoxHeight = 12 + deliveryTextHeight; // Altura base + altura del texto
+
+      // Total con fondo verde - ALTURA REDUCIDA
+      doc.setFillColor(...emeraldRGB);
+      doc.rect(20, currentY, 170, totalBoxHeight, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTAL', 25, currentY + 6); // Ajustado
+      doc.setFontSize(18);
+      doc.text(`$${total.toLocaleString()}`, 185, currentY + 7, { align: 'right' }); // Ajustado
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(209, 250, 229); // emerald-100
+      doc.text(splitDeliveryText, 25, currentY + 10); // Ajustado
+
+      currentY += totalBoxHeight + 5; // Ajustar el Y para la siguiente sección
+
+      // Notas adicionales
+      if (quoteData.notes) {
+        doc.setFillColor(249, 250, 251);
+        doc.rect(20, currentY, 170, 20, 'F');
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Notas Adicionales', 23, currentY + 5);
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(75, 85, 99);
+        const splitNotes = doc.splitTextToSize(quoteData.notes, 164);
+        doc.text(splitNotes, 23, currentY + 10);
+        
+        currentY += 25;
+      }
+
+      // CORREGIDO: Verificar espacio para Términos y Footer
+      const pageHeight = doc.internal.pageSize.height;
+      const footerHeight = 22;
+      const termsHeight = 20; // Aumentado para caber los 3 puntos
+      const marginBottom = 5;
+
+      if (currentY + termsHeight + footerHeight + marginBottom > pageHeight) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      // Términos y condiciones - ALTURA AUMENTADA
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(229, 231, 235);
+      doc.rect(20, currentY, 170, termsHeight, 'FD');
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(55, 65, 81);
+      doc.text('Términos y Condiciones', 23, currentY + 5);
+      
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(75, 85, 99);
+      doc.text('• 50% de anticipo para iniciar producción', 23, currentY + 9);
+      doc.text('• Saldo restante contra entrega', 23, currentY + 13);
+      doc.text('• Cotización válida por 7 días', 23, currentY + 17);
+
+      // Footer con fondo oscuro - Posicionado al final de la página
+      const footerY = pageHeight - footerHeight;
+      doc.setFillColor(...slateRGB);
+      doc.rect(0, footerY, 210, footerHeight, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Puntadas de Mechis', 105, footerY + 8, { align: 'center' });
+      doc.setFontSize(7);
+      doc.text('WhatsApp: +57 312 491 5147 | Email: puntadasdemechis@gmail.com', 105, footerY + 13, { align: 'center' });
+      doc.setFontSize(6);
+      doc.setTextColor(203, 213, 225);
+      doc.text('¡Gracias por confiar en nosotros!', 105, footerY + 17, { align: 'center' });
+
+      const filename = `cotizacion_${quoteData.clientName.replace(/\s/g, '_')}_${quoteNumber}.pdf`;
+      doc.save(filename);
+      
+      console.log('✅ PDF generado con nuevo diseño');
+    } catch (error) {
+      console.error('❌ Error generating PDF:', error);
+      setError('Error al generar el PDF: ' + (error as Error).message);
     }
-
-    // Footer
-    const pastelBlueRGB = [197, 216, 232];
-    doc.setFillColor(...pastelBlueRGB);
-    doc.rect(0, 280, 210, 17, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.text('Puntadas de Mechis | WhatsApp: +57 312 491 5127 | Email: info@puntadasdemechis.com', 105, 290, { align: 'center' });
-
-    // Guardar PDF
-    const filename = `cotizacion_${quoteData.clientName.replace(/\s/g, '_')}_${Date.now()}.pdf`;
-    doc.save(filename);
-    
-    console.log('✅ PDF generado y descargado');
-  } catch (error) {
-    console.error('❌ Error generating PDF:', error);
-    setError('Error al generar el PDF: ' + (error as Error).message);
-  }
-};
+  };
 
   const sendQuoteByEmail = () => {
     if (!quoteData.clientEmail || !quoteData.productName) {
@@ -506,7 +668,6 @@ const generatePDF = async () => {  // ⬅️ AGREGAR async AQUÍ
       return;
     }
 
-    // Verificar que haya un tamaño o un precio base
     if (!quoteData.selectedSizeId && quoteData.basePrice <= 0) {
       setError('Por favor selecciona un tamaño o especifica un precio base');
       return;
@@ -515,20 +676,21 @@ const generatePDF = async () => {  // ⬅️ AGREGAR async AQUÍ
     try {
       console.log('📧 Enviando cotización por email...');
       const total = calculateTotal();
-      const subject = `Cotización - ${quoteData.productName}`;
+      const quoteNumber = generateQuoteNumber();
+      const subject = `Cotización #${quoteNumber} - ${quoteData.productName}`;
       
       let body = `
 Hola ${quoteData.clientName},
 
 Te enviamos la cotización para tu amigurumi personalizado:
 
+📋 Cotización #${quoteNumber}
 📦 Producto: ${quoteData.productName}
 📝 Descripción: ${quoteData.description}
 
 💰 Desglose de Precios:
 `;
 
-      // Añadir información del tamaño o precio base
       if (quoteData.selectedSizeId) {
         const selectedSize = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
         if (selectedSize) {
@@ -558,14 +720,24 @@ Te enviamos la cotización para tu amigurumi personalizado:
       body += `
 💵 TOTAL: $${total.toLocaleString()}
 
+⏰ Cada pieza se elabora bajo pedido. Tiempos de entrega según agenda de producción. Consulta disponibilidad.
+
+📅 Válida hasta: ${new Date(Date.now() + 7*24*60*60*1000).toLocaleDateString('es-CO')}
+
  ${quoteData.notes ? `\n📌 Notas: ${quoteData.notes}` : ''}
+
+Términos y Condiciones:
+• 50% de anticipo para iniciar producción
+• Saldo restante contra entrega
+• Cotización válida por 7 días
 
 ¡Gracias por tu interés!
 
 Puntadas de Mechis
+WhatsApp: +57 312 491 5147
+Email: puntadasdemechis@gmail.com
       `.trim();
 
-      // Si hay imagen, agregar una nota sobre ella
       if (quoteData.imageUrl) {
         body += '\n\n📸 La imagen de referencia está adjunta en esta cotización.';
       }
@@ -584,7 +756,6 @@ Puntadas de Mechis
     setError(null);
   };
 
-  // Componente de carga
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 flex items-center justify-center">
@@ -597,8 +768,7 @@ Puntadas de Mechis
     );
   }
 
-  // Componente de error
-  if (error) {
+  if (error && !loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 flex items-center justify-center p-8">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
@@ -623,7 +793,6 @@ Puntadas de Mechis
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 p-8">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <button
@@ -659,7 +828,6 @@ Puntadas de Mechis
         </div>
 
         {showSavedQuotes ? (
-          /* Vista de cotizaciones guardadas */
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Cotizaciones Anteriores</h2>
             
@@ -687,7 +855,6 @@ Puntadas de Mechis
                       <div className="flex gap-2">
                         <button
                           onClick={() => {
-                            // Cargar la cotización para editarla
                             setQuoteData({
                               clientName: quote.client_name,
                               clientEmail: quote.client_email,
@@ -736,7 +903,6 @@ Puntadas de Mechis
             )}
           </div>
         ) : (
-          /* Formulario de nueva cotización */
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -744,7 +910,6 @@ Puntadas de Mechis
               </div>
             )}
             
-            {/* Información del Cliente */}
             <section className="border-b pb-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <User size={20} style={{ color: COLORS.coral }} />
@@ -806,7 +971,6 @@ Puntadas de Mechis
               </div>
             </section>
 
-            {/* Detalles del Producto */}
             <section className="border-b pb-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <Package size={20} style={{ color: COLORS.sageGreen }} />
@@ -895,7 +1059,6 @@ Puntadas de Mechis
               </div>
             </section>
 
-            {/* Opciones Adicionales */}
             <section className="border-b pb-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <DollarSign size={20} style={{ color: COLORS.coral }} />
@@ -903,12 +1066,10 @@ Puntadas de Mechis
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Empaque */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">📦 Empaque</label>
                   <select
                     onChange={(e) => {
-                      const item = packaging.find(p => p.id === e.target.value);
                       setQuoteData({ ...quoteData, selectedPackagingId: e.target.value });
                     }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
@@ -923,7 +1084,6 @@ Puntadas de Mechis
                   </select>
                 </div>
 
-                {/* Accesorios */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">✨ Accesorios</label>
                   <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-3">
@@ -940,7 +1100,7 @@ Puntadas de Mechis
                             } else {
                               setQuoteData({
                                 ...quoteData,
-                                selectedAccessories: quoteData.selectedAccessories.filter(a => a.id !== acc.id)
+                                selectedAccessories: quoteData.selectedAccessories.filter(a => a !== acc.id)
                               });
                             }
                           }}
@@ -955,7 +1115,6 @@ Puntadas de Mechis
               </div>
             </section>
 
-            {/* Notas */}
             <section className="border-b pb-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">📌 Notas Adicionales</h2>
               <textarea
@@ -967,7 +1126,6 @@ Puntadas de Mechis
               />
             </section>
 
-            {/* Total y Acciones */}
             <section>
               <div className="bg-gradient-to-r from-pink-100 to-purple-100 rounded-xl p-6 mb-6">
                 <div className="flex justify-between items-center">
@@ -985,7 +1143,7 @@ Puntadas de Mechis
                   className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <Save size={20} />
-                  {saving ? 'Guardando...' : 'Guardar Cotización'}
+                  {saving ? 'Guardando...' : 'Guardar'}
                 </button>
 
                 <button
@@ -994,7 +1152,7 @@ Puntadas de Mechis
                   className="flex-1 bg-gradient-to-r from-pink-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:from-pink-700 hover:to-purple-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <Download size={20} />
-                  Generar PDF
+                  PDF
                 </button>
 
                 <button
@@ -1003,7 +1161,7 @@ Puntadas de Mechis
                   className="flex-1 bg-gradient-to-r from-green-600 to-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:from-green-700 hover:to-teal-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <Send size={20} />
-                  Enviar Email
+                  Email
                 </button>
 
                 <button
