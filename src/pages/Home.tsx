@@ -14,42 +14,49 @@ import ProcessTimeline from '../components/ProcessTimeline';
 const Home: React.FC = () => {
   const [trackId, setTrackId] = useState('');
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
-  const [homeConfig, setHomeConfig] = useState<HomeConfig>({ heroImage1: '', heroImage2: '' });
+  const [homeConfig, setHomeConfig] = useState<HomeConfig>({ 
+    heroImage1: '', 
+    heroImage2: '',
+    cardPrice1: '',
+    cardPrice2: '',
+    cardPrice3: '',
+    cardPrice4: ''
+  });
   const [tejedoras, setTejedoras] = useState<Tejedora[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-useEffect(() => {
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [
-        galleryData, 
-        homeData, 
-        teamData,
-        statsData,        // 🆕 AGREGAR
-        sectionsData      // 🆕 AGREGAR
-      ] = await Promise.all([
-        db.getGallery(),
-        db.getHomeConfig(),
-        db.getTejedoras(),
-        db.getSiteStats(),        // 🆕 AGREGAR
-        db.getEditableSections()  // 🆕 AGREGAR
-      ]);
-      
-      setGalleryItems(galleryData);
-      setHomeConfig(homeData);
-      setTejedoras(teamData);
-      setSiteStats(statsData);           // 🆕 AGREGAR
-      setEditableSections(sectionsData); // 🆕 AGREGAR
-    } catch (error) {
-      console.error("Failed to load home data", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchData();
-}, []);
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [
+          galleryData, 
+          homeData, 
+          teamData,
+          statsData,        // 🆕 AGREGAR
+          sectionsData      // 🆕 AGREGAR
+        ] = await Promise.all([
+          db.getGallery(),
+          db.getHomeConfig(),
+          db.getTejedoras(),
+          db.getSiteStats(),        // 🆕 AGREGAR
+          db.getEditableSections()  // 🆕 AGREGAR
+        ]);
+        
+        setGalleryItems(galleryData);
+        setHomeConfig(homeData);
+        setTejedoras(teamData);
+        setSiteStats(statsData);           // 🆕 AGREGAR
+        setEditableSections(sectionsData); // 🆕 AGREGAR
+      } catch (error) {
+        console.error("Failed to load home data", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleTrack = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,20 +66,20 @@ useEffect(() => {
     }
   };
 
-const [siteStats, setSiteStats] = useState({
-  amigurumiCount: 17,
-  clientCount: 17,
-  rating: 4.9,
-  yearsExperience: 5
-});
+  const [siteStats, setSiteStats] = useState({
+    amigurumiCount: 17,
+    clientCount: 17,
+    rating: 4.9,
+    yearsExperience: 5
+  });
 
-const [editableSections, setEditableSections] = useState({
-  valuePropsTitle: '¿Por Qué Elegirnos?',
-  statsTitle: 'Nuestro Impacto',
-  statsSubtitle: 'Números que hablan por nosotros',
-  testimonialsTitle: 'Lo Que Dicen Nuestros Clientes',
-  testimonialsSubtitle: 'Más de 450 clientes satisfechos'
-});
+  const [editableSections, setEditableSections] = useState({
+    valuePropsTitle: '¿Por Qué Elegirnos?',
+    statsTitle: 'Nuestro Impacto',
+    statsSubtitle: 'Números que hablan por nosotros',
+    testimonialsTitle: 'Lo Que Dicen Nuestros Clientes',
+    testimonialsSubtitle: 'Más de 450 clientes satisfechos'
+  });
 
   const scrollToGallery = () => {
     const gallerySection = document.getElementById('gallery');
@@ -101,10 +108,17 @@ const [editableSections, setEditableSections] = useState({
       
       {/* 🆕 HERO SECTION ANIMADO - Reemplaza el hero anterior */}
       <AnimatedHero 
-        heroImage1={homeConfig.heroImage1}
-        heroImage2={homeConfig.heroImage2}
-        onScrollToGallery={scrollToGallery}
-      />
+  heroImage1={homeConfig.heroImage1}
+  heroImage2={homeConfig.heroImage2}
+  cardImage3={homeConfig.cardImage3}
+  cardImage4={homeConfig.cardImage4}
+  cardImage5={homeConfig.cardImage5}
+  cardPrice1={homeConfig.cardPrice1}
+  cardPrice2={homeConfig.cardPrice2}
+  cardPrice3={homeConfig.cardPrice3}
+  cardPrice4={homeConfig.cardPrice4}
+  onScrollToGallery={scrollToGallery}
+/>
 
       {/* Order Tracker - MANTIENE EL CÓDIGO ORIGINAL */}
       <section className="max-w-4xl mx-auto w-full px-4 -mt-24 z-20 relative">

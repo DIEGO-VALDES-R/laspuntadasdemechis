@@ -19,6 +19,25 @@ export interface AmigurumiRecord {
   fechaActualizacion: string; // camelCase en TypeScript
 }
 
+// 🆕 INTERFAZ PARA COTIZACIONES
+export interface QuoteData {
+  id?: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  productName: string;
+  description: string;
+  basePrice: number;
+  selectedSizeId?: string;
+  selectedPackagingId?: string;
+  selectedAccessories: string[];
+  imageUrl?: string;
+  notes?: string;
+  status?: 'pending' | 'sent' | 'approved' | 'rejected';
+  createdAt?: string;
+  totalAmount?: number;
+}
+
 // =====================================================
 // MAPPING HELPERS (Database to TypeScript)
 // =====================================================
@@ -136,6 +155,18 @@ const mapChallenge = (c: any): Challenge => ({
   reward: c.reward,
   participants: c.participants,
   status: c.status
+});
+
+const mapHomeConfig = (c: any): HomeConfig => ({
+  heroImage1: c.hero_image1,
+  heroImage2: c.hero_image2,
+  cardImage3: c.card_image3,
+  cardImage4: c.card_image4,
+  cardImage5: c.card_image5,
+  cardPrice1: c.card_price1,
+  cardPrice2: c.card_price2,
+  cardPrice3: c.card_price3,
+  cardPrice4: c.card_price4
 });
 
 // =====================================================
@@ -642,39 +673,103 @@ export const db = {
   },
 
   // --- HOME CONFIG ---
-  getHomeConfig: async (): Promise<HomeConfig> => {
-    const { data, error } = await supabase
-      .from('home_config')
-      .select('*')
-      .limit(1)
-      .single();
-    
-    if (error || !data) {
-      return {
-        heroImage1: 'https://images.unsplash.com/photo-1618331835717-801e976710b2?auto=format&fit=crop&w=600&q=80',
-        heroImage2: 'https://images.unsplash.com/photo-1615486511484-92e172cc416d?auto=format&fit=crop&w=600&q=80'
-      };
+  // Guardar configuración del home (usando columnas directas)
+  saveHomeConfig: async (config: HomeConfig) => {
+    try {
+      console.log('📝 Guardando en Supabase con columnas directas...', config);
+
+      const { data, error } = await supabase
+        .from('home_config')
+        .upsert({
+          id: 1, // Siempre usamos id=1 para home config
+          section_key: 'hero_section',
+          hero_image1: config.heroImage1 || '',
+          hero_image2: config.heroImage2 || '',
+          card_image3: config.cardImage3 || '',
+          card_image4: config.cardImage4 || '',
+          card_image5: config.cardImage5 || '',
+          card_price1: config.cardPrice1 || '$30.00',
+          card_price2: config.cardPrice2 || '$27.00',
+          card_price3: config.cardPrice3 || '$26.00',
+          card_price4: config.cardPrice4 || '$25.00',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
+      if (error) {
+        console.error('❌ Error de Supabase:', error);
+        throw error;
+      }
+      
+      console.log('✅ Guardado exitoso:', data);
+      return { data, error: null };
+    } catch (error) {
+      console.error('❌ Error saving home config:', error);
+      return { data: null, error };
     }
-    
-    return {
-      heroImage1: data.hero_image1,
-      heroImage2: data.hero_image2
-    };
   },
 
-  saveHomeConfig: async (config: HomeConfig) => {
-    const { data } = await supabase.from('home_config').select('id').limit(1);
-    
-    if (data && data.length > 0) {
-      await supabase.from('home_config').update({
-        hero_image1: config.heroImage1,
-        hero_image2: config.heroImage2
-      }).eq('id', data[0].id);
-    } else {
-      await supabase.from('home_config').insert({
-        hero_image1: config.heroImage1,
-        hero_image2: config.heroImage2
-      });
+  // Obtener configuración del home (usando columnas directas)
+  getHomeConfig: async (): Promise<HomeConfig> => {
+    try {
+      console.log('📖 Cargando home config desde Supabase...');
+      
+      const { data, error } = await supabase
+        .from('home_config')
+        .select('*')
+        .eq('id', 1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('❌ Error al cargar:', error);
+        throw error;
+      }
+
+      // Si no existe, crear uno por defecto
+      if (!data) {
+        console.log('⚠️ No existe registro, creando uno por defecto...');
+        const defaultConfig = {
+          heroImage1: '',
+          heroImage2: '',
+          cardImage3: '',
+          cardImage4: '',
+          cardImage5: '',
+          cardPrice1: '$30.00',
+          cardPrice2: '$27.00',
+          cardPrice3: '$26.00',
+          cardPrice4: '$25.00',
+        };
+        await db.saveHomeConfig(defaultConfig);
+        return defaultConfig;
+      }
+
+      const config = {
+        heroImage1: data.hero_image1 || '',
+        heroImage2: data.hero_image2 || '',
+        cardImage3: data.card_image3 || '',
+        cardImage4: data.card_image4 || '',
+        cardImage5: data.card_image5 || '',
+        cardPrice1: data.card_price1 || '$30.00',
+        cardPrice2: data.card_price2 || '$27.00',
+        cardPrice3: data.card_price3 || '$26.00',
+        cardPrice4: data.card_price4 || '$25.00',
+      };
+
+      console.log('✅ Config cargada:', config);
+      return config;
+      
+    } catch (error) {
+      console.error('❌ Error loading home config:', error);
+      return {
+        heroImage1: '',
+        heroImage2: '',
+        cardImage3: '',
+        cardImage4: '',
+        cardImage5: '',
+        cardPrice1: '$30.00',
+        cardPrice2: '$27.00',
+        cardPrice3: '$26.00',
+        cardPrice4: '$25.00',
+      };
     }
   },
 
@@ -1065,92 +1160,124 @@ export const db = {
     if (error) throw error;
   },
 
-  // 🆕 FUNCIONES PARA AMIGURUMI RECORDS
-  getAmigurumiRecords: async (): Promise<{ data: AmigurumiRecord[] | null, error: any }> => {
-    try {
-      const { data, error } = await supabase
-        .from('amigurumi_records')
-        .select('*')
-        .order('fecha_actualizacion', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching amigurumi records:', error);
-        return { data: null, error };
-      }
-      
-      return { data: data || [], error: null };
-    } catch (error) {
-      console.error('Exception in getAmigurumiRecords:', error);
-      return { data: null, error };
-    }
+    // 🆕 FUNCIONES PARA COTIZACIONES
+  saveQuote: async (quoteData: QuoteData) => {
+    const { data, error } = await supabase
+      .from('quotes')
+      .insert([{
+        client_name: quoteData.clientName,
+        client_email: quoteData.clientEmail,
+        client_phone: quoteData.clientPhone,
+        product_name: quoteData.productName,
+        description: quoteData.description,
+        base_price: quoteData.basePrice,
+        selected_size_id: quoteData.selectedSizeId,
+        selected_packaging_id: quoteData.selectedPackagingId,
+        selected_accessories: quoteData.selectedAccessories,
+        image_url: quoteData.imageUrl,
+        notes: quoteData.notes,
+        total_amount: calculateQuoteTotal(quoteData, inventoryItems),
+        status: quoteData.status || 'pending'
+      }])
+      .select();
+    
+    if (error) throw error;
+    return data;
   },
 
-  createAmigurumiRecord: async (amigurumiData: AmigurumiRecord): Promise<{ data: AmigurumiRecord[] | null, error: any }> => {
-    try {
-      const { data, error } = await supabase
-        .from('amigurumi_records')
-        .insert([{
-          id: amigurumiData.id,
-          nombre: amigurumiData.nombre,
-          insumos: amigurumiData.insumos,
-          fecha_actualizacion: amigurumiData.fechaActualizacion // Corregido: usar snake_case para la BD
-        }])
-        .select();
-      
-      if (error) {
-        console.error('Error creating amigurumi record:', error);
-        return { data: null, error };
-      }
-      
-      return { data: data || [], error: null };
-    } catch (error) {
-      console.error('Exception in createAmigurumiRecord:', error);
-      return { data: null, error };
-    }
+  getQuotes: async () => {
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
   },
 
-  updateAmigurumiRecord: async (id: string, amigurumiData: AmigurumiRecord): Promise<{ data: AmigurumiRecord[] | null, error: any }> => {
-    try {
-      const { data, error } = await supabase
-        .from('amigurumi_records')
-        .update({
-          nombre: amigurumiData.nombre,
-          insumos: amigurumiData.insumos,
-          fecha_actualizacion: amigurumiData.fechaActualizacion // Corregido: usar snake_case para la BD
-        })
-        .eq('id', id)
-        .select();
-      
-      if (error) {
-        console.error('Error updating amigurumi record:', error);
-        return { data: null, error };
-      }
-      
-      return { data: data || [], error: null };
-    } catch (error) {
-      console.error('Exception in updateAmigurumiRecord:', error);
-      return { data: null, error };
-    }
+  getQuoteById: async (id: string) => {
+    const { data, error } = await supabase
+      .from('quotes')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
   },
 
-  deleteAmigurumiRecord: async (id: string): Promise<{ data: any, error: any }> => {
-    try {
-      const { data, error } = await supabase
-        .from('amigurumi_records')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error deleting amigurumi record:', error);
-        return { data: null, error };
-      }
-      
-      return { data, error: null };
-    } catch (error) {
-      console.error('Exception in deleteAmigurumiRecord:', error);
-      return { data: null, error };
-    }
+  updateQuote: async (id: string, updates: Partial<QuoteData>) => {
+    const dbUpdates: any = {};
+    
+    if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName;
+    if (updates.clientEmail !== undefined) dbUpdates.client_email = updates.clientEmail;
+    if (updates.clientPhone !== undefined) dbUpdates.client_phone = updates.clientPhone;
+    if (updates.productName !== undefined) dbUpdates.product_name = updates.productName;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.basePrice !== undefined) dbUpdates.base_price = updates.basePrice;
+    if (updates.selectedSizeId !== undefined) dbUpdates.selected_size_id = updates.selectedSizeId;
+    if (updates.selectedPackagingId !== undefined) dbUpdates.selected_packaging_id = updates.selectedPackagingId;
+    if (updates.selectedAccessories !== undefined) dbUpdates.selected_accessories = updates.selectedAccessories;
+    if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    if (updates.totalAmount !== undefined) dbUpdates.total_amount = updates.totalAmount;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    
+    const { data, error } = await supabase
+      .from('quotes')
+      .update(dbUpdates)
+      .eq('id', id)
+      .select();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  deleteQuote: async (id: string) => {
+    const { error } = await supabase
+      .from('quotes')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   }
 };
+
+// 🆕 FUNCIÓN AUXILIAR PARA CALCULAR EL TOTAL DE UNA COTIZACIÓN
+function calculateQuoteTotal(quoteData: QuoteData, inventoryItems?: InventoryItem[]): number {
+  let total = 0;
+  
+  // Si hay un tamaño seleccionado, usar su precio como base (NO como adicional)
+  if (quoteData.selectedSizeId && inventoryItems) {
+    const size = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
+    if (size) {
+      total = size.price; // Usar el precio del tamaño como total base
+    }
+  }
+  // Si NO hay tamaño seleccionado, usar el precio base
+  else if (quoteData.basePrice > 0) {
+    total = quoteData.basePrice;
+  }
+  
+  // Añadir precio del empaque
+  if (quoteData.selectedPackagingId && inventoryItems) {
+    const packaging = inventoryItems.find(item => item.id === quoteData.selectedPackagingId);
+    if (packaging) {
+      total += packaging.price;
+    }
+  }
+  
+  // Añadir precio de los accesorios
+  if (quoteData.selectedAccessories && inventoryItems) {
+    quoteData.selectedAccessories.forEach(accId => {
+      const accessory = inventoryItems.find(item => item.id === accId);
+      if (accessory) {
+        total += accessory.price;
+      }
+    });
+  }
+  
+  return total;
+}
 
 export default db;

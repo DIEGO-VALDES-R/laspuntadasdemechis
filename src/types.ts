@@ -1,4 +1,3 @@
-
 export interface Client {
   id: string;
   nombre_completo: string;
@@ -24,27 +23,19 @@ export interface Client {
 
 export interface Order {
   id: string;
-  clientEmail?: string;
   numero_seguimiento: string;
-  guia_transportadora?: string;
+  clientEmail: string;
   nombre_producto: string;
-  estado: 'En espera de agendar' | 'Agendado' | 'En proceso' | 'Finalizado' | 'Listo para entregar' | 'Entregado' | 'Cancelado';
+  descripcion: string;
+  estado: 'En espera de agendar' | 'Agendado' | 'En proceso' | 'Listo para entregar' | 'Entregado' | 'Cancelado';
   fecha_solicitud: string;
-  fecha_entrega?: string;
   total_final: number;
   monto_pagado: number;
   saldo_pendiente: number;
   imagen_url: string;
-  final_image_url?: string; // â† ðŸ†• AGREGAR ESTA LÃNEA
-  descripcion: string;
-  desglose: {
-    precio_base: number;
-    empaque: number;
-    accesorios: number;
-    descuento: number;
-  };
-  puede_reordenar?: boolean;
-  puede_calificar?: boolean;
+  final_image_url?: string;
+  guia_transportadora?: string;
+  desglose: any;
 }
 
 export interface PaymentMethod {
@@ -92,7 +83,7 @@ export interface GalleryItem {
   description: string;
   imageUrl: string;
   price?: number;
-  category?: string;  // â¬…ï¸ NUEVO
+  category?: string;  // ⬅️ NUEVO
 }
 
 // New Content Management Types
@@ -103,9 +94,19 @@ export interface Tejedora {
   imageUrl: string;
 }
 
+// 🆕 ACTUALIZADO
 export interface HomeConfig {
   heroImage1: string;
   heroImage2: string;
+  // 🆕 Imágenes adicionales para las tarjetas
+  cardImage3?: string;
+  cardImage4?: string;
+  cardImage5?: string;
+  // 🆕 Precios de las tarjetas
+  cardPrice1?: string;
+  cardPrice2?: string;
+  cardPrice3?: string;
+  cardPrice4?: string;
 }
 
 // Community & Challenges Types
@@ -129,10 +130,10 @@ export interface Challenge {
   imageUrl: string;
   startDate: string;
   endDate: string;
-  difficulty: 'Fácil' | 'Intermedio' | 'Experto';
+  difficulty: 'Fácil' | 'Medio' | 'Difícil';
   reward: string;
   participants: number;
-  status: 'active' | 'upcoming' | 'completed';
+  status: 'upcoming' | 'active' | 'completed';
 }
 
 // Raw Materials / Supplies Type
@@ -144,7 +145,7 @@ export interface Supply {
   quantity: number;
   color: string;
   number: string; // Calibre o número de lote
-  lowStockThreshold: number; // Cantidad mÃ­nima para alerta
+  lowStockThreshold: number; // Cantidad mínima para alerta
   imageUrl?: string;
 }
 
@@ -190,4 +191,3 @@ export const DEFAULT_CONFIG: ProductConfig = {
     { id: 'ac4', category: 'accessories', label: 'Luz LED', price: 5000 },
   ]
 };
-

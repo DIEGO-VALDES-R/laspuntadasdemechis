@@ -6,7 +6,7 @@ import { db } from '../services/db';
 import {
   LayoutDashboard, ShoppingCart, Users, Package, DollarSign, Settings,
   Search, Eye, X, Save, ShoppingBag, Plus, Trash2, Edit2, 
-  Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart
+  Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText
 } from 'lucide-react';
 import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
 
@@ -42,7 +42,17 @@ const AdminDashboard: React.FC = () => {
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [config, setConfig] = useState<GlobalConfig>({ limite_pago_completo: 70000, abono_minimo_fijo: 50000, descuento_referido: 10 });
-  const [homeConfig, setHomeConfig] = useState<HomeConfig>({ heroImage1: '', heroImage2: '' });
+  const [homeConfig, setHomeConfig] = useState<HomeConfig>({ 
+    heroImage1: '', 
+    heroImage2: '',
+    cardPrice1: '$30.00',
+    cardPrice2: '$27.00',
+    cardPrice3: '$26.00',
+    cardPrice4: '$25.00',
+    cardImage3: '',
+    cardImage4: '',
+    cardImage5: ''
+  });
   const [tejedoras, setTejedoras] = useState<Tejedora[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -796,7 +806,7 @@ Puntadas de Mechis
   // CONTENT HANDLERS
   const handleSaveHomeConfig = async () => {
     await db.saveHomeConfig(homeConfig);
-    alert('Imágenes actualizadas');
+    alert('Configuración guardada');
     loadData();
   };
 
@@ -1185,8 +1195,8 @@ Puntadas de Mechis
                 type="text"
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                placeholder="Ej: Osito Teddy, Conejito Rosa, etc."
                 className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:border-purple-500"
+                placeholder="Ej: Osito Teddy, Conejito Rosa, etc."
               />
             </div>
 
@@ -1850,34 +1860,289 @@ Puntadas de Mechis
     </div>
   );
 
-  // CONTENT VIEW
-  const ContentView = () => (
+  // CONTENT VIEW - VERSIÓN CORREGIDA
+  // Reemplaza la función ContentView en AdminDashboard.tsx con esta versión corregida:
+
+const ContentView = () => {
+  // 🆕 Estados locales para evitar el problema del cursor
+  const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
+  const [localCardPrice2, setLocalCardPrice2] = useState(homeConfig.cardPrice2 || '$27.00');
+  const [localCardPrice3, setLocalCardPrice3] = useState(homeConfig.cardPrice3 || '$26.00');
+  const [localCardPrice4, setLocalCardPrice4] = useState(homeConfig.cardPrice4 || '$25.00');
+
+  // Sincronizar con homeConfig cuando cambia
+  useEffect(() => {
+    setLocalCardPrice1(homeConfig.cardPrice1 || '$30.00');
+    setLocalCardPrice2(homeConfig.cardPrice2 || '$27.00');
+    setLocalCardPrice3(homeConfig.cardPrice3 || '$26.00');
+    setLocalCardPrice4(homeConfig.cardPrice4 || '$25.00');
+  }, [homeConfig]);
+
+  // 🆕 Función para manejar la subida de imágenes de tarjetas
+  const handleCardImageUpload = (e: React.ChangeEvent<HTMLInputElement>, cardNumber: 2 | 3 | 4 | 5) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 800000) {
+        alert("Imagen muy pesada (máx 800KB)");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const imageUrl = ev.target?.result as string;
+        // Guardar en homeConfig según el número de tarjeta
+        if (cardNumber === 2) {
+          setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
+        } else if (cardNumber === 3) {
+          setHomeConfig(prev => ({ ...prev, cardImage3: imageUrl }));
+        } else if (cardNumber === 4) {
+          setHomeConfig(prev => ({ ...prev, cardImage4: imageUrl }));
+        } else if (cardNumber === 5) {
+          setHomeConfig(prev => ({ ...prev, cardImage5: imageUrl }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 🆕 Guardar con los precios actualizados
+  const handleSaveContentConfig = async () => {
+    try {
+      const updatedConfig = {
+        ...homeConfig,
+        cardPrice1: localCardPrice1,
+        cardPrice2: localCardPrice2,
+        cardPrice3: localCardPrice3,
+        cardPrice4: localCardPrice4
+      };
+      
+      console.log('💾 Guardando configuración:', updatedConfig);
+      
+      const result = await db.saveHomeConfig(updatedConfig);
+      
+      if (result.error) {
+        console.error('❌ Error al guardar:', result.error);
+        alert('❌ Error al guardar: ' + result.error.message);
+        return;
+      }
+      
+      setHomeConfig(updatedConfig);
+      alert('✅ Contenido actualizado correctamente');
+      await loadData();
+    } catch (error) {
+      console.error('❌ Error inesperado:', error);
+      alert('❌ Error al guardar: ' + (error as Error).message);
+    }
+  };
+
+  return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">Gestión de Contenido</h2>
       </div>
       
-      {/* Banner Images */}
+      {/* Logo Principal */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><ImageIcon size={20}/> Imágenes del Banner Principal</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-2">Imagen Derecha 1 (Abajo)</label>
-            {homeConfig.heroImage1 && <img src={homeConfig.heroImage1} alt="Hero 1" className="w-full h-40 object-cover rounded-lg mb-2"/>}
-            <input type="file" accept="image/*" onChange={(e) => handleHeroUpload(e, 'heroImage1')} className="text-sm w-full"/>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-2">Imagen Derecha 2 (Arriba)</label>
-            {homeConfig.heroImage2 && <img src={homeConfig.heroImage2} alt="Hero 2" className="w-full h-40 object-cover rounded-lg mb-2"/>}
-            <input type="file" accept="image/*" onChange={(e) => handleHeroUpload(e, 'heroImage2')} className="text-sm w-full"/>
-          </div>
-        </div>
-        <div className="mt-4 text-right">
-          <button onClick={handleSaveHomeConfig} className="bg-pink-600 text-white px-4 py-2 rounded-lg font-bold">Guardar Imágenes</button>
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <ImageIcon size={20}/> Logo Principal (Izquierda)
+        </h3>
+        <div>
+          <label className="block text-sm font-medium mb-2">Logo del Sitio</label>
+          {homeConfig.heroImage1 && (
+            <img 
+              src={homeConfig.heroImage1} 
+              alt="Logo" 
+              className="w-40 h-40 object-contain rounded-lg mb-2 border-2 border-gray-200 bg-white p-2"
+            />
+          )}
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={(e) => handleHeroUpload(e, 'heroImage1')} 
+            className="text-sm w-full"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Este logo aparece en la columna izquierda sobre el texto
+          </p>
         </div>
       </div>
 
-      {/* Tejedoras */}
+      {/* Tarjetas Flotantes */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <ImageIcon size={20}/> Tarjetas Flotantes (Derecha)
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* TARJETA 1 (Verde) */}
+          <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+              <h4 className="font-bold text-green-800">Tarjeta 1 (Verde)</h4>
+            </div>
+            
+            {/* Imagen */}
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.heroImage2 && (
+                <img 
+                  src={homeConfig.heroImage2} 
+                  alt="Tarjeta 1" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-green-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 2)} 
+                className="text-sm w-full"
+              />
+            </div>
+
+            {/* Precio */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice1}
+                onChange={(e) => setLocalCardPrice1(e.target.value)}
+                onBlur={() => setHomeConfig(prev => ({...prev, cardPrice1: localCardPrice1}))}
+                className="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:outline-none focus:border-green-500"
+                placeholder="$30.00"
+              />
+            </div>
+          </div>
+
+          {/* TARJETA 2 (Morada) */}
+          <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+              <h4 className="font-bold text-purple-800">Tarjeta 2 (Morada)</h4>
+            </div>
+            
+            {/* Imagen */}
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage3 && (
+                <img 
+                  src={homeConfig.cardImage3} 
+                  alt="Tarjeta 2" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-purple-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 3)} 
+                className="text-sm w-full"
+              />
+            </div>
+
+            {/* Precio */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice2}
+                onChange={(e) => setLocalCardPrice2(e.target.value)}
+                onBlur={() => setHomeConfig(prev => ({...prev, cardPrice2: localCardPrice2}))}
+                className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500"
+                placeholder="$27.00"
+              />
+            </div>
+          </div>
+
+          {/* TARJETA 3 (Amarilla) */}
+          <div className="border-2 border-yellow-200 rounded-xl p-4 bg-yellow-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+              <h4 className="font-bold text-yellow-800">Tarjeta 3 (Amarilla)</h4>
+            </div>
+            
+            {/* Imagen */}
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage4 && (
+                <img 
+                  src={homeConfig.cardImage4} 
+                  alt="Tarjeta 3" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-yellow-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 4)} 
+                className="text-sm w-full"
+              />
+            </div>
+
+            {/* Precio */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice3}
+                onChange={(e) => setLocalCardPrice3(e.target.value)}
+                onBlur={() => setHomeConfig(prev => ({...prev, cardPrice3: localCardPrice3}))}
+                className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500"
+                placeholder="$26.00"
+              />
+            </div>
+          </div>
+
+          {/* TARJETA 4 (Rosa) */}
+          <div className="border-2 border-pink-200 rounded-xl p-4 bg-pink-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-pink-500 rounded-full"></div>
+              <h4 className="font-bold text-pink-800">Tarjeta 4 (Rosa)</h4>
+            </div>
+            
+            {/* Imagen */}
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage5 && (
+                <img 
+                  src={homeConfig.cardImage5} 
+                  alt="Tarjeta 4" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-pink-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 5)} 
+                className="text-sm w-full"
+              />
+            </div>
+
+            {/* Precio */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice4}
+                onChange={(e) => setLocalCardPrice4(e.target.value)}
+                onBlur={() => setHomeConfig(prev => ({...prev, cardPrice4: localCardPrice4}))}
+                className="w-full px-3 py-2 border-2 border-pink-300 rounded-lg focus:outline-none focus:border-pink-500"
+                placeholder="$25.00"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Botón Guardar */}
+        <div className="mt-6 text-right">
+          <button 
+            onClick={handleSaveContentConfig} 
+            className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-8 py-3 rounded-lg font-bold hover:from-pink-700 hover:to-purple-700 shadow-lg flex items-center gap-2 ml-auto"
+          >
+            <Save size={20}/>
+            Guardar Todo el Contenido
+          </button>
+        </div>
+      </div>
+
+      {/* Tejedoras - MANTÉN TU CÓDIGO ACTUAL */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold flex items-center gap-2"><Users size={20}/> Equipo de Tejedoras</h3>
@@ -1906,6 +2171,7 @@ Puntadas de Mechis
       </div>
     </div>
   );
+};
 
   // COMMUNITY VIEW
   const CommunityView = () => (
@@ -2199,6 +2465,7 @@ Puntadas de Mechis
             { id: 'gallery', label: 'Galería', icon: <ImageIcon size={20}/> },
             { id: 'content', label: 'Contenido Inicio', icon: <PenTool size={20}/> },
             { id: 'site-content', label: 'Editar Contenido', icon: <Edit2 size={20}/> },
+            { id: 'quote-generator', label: 'Cotizaciones', icon: <FileText size={20}/>, action: () => navigate('/admin/quote-generator') },
             { id: 'settings', label: 'Configuración', icon: <Settings size={20}/> },
           ].map((item) => (
             <button
