@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, User, ShoppingBag, Instagram, MessageCircle, LogOut, LayoutDashboard, Heart, Trophy } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
+import solocorazon from '../assets/solocorazon.png'; // Ajusta la extensión si es .jpg, .svg, etc.
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -83,8 +84,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex-shrink-0 flex items-center">
+           {/* Logo */}
+            <div className="flex-shrink-0 flex items-center gap-2">
+              <Link to="/" className="flex-shrink-0">
+                <img src={solocorazon} alt="Logo Solocorazon" className="h-10 w-auto" />
+              </Link>
               <div className="flex-shrink-0 flex flex-col items-start">
   <Link to="/" className="text-2xl font-bold flex items-center uppercase">
     <span className="mr-1" style={{ color: '#D43A51' }}>Puntadas</span>
@@ -95,7 +99,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     HILOS QUE CONECTAN CORAZONES
   </span>
 </div>
-
 
             </div>
 
