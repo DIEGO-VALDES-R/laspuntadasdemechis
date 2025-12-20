@@ -22,7 +22,7 @@ interface TestimonialsCarouselProps {
 
 const TestimonialsCarousel: React.FC<TestimonialsCarouselProps> = ({ 
   title = 'Lo Que Dicen Nuestros Clientes',
-  subtitle = 'Más de 450 clientes satisfechos'
+  subtitle = 'Más de 20 clientes satisfechos'
 }) => {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
