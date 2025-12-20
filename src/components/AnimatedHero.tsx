@@ -5,7 +5,7 @@ import { ChevronRight } from 'lucide-react';
 
 // Colores de marca actualizados
 const COLORS = {
-  coral: '#E07B6B',
+  coral: '#FF69B4',
   sageGreen: '#A9B4A1',
 };
 
@@ -89,7 +89,7 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
               <h1 className="text-5xl md:text-7xl font-extrabold leading-tight">
                 <span className="block text-gray-900">Amigurumis</span>
                 <span className="block text-gray-900">hechos</span>
-                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-coral to-pink-500">
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500">
                   con amor ❤️
                 </span>
                 <span className="block text-gray-900">y dedicación</span>
@@ -118,7 +118,7 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
                   style={{ backgroundColor: COLORS.coral }}
                   className="text-white px-8 py-4 rounded-full font-bold shadow-lg hover:shadow-xl transition transform hover:-translate-y-1 hover:scale-105"
                 >
-                  Ver Colección
+                  Solicitar Amigurumi
                 </Link>
                 {onScrollToGallery && (
                   <button

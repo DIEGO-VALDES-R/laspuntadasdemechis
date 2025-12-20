@@ -82,7 +82,7 @@ const Home: React.FC = () => {
   });
 
   const scrollToGallery = () => {
-    const gallerySection = document.getElementById('gallery');
+    const gallerySection = document.getElementById('how-it-works');
     if (gallerySection) {
       const headerOffset = 80;
       const elementPosition = gallerySection.getBoundingClientRect().top;
@@ -143,7 +143,9 @@ const Home: React.FC = () => {
       </section>
 
       {/* 🆕 PROCESO TIMELINE - NUEVO */}
-      <ProcessTimeline />
+      <section id="how-it-works">
+        <ProcessTimeline />
+      </section>
 
       {/* Value Props - MANTIENE EL CÓDIGO ORIGINAL */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
