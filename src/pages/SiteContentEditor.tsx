@@ -142,14 +142,16 @@ export default class SiteContentEditor extends Component<{}, State> {
     }));
   }
 
-  handleStatsChange = (field: keyof State['statsData'], value: string | number) => {
-    this.setState(prevState => ({
-      statsData: {
-        ...prevState.statsData,
-        [field]: field === 'rating' ? parseFloat(value) : parseInt(value)
-      }
-    }));
-  }
+// Código corregido
+handleStatsChange = (field: keyof State['statsData'], value: string | number) => {
+  this.setState(prevState => ({
+    statsData: {
+      ...prevState.statsData,
+      [field]: value // Ahora guarda el valor como string o number sin conversión prematura
+    }
+  }));
+}
+
 
   handleSaveTitles = async () => {
     try {

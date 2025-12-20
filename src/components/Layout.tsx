@@ -85,9 +85,18 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
-                Puntadas de Mechis
-              </Link>
+              <div className="flex-shrink-0 flex flex-col items-start">
+  <Link to="/" className="text-2xl font-bold flex items-center uppercase">
+    <span className="mr-1" style={{ color: '#D43A51' }}>Puntadas</span>
+    <span className="mr-1" style={{ color: '#E87A2B' }}>de</span>
+    <span style={{ color: '#2E8B57' }}>Mechis</span>
+  </Link>
+  <span className="text-xs font-semibold uppercase mt-[-4px]" style={{ color: '#2E8B57' }}>
+    HILOS QUE CONECTAN CORAZONES
+  </span>
+</div>
+
+
             </div>
 
             {/* Desktop Menu */}
