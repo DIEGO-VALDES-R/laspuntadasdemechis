@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
+import logo from '../assets/logo.png'; // Ajusta la extensión si es .jpg, .svg, etc.
 
 // Colores de marca actualizados
 const COLORS = {
@@ -61,23 +62,19 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
           
           {/* COLUMNA IZQUIERDA: Logo + Texto */}
           <div className="space-y-8">
-            {/* Logo (heroImage1) */}
-            {heroImage1 && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, y: -20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.8, type: "spring", stiffness: 100 }}
-                className="flex justify-center md:justify-start mb-8"
-              >
-                <div className="w-72 h-72 flex items-center justify-center bg-white rounded-3xl shadow-2xl p-6">
-                  <img 
-                    src={heroImage1} 
-                    alt="Puntadas de Mechis - Logo" 
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              </motion.div>
-            )}
+            {/* Logo */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.8, type: "spring", stiffness: 100 }}
+              className="flex justify-center md:justify-start mb-8"
+            >
+              <img 
+                src={logo} 
+                alt="Puntadas de Mechis - Logo" 
+                className="w-72 h-72 object-contain drop-shadow-2xl"
+              />
+            </motion.div>
 
             {/* Texto */}
             <motion.div
