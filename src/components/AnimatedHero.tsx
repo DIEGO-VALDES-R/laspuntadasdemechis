@@ -102,7 +102,8 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
                 className="text-lg text-gray-600 max-w-lg leading-relaxed"
               >
                 Cada pieza es única y tejida a mano con materiales de alta calidad.
-                <br />
+                  
+
                 Perfectos para regalar o decorar tu espacio con ternura.
               </motion.p>
 
@@ -161,14 +162,14 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
                   }}
                   animate={{ 
                     opacity: 1, 
-                    scale: 1,
-                    rotate: rotation,
+                    scale: hoveredCard === card.id ? 1.05 : 1, // Escala si está seleccionada
+                    rotate: hoveredCard === card.id ? 0 : rotation, // Rotación si está seleccionada
                     y: [-10, 0, -10], // Animación de flotación
                   }}
                   transition={{ 
                     opacity: { duration: 0.8, delay: 0.8 + index * 0.1 },
-                    scale: { type: "spring", stiffness: 100, damping: 15, delay: 0.8 + index * 0.1 },
-                    rotate: { type: "spring", stiffness: 100, damping: 15, delay: 0.8 + index * 0.1 },
+                    scale: { type: "spring", stiffness: 300, damping: 20, duration: 0.3 },
+                    rotate: { type: "spring", stiffness: 300, damping: 20, duration: 0.3 },
                     y: { 
                       duration: 3 + index * 0.5, 
                       repeat: Infinity, 
@@ -192,8 +193,11 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
                     // zIndex dinámico: 50 si está hover, sino el baseZIndex
                     zIndex: hoveredCard === card.id ? 50 : baseZIndex,
                   }}
+                  // Manejo de hover para escritorio
                   onHoverStart={() => setHoveredCard(card.id)}
                   onHoverEnd={() => setHoveredCard(null)}
+                  // Manejo de click/tap para móvil: alterna el estado de superposición
+                  onClick={() => setHoveredCard(prevId => (prevId === card.id ? null : card.id))}
                   className={`w-64 h-80 rounded-3xl shadow-2xl overflow-hidden ${colors[index]} border-8 border-white cursor-pointer`}
                 >
                   <div className="w-full h-full flex items-center justify-center p-6">
