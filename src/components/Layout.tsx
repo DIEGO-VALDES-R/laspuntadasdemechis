@@ -208,7 +208,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li className="flex items-center gap-2"><MessageCircle size={16}/> +57 312 491 5127</li>
                 <li>puntadasdemechis@gmail.com</li>
-                <li>Bogotá, Colombia</li>
+                <li>Cúcuta, Colombia</li>
               </ul>
             </div>
             <div>
