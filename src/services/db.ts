@@ -87,11 +87,12 @@ const mapGallery = (g: any): GalleryItem => ({
   price: g.price
 });
 
+// ✅ CORRECCIÓN: Mapeamos image_url (BD) a imageUrl (TypeScript)
 const mapTejedora = (t: any): Tejedora => ({
   id: t.id,
   nombre: t.nombre,
   especialidad: t.especialidad,
-  imageUrl: t.image_url
+  imageUrl: t.image_url || '' 
 });
 
 const mapPost = (p: any): Post => ({
@@ -136,19 +137,15 @@ const mapHomeConfig = (c: any): HomeConfig => ({
 function calculateQuoteTotal(quoteData: QuoteData, inventoryItems?: InventoryItem[]): number {
   let total = 0;
   
-  // Si hay un tamaño seleccionado, usar su precio como base (NO como adicional)
   if (quoteData.selectedSizeId && inventoryItems) {
     const size = inventoryItems.find(item => item.id === quoteData.selectedSizeId);
     if (size) {
-      total = size.price; // Usar el precio del tamaño como total base
+      total = size.price;
     }
-  }
-  // Si NO hay tamaño seleccionado, usar el precio base
-  else if (quoteData.basePrice > 0) {
+  } else if (quoteData.basePrice > 0) {
     total = quoteData.basePrice;
   }
   
-  // Añadir precio del empaque
   if (quoteData.selectedPackagingId && inventoryItems) {
     const packaging = inventoryItems.find(item => item.id === quoteData.selectedPackagingId);
     if (packaging) {
@@ -156,7 +153,6 @@ function calculateQuoteTotal(quoteData: QuoteData, inventoryItems?: InventoryIte
     }
   }
   
-  // Añadir precio de los accesorios
   if (quoteData.selectedAccessories && inventoryItems) {
     quoteData.selectedAccessories.forEach(accId => {
       const accessory = inventoryItems.find(item => item.id === accId);
@@ -411,7 +407,7 @@ export const db = {
       quantity: supply.quantity,
       color: supply.color,
       number: supply.number,
-      low_stock_threshold: supply.low_stock_threshold,
+      low_stock_threshold: supply.lowStockThreshold,
       image_url: supply.imageUrl 
     });
   
@@ -428,7 +424,7 @@ export const db = {
         quantity: supply.quantity,
         color: supply.color,
         number: supply.number,
-        low_stock_threshold: supply.low_stock_threshold,
+        low_stock_threshold: supply.lowStockThreshold,
         image_url: supply.imageUrl 
       })
       .eq('id', supply.id);
@@ -680,7 +676,7 @@ export const db = {
       const { data, error } = await supabase
         .from('home_config')
         .upsert({
-          id: 1, // Siempre usamos id=1 para home config
+          id: 1, 
           section_key: 'hero_section',
           hero_image1: config.heroImage1 || '',
           hero_image2: config.heroImage2 || '',
@@ -717,12 +713,11 @@ export const db = {
         .eq('id', 1)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      if (error && error.code !== 'PGRST116') { 
         console.error('❌ Error al cargar:', error);
         throw error;
       }
 
-      // Si no existe, crear uno por defecto
       if (!data) {
         console.log('⚠️ No existe registro, creando uno por defecto...');
         const defaultConfig = {
@@ -785,29 +780,46 @@ export const db = {
     return (data || []).map(mapTejedora);
   },
 
+  // ✅ CORRECCIÓN CRÍTICA AQUÍ: Mapeamos t.imageUrl (TypeScript) a image_url (Supabase)
   saveTejedoras: async (tejedoras: Tejedora[]) => {
-    for (const t of tejedoras) {
-      const { error } = await supabase.from('tejedoras').upsert({
-        id: t.id,
-        nombre: t.nombre,
-        especialidad: t.especialidad,
-        image_url: t.image_url
-      });
+    try {
+      console.log('💾 Guardando tejedoras en Supabase...');
       
-      if (error) {
-        console.error('Error saving tejedora:', error);
+      for (const t of tejedoras) {
+        const { error } = await supabase.from('tejedoras').upsert({
+          id: t.id,
+          nombre: t.nombre,
+          especialidad: t.especialidad,
+          image_url: t.imageUrl // ✅ CORREGIDO: Se usa t.imageUrl
+        });
+        
+        if (error) {
+          console.error('❌ Error guardando tejedora individual:', t.nombre, error);
+          throw error; // ✅ Propagar error
+        }
       }
+      console.log('✅ Tejedoras guardadas correctamente');
+    } catch (error) {
+      console.error('❌ Error en saveTejedoras:', error);
+      throw error; // ✅ Propagar error
     }
   },
 
   deleteTejedora: async (id: string) => {
-    const { error } = await supabase
-      .from('tejedoras')
-      .delete()
-      .eq('id', id);
+    try {
+      console.log('🗑️ Eliminando tejedora de Supabase:', id);
+      const { error } = await supabase
+        .from('tejedoras')
+        .delete()
+        .eq('id', id);
     
-    if (error) {
-      console.error('Error deleting tejedora:', error);
+      if (error) {
+        console.error('❌ Error deleting tejedora:', error);
+        throw error; // ✅ Propagar error
+      }
+    } catch (error) {
+      console.error('❌ Error en deleteTejedora:', error);
+      throw error;
     }
   },
 
@@ -1196,7 +1208,6 @@ export const db = {
     try {
       console.log('🔄 Actualizando testimonio:', { id, updates });
       
-      // Validar que el ID exista
       const { data: existingTestimonial, error: fetchError } = await supabase
         .from('testimonials')
         .select('*')
@@ -1215,7 +1226,6 @@ export const db = {
       
       console.log('✅ Testimonio encontrado:', existingTestimonial);
       
-      // Actualizar el testimonio
       const { data, error } = await supabase
         .from('testimonials')
         .update({
@@ -1392,7 +1402,6 @@ export const db = {
 
   // --- QUOTES ---
   saveQuote: async (quoteData: QuoteData) => {
-    // Obtener los items del inventario para calcular el total
     const inventoryItems = await db.getInventoryItems();
     
     const { data, error } = await supabase

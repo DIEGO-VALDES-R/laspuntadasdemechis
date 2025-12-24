@@ -836,25 +836,54 @@ Puntadas de Mechis
   };
 
   // ========================================
-  // MANEJO DE TEJEDORAS
+  // MANEJO DE TEJEDORAS (CORREGIDO)
   // ========================================
   
   const handleSaveTejedora = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingTejedora) {
+    
+    if (!editingTejedora) {
+      alert('❌ No hay datos para guardar');
+      return;
+    }
+
+    if (!editingTejedora.nombre || !editingTejedora.especialidad) {
+      alert('❌ Por favor completa todos los campos obligatorios');
+      return;
+    }
+
+    try {
+      // Actualizar lista local con la tejedora editada o nueva
       const newList = tejedoras.some(t => t.id === editingTejedora.id)
         ? tejedoras.map(t => t.id === editingTejedora.id ? editingTejedora : t)
         : [...tejedoras, editingTejedora];
+
+      // ✅ Llamada corregida a la base de datos
       await db.saveTejedoras(newList);
+      
+      alert('✅ Tejedora guardada correctamente');
       setIsTejedoraModalOpen(false);
-      loadData();
+      setEditingTejedora(null);
+      await loadData(); // ✅ Recargar datos
+      
+    } catch (error) {
+      console.error('❌ Error al guardar tejedora:', error);
+      alert('❌ Error al guardar tejedora. Revisa la consola para más detalles.');
     }
   };
 
   const handleDeleteTejedora = async (id: string) => {
-    if (confirm("¿Eliminar tejedora?")) {
+    if (!confirm("¿Eliminar tejedora?")) {
+      return;
+    }
+
+    try {
       await db.deleteTejedora(id);
-      loadData();
+      alert('✅ Tejedora eliminada correctamente');
+      await loadData(); // ✅ Recargar datos
+    } catch (error) {
+      console.error('❌ Error al eliminar tejedora:', error);
+      alert('❌ Error al eliminar tejedora. Revisa la consola para más detalles.');
     }
   };
 
@@ -1037,8 +1066,6 @@ Puntadas de Mechis
   };
 
   const handleAddReferral = async () => {
-    // Aquí puedes agregar un modal para agregar un nuevo referido
-    // Por ahora, solo mostramos un mensaje
     const email = prompt('Ingrese el email del referido:');
     if (!email) return;
     
@@ -1085,7 +1112,6 @@ Puntadas de Mechis
       unidad: 'gramos'
     });
 
-    // Cargar datos desde Supabase
     const loadData = async () => {
       setLoading(true);
       try {
@@ -1100,16 +1126,13 @@ Puntadas de Mechis
       }
     };
 
-    // Guardar en Supabase
     const saveData = async (data: AmigurumiRecord) => {
       try {
         if (editingId) {
-          // Actualizar existente
           const { error } = await db.updateAmigurumiRecord(editingId, data);
           if (error) throw error;
           alert('✅ Amigurumi actualizado correctamente');
         } else {
-          // Crear nuevo
           const { error } = await db.createAmigurumiRecord(data);
           if (error) throw error;
           alert('✅ Amigurumi creado correctamente');
@@ -1121,7 +1144,6 @@ Puntadas de Mechis
       }
     };
 
-    // Eliminar de Supabase
     const deleteAmigurumi = async (id: string) => {
       if (window.confirm('¿Estás seguro de eliminar este amigurumi?')) {
         try {
@@ -1136,7 +1158,6 @@ Puntadas de Mechis
       }
     };
 
-    // Agregar insumo al formulario
     const handleAddInsumo = () => {
       if (!currentInsumo.marca || !currentInsumo.color) {
         alert('Por favor completa al menos marca y color');
@@ -1157,7 +1178,6 @@ Puntadas de Mechis
       });
     };
 
-    // Eliminar insumo del formulario
     const handleRemoveInsumo = (id: string) => {
       setFormData({
         ...formData,
@@ -1165,7 +1185,6 @@ Puntadas de Mechis
       });
     };
 
-    // Guardar amigurumi completo
     const handleSaveAmigurumi = async () => {
       if (!formData.nombre) {
         alert('Por favor ingresa el nombre del amigurumi');
@@ -1186,14 +1205,12 @@ Puntadas de Mechis
       handleCancel();
     };
 
-    // Editar amigurumi existente
     const handleEdit = (amigurumi: AmigurumiRecord) => {
       setFormData(amigurumi);
       setEditingId(amigurumi.id);
       setIsEditing(true);
     };
 
-    // Cancelar edición
     const handleCancel = () => {
       setFormData({ nombre: '', insumos: [] });
       setCurrentInsumo({
@@ -1209,12 +1226,10 @@ Puntadas de Mechis
       setEditingId(null);
     };
 
-    // Filtrar amigurumis
     const filteredAmigurumis = amigurumis.filter(a =>
       a.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Cargar datos al montar el componente
     useEffect(() => {
       loadData();
     }, []);
@@ -1248,14 +1263,12 @@ Puntadas de Mechis
           </div>
         </div>
 
-        {/* Indicador de carga */}
         {loading && (
           <div className="flex justify-center items-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
           </div>
         )}
 
-        {/* Formulario de creación/edición */}
         {isEditing && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-xl font-bold text-purple-800 mb-4">
@@ -1440,7 +1453,6 @@ Puntadas de Mechis
           </div>
         )}
 
-        {/* Lista de amigurumis */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-xl font-bold text-purple-800 mb-4">
             Mis Amigurumis ({filteredAmigurumis.length})
@@ -1704,7 +1716,6 @@ Puntadas de Mechis
         </button>
       </div>
 
-      {/* Pestañas de categorías */}
       <div className="flex gap-2 border-b">
         <button
           onClick={() => setActiveInventoryCategory('sizes')}
@@ -1738,7 +1749,6 @@ Puntadas de Mechis
         </button>
       </div>
 
-      {/* Tabla de items */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-50 text-gray-600">
@@ -1834,7 +1844,6 @@ Puntadas de Mechis
         </button>
       </div>
       
-      {/* Estadísticas de referidos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="p-3 rounded-full bg-purple-100"><Users className="text-purple-600"/></div>
@@ -1944,13 +1953,11 @@ Puntadas de Mechis
 
   // Vista de gestión de contenido del home
   const ContentView = () => {
-    // 🆕 Estados locales para evitar el problema del cursor
     const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
     const [localCardPrice2, setLocalCardPrice2] = useState(homeConfig.cardPrice2 || '$27.00');
     const [localCardPrice3, setLocalCardPrice3] = useState(homeConfig.cardPrice3 || '$26.00');
     const [localCardPrice4, setLocalCardPrice4] = useState(homeConfig.cardPrice4 || '$25.00');
 
-    // Sincronizar con homeConfig cuando cambia
     useEffect(() => {
       setLocalCardPrice1(homeConfig.cardPrice1 || '$30.00');
       setLocalCardPrice2(homeConfig.cardPrice2 || '$27.00');
@@ -1958,7 +1965,6 @@ Puntadas de Mechis
       setLocalCardPrice4(homeConfig.cardPrice4 || '$25.00');
     }, [homeConfig]);
 
-    // 🆕 Función para manejar la subida de imágenes de tarjetas
     const handleCardImageUpload = (e: React.ChangeEvent<HTMLInputElement>, cardNumber: 2 | 3 | 4 | 5) => {
       const file = e.target.files?.[0];
       if (file) {
@@ -1969,7 +1975,6 @@ Puntadas de Mechis
         const reader = new FileReader();
         reader.onload = (ev) => {
           const imageUrl = ev.target?.result as string;
-          // Guardar en homeConfig según el número de tarjeta
           if (cardNumber === 2) {
             setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
           } else if (cardNumber === 3) {
@@ -1984,7 +1989,6 @@ Puntadas de Mechis
       }
     };
 
-    // 🆕 Guardar con los precios actualizados
     const handleSaveContentConfig = async () => {
       try {
         const updatedConfig = {
@@ -2020,7 +2024,6 @@ Puntadas de Mechis
           <h2 className="text-2xl font-bold text-gray-800">Gestión de Contenido</h2>
         </div>
         
-        {/* Logo Principal */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
             <ImageIcon size={20}/> Logo Principal (Izquierda)
@@ -2046,21 +2049,17 @@ Puntadas de Mechis
           </div>
         </div>
 
-        {/* Tarjetas Flotantes */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
             <ImageIcon size={20}/> Tarjetas Flotantes (Derecha)
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* TARJETA 1 (Verde) */}
             <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-4 h-4 bg-green-500 rounded-full"></div>
                 <h4 className="font-bold text-green-800">Tarjeta 1 (Verde)</h4>
               </div>
-              
-              {/* Imagen */}
               <div className="mb-3">
                 <label className="block text-sm font-medium mb-2">Imagen</label>
                 {homeConfig.heroImage2 && (
@@ -2077,8 +2076,6 @@ Puntadas de Mechis
                   className="text-sm w-full"
                 />
               </div>
-
-              {/* Precio */}
               <div>
                 <label className="block text-sm font-medium mb-2">Precio</label>
                 <input
@@ -2092,14 +2089,11 @@ Puntadas de Mechis
               </div>
             </div>
 
-            {/* TARJETA 2 (Morada) */}
             <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
                 <h4 className="font-bold text-purple-800">Tarjeta 2 (Morada)</h4>
               </div>
-              
-              {/* Imagen */}
               <div className="mb-3">
                 <label className="block text-sm font-medium mb-2">Imagen</label>
                 {homeConfig.cardImage3 && (
@@ -2116,8 +2110,6 @@ Puntadas de Mechis
                   className="text-sm w-full"
                 />
               </div>
-
-              {/* Precio */}
               <div>
                 <label className="block text-sm font-medium mb-2">Precio</label>
                 <input
@@ -2131,14 +2123,11 @@ Puntadas de Mechis
               </div>
             </div>
 
-            {/* TARJETA 3 (Amarilla) */}
             <div className="border-2 border-yellow-200 rounded-xl p-4 bg-yellow-50">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
                 <h4 className="font-bold text-yellow-800">Tarjeta 3 (Amarilla)</h4>
               </div>
-              
-              {/* Imagen */}
               <div className="mb-3">
                 <label className="block text-sm font-medium mb-2">Imagen</label>
                 {homeConfig.cardImage4 && (
@@ -2155,8 +2144,6 @@ Puntadas de Mechis
                   className="text-sm w-full"
                 />
               </div>
-
-              {/* Precio */}
               <div>
                 <label className="block text-sm font-medium mb-2">Precio</label>
                 <input
@@ -2170,14 +2157,11 @@ Puntadas de Mechis
               </div>
             </div>
 
-            {/* TARJETA 4 (Rosa) */}
             <div className="border-2 border-pink-200 rounded-xl p-4 bg-pink-50">
               <div className="flex items-center gap-2 mb-3">
                 <div className="w-4 h-4 bg-pink-500 rounded-full"></div>
                 <h4 className="font-bold text-pink-800">Tarjeta 4 (Rosa)</h4>
               </div>
-              
-              {/* Imagen */}
               <div className="mb-3">
                 <label className="block text-sm font-medium mb-2">Imagen</label>
                 {homeConfig.cardImage5 && (
@@ -2194,8 +2178,6 @@ Puntadas de Mechis
                   className="text-sm w-full"
                 />
               </div>
-
-              {/* Precio */}
               <div>
                 <label className="block text-sm font-medium mb-2">Precio</label>
                 <input
@@ -2210,7 +2192,6 @@ Puntadas de Mechis
             </div>
           </div>
 
-          {/* Botón Guardar */}
           <div className="mt-6 text-right">
             <button 
               onClick={handleSaveContentConfig} 
@@ -2222,7 +2203,6 @@ Puntadas de Mechis
           </div>
         </div>
 
-        {/* Tejedoras */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold flex items-center gap-2"><Users size={20}/> Equipo de Tejedoras</h3>
@@ -2370,7 +2350,6 @@ Puntadas de Mechis
     <div className="space-y-8 animate-fade-in">
       <h2 className="text-2xl font-bold">📝 Editor de Contenido del Sitio</h2>
 
-      {/* TÍTULOS DE SECCIONES */}
       <section className="bg-white rounded-xl shadow-lg p-6">
         <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
           <Edit2 className="text-purple-500" />
@@ -2448,7 +2427,6 @@ Puntadas de Mechis
         </div>
       </section>
 
-      {/* ESTADÍSTICAS */}
       <section className="bg-white rounded-xl shadow-lg p-6">
         <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
           📊 Estadísticas del Sitio
@@ -2600,7 +2578,6 @@ Puntadas de Mechis
               <button onClick={() => setIsOrderModalOpen(false)}><X size={24}/></button>
             </div>
             
-            {/* Información del cliente */}
             <div className="mb-6 bg-blue-50 p-4 rounded-xl">
               <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
                 <Users size={20} className="text-blue-600"/>
@@ -2633,7 +2610,6 @@ Puntadas de Mechis
               )}
             </div>
             
-            {/* Información del pedido */}
             <div className="mb-6 bg-gray-50 p-4 rounded-xl">
               <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
                 <ShoppingBag size={20} className="text-gray-600"/>
@@ -2675,17 +2651,13 @@ Puntadas de Mechis
               </div>
             </div>
             
-            {/* Opciones de gestión */}
             <div className="space-y-4">
-              
-              {/* Sección de Imágenes del Pedido */}
               <div className="bg-purple-50 p-4 rounded-xl space-y-4">
                 <h4 className="font-bold text-lg flex items-center gap-2">
                   <ImageIcon size={20} className="text-purple-600"/>
                   Imágenes del Pedido
                 </h4>
 
-                {/* Imagen de Referencia */}
                 <div>
                   <p className="text-sm font-bold text-gray-700 mb-2">📸 Imagen de Referencia (lo que pidió)</p>
                   {selectedOrder.imagen_url ? (
@@ -2701,7 +2673,6 @@ Puntadas de Mechis
                   )}
                 </div>
 
-                {/* Imagen Final del Amigurumi */}
                 <div>
                   <p className="text-sm font-bold text-gray-700 mb-2">✨ Imagen Final (producto terminado)</p>
                   
@@ -2726,7 +2697,6 @@ Puntadas de Mechis
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {/* Preview de la nueva imagen */}
                       {finalImagePreview && (
                         <div className="relative">
                           <img 
@@ -2747,7 +2717,6 @@ Puntadas de Mechis
                         </div>
                       )}
 
-                      {/* Input para subir imagen */}
                       <label className="w-full border-2 border-dashed border-purple-300 rounded-lg p-6 cursor-pointer hover:bg-purple-50 flex flex-col items-center gap-2">
                         <Upload size={28} className="text-purple-600" />
                         <span className="font-medium text-purple-700 text-center">
@@ -2763,7 +2732,6 @@ Puntadas de Mechis
                         />
                       </label>
 
-                      {/* Botón para guardar la imagen */}
                       {finalImageFile && (
                         <button
                           type="button"
@@ -2789,7 +2757,6 @@ Puntadas de Mechis
                 </div>
               </div>
 
-              {/* Número de Guía Transportadora */}
               <div className="bg-gray-100 p-4 rounded-xl">
                 <label className="block text-sm font-bold mb-2">Número de Guía Transportadora</label>
                 <input 
@@ -2801,7 +2768,6 @@ Puntadas de Mechis
                 />
               </div>
 
-              {/* Estado del Pedido */}
               <div>
                 <label className="block text-sm font-bold mb-2">Estado del Pedido</label>
                 <select 
@@ -2818,7 +2784,6 @@ Puntadas de Mechis
                 </select>
               </div>
 
-              {/* Botón Registrar Pago */}
               {selectedOrder.saldo_pendiente > 0 && (
                 <button 
                   onClick={handleVerifyPayment} 
@@ -2828,7 +2793,6 @@ Puntadas de Mechis
                 </button>
               )}
 
-              {/* Botón Guardar Cambios */}
               <button 
                 onClick={handleUpdateStatusAndGuide} 
                 className="w-full bg-gray-900 text-white py-2 rounded-lg font-bold hover:bg-gray-800"
@@ -2937,7 +2901,6 @@ Puntadas de Mechis
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             
             {!showNotificationOptions ? (
-              // FORMULARIO DE CREACIÓN
               <>
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold text-xl">Crear Pedido Manual</h3>
@@ -2945,7 +2908,6 @@ Puntadas de Mechis
                 </div>
                 
                 <form onSubmit={handleCreateOrder} className="space-y-4">
-                  {/* Nombre del Cliente */}
                   <div>
                     <label className="block text-sm font-bold mb-1">Nombre del Cliente *</label>
                     <input 
@@ -2958,7 +2920,6 @@ Puntadas de Mechis
                     />
                   </div>
 
-                  {/* Email y Teléfono */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-bold mb-1">Email *</label>
@@ -2984,7 +2945,6 @@ Puntadas de Mechis
                     </div>
                   </div>
 
-                  {/* Nombre del Producto */}
                   <div>
                     <label className="block text-sm font-bold mb-1">Nombre del Producto *</label>
                     <input 
@@ -2997,7 +2957,6 @@ Puntadas de Mechis
                     />
                   </div>
 
-                  {/* Descripción */}
                   <div>
                     <label className="block text-sm font-bold mb-1">Descripción</label>
                     <textarea 
@@ -3008,7 +2967,6 @@ Puntadas de Mechis
                     ></textarea>
                   </div>
 
-                  {/* Precio y Abono */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-bold mb-1">Precio Total ($) *</label>
@@ -3033,7 +2991,6 @@ Puntadas de Mechis
                     </div>
                   </div>
 
-                  {/* Resumen */}
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <p className="text-sm font-bold text-gray-700">Saldo Pendiente:</p>
                     <p className="text-2xl font-bold text-amber-600">
@@ -3047,7 +3004,6 @@ Puntadas de Mechis
                 </form>
               </>
             ) : (
-              // OPCIONES DE NOTIFICACIÓN
               <>
                 <div className="text-center mb-6">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -3062,7 +3018,6 @@ Puntadas de Mechis
                 <div className="space-y-4">
                   <p className="text-sm font-bold text-gray-700 text-center mb-4">¿Cómo deseas notificar al cliente?</p>
 
-                  {/* Opción Email */}
                   <button 
                     onClick={sendEmailNotification}
                     className="w-full bg-blue-600 text-white p-4 rounded-lg font-bold hover:bg-blue-700 flex items-center justify-center gap-3"
@@ -3073,7 +3028,6 @@ Puntadas de Mechis
                     Enviar por Email
                   </button>
 
-                  {/* Opciones WhatsApp */}
                   <div className="space-y-2">
                     <p className="text-sm font-bold text-gray-700">O enviar por WhatsApp a:</p>
                     
@@ -3098,7 +3052,6 @@ Puntadas de Mechis
                     </button>
                   </div>
 
-                  {/* Botón para cerrar sin enviar */}
                   <button 
                     onClick={closeCreateOrderModal}
                     className="w-full bg-gray-200 text-gray-700 p-3 rounded-lg font-bold hover:bg-gray-300"
@@ -3126,7 +3079,6 @@ Puntadas de Mechis
             </div>
             
             <form onSubmit={handleSaveSupply} className="space-y-4">
-              {/* Nombre */}
               <div>
                 <label className="text-sm font-bold">Nombre del Producto</label>
                 <input 
@@ -3137,7 +3089,6 @@ Puntadas de Mechis
                 />
               </div>
 
-              {/* Referencia y Número */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-bold">Referencia</label>
@@ -3158,7 +3109,6 @@ Puntadas de Mechis
                 </div>
               </div>
 
-              {/* Color y Cantidad */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-bold">Color</label>
@@ -3181,7 +3131,6 @@ Puntadas de Mechis
                 </div>
               </div>
 
-              {/* Valor Unitario y Alerta */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-bold">Valor Unitario ($)</label>
@@ -3205,11 +3154,9 @@ Puntadas de Mechis
                 </div>
               </div>
 
-              {/* IMAGEN - Versión simplificada con solo input de archivo */}
               <div className="border-t pt-4">
                 <label className="text-sm font-bold block mb-2">Imagen del Producto</label>
                 
-                {/* Preview de la imagen actual */}
                 {editingSupply.imageUrl && (
                   <div className="mb-3 relative">
                     <img 
@@ -3227,9 +3174,7 @@ Puntadas de Mechis
                   </div>
                 )}
 
-                {/* Input de URL o archivo */}
                 <div className="space-y-3">
-                  {/* Opción 1: URL directa */}
                   <div>
                     <input
                       type="text"
@@ -3240,7 +3185,6 @@ Puntadas de Mechis
                     />
                   </div>
 
-                  {/* Opción 2: Subir archivo */}
                   <div className="relative">
                     <label className="w-full border-2 border-dashed border-amber-300 rounded-lg p-4 text-sm cursor-pointer hover:bg-amber-50 flex flex-col items-center gap-2">
                       <Upload size={24} className="text-amber-600" />
@@ -3268,7 +3212,6 @@ Puntadas de Mechis
                 </p>
               </div>
 
-              {/* Botón Submit */}
               <button 
                 type="submit" 
                 disabled={uploadingImage}
@@ -3421,7 +3364,6 @@ Puntadas de Mechis
             </div>
 
             <div className="space-y-4">
-              {/* Nombre del amigurumi */}
               <div>
                 <label className="block text-sm font-bold mb-2">Nombre del Amigurumi *</label>
                 <input
@@ -3433,7 +3375,6 @@ Puntadas de Mechis
                 />
               </div>
 
-              {/* Lista de insumos actuales */}
               {editingAmigurumi.insumos.length > 0 && (
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h4 className="font-semibold text-gray-800 mb-3">
@@ -3480,7 +3421,6 @@ Puntadas de Mechis
                 </div>
               )}
 
-              {/* Agregar nuevo insumo */}
               <div className="bg-purple-50 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-800 mb-3">Agregar Nuevo Insumo</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
@@ -3581,7 +3521,6 @@ Puntadas de Mechis
                 </button>
               </div>
 
-              {/* Botones de acción */}
               <div className="flex gap-3">
                 <button
                   onClick={handleSaveAmigurumiRecord}
