@@ -4,11 +4,17 @@ import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
 import { Search } from 'lucide-react';
 import { GalleryItem } from '../types';
+import OptimizedImage from './OptimizedImage'; // 🆕 AÑADE ESTA LÍNEA
 
 // Colores de marca
 const COLORS = {
   coral: '#D4735E',
   sageGreen: '#A9B4A1',
+};
+
+// 🆕 Función para detectar si una URL es base64 o URL normal
+const isBase64Image = (url: string): boolean => {
+  return url.startsWith('data:image');
 };
 
 // Variantes de animación para el contenedor
@@ -47,15 +53,23 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
 
   // Filtrar items
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
+    const filtered = items.filter(item => {
       const matchesCategory = selectedCategory === 'Todos' || item.category === selectedCategory;
       const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            item.description.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
+    
+    // 🐛 DEBUG: Ver qué tipo de URLs tenemos
+    if (filtered.length > 0) {
+      console.log('📊 Sample imageUrl:', filtered[0]?.imageUrl?.substring(0, 100));
+      console.log('🔍 Is Base64?', isBase64Image(filtered[0]?.imageUrl || ''));
+    }
+    
+    return filtered;
   }, [items, selectedCategory, searchTerm]);
 
-  // Preparar imágenes para lightbox
+  // Preparar imágenes para lightbox (Usamos imageUrl original para mejor calidad)
   const lightboxSlides = filteredItems.map(item => ({
     src: item.imageUrl,
     title: item.title,
@@ -108,11 +122,17 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
           initial="hidden"
           animate="visible"
         >
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             {filteredItems.length === 0 ? (
-              <div className="col-span-full text-center text-gray-400 py-12">
+              <motion.div 
+                key="no-results"
+                className="col-span-full text-center text-gray-400 py-12"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
                 No se encontraron resultados
-              </div>
+              </motion.div>
             ) : (
               filteredItems.map((item, index) => (
                 <motion.div
@@ -130,16 +150,22 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
                     setLightboxOpen(true);
                   }}
                 >
-                  <div className="aspect-square overflow-hidden">
-                    <img
-                      src={item.imageUrl}
-                      alt={item.title}
-                      className="w-full h-full object-cover transition duration-500 group-hover:scale-110"
-                    />
+                  {/* 🆕 SECCIÓN REEMPLAZADA: OptimizedImage */}
+                  <div className="aspect-square overflow-hidden bg-gray-100">
+                    {item.imageUrl && (
+                      <img
+  src={item.imageUrl}
+  alt={item.title}
+  className="w-full h-full object-cover transition duration-500 group-hover:scale-110"
+  loading="lazy"
+/>
+                    )}
+                    
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
                       <p className="text-white text-sm">Click para ampliar</p>
                     </div>
                   </div>
+                  
                   <div className="p-4">
                     <h3 className="font-bold text-lg" style={{ color: COLORS.coral }}>{item.title}</h3>
                     <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>

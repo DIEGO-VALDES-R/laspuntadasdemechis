@@ -1,71 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Heart, Gift, Truck, Clock, Loader } from 'lucide-react';
 import { db } from '../services/db';
 import { GalleryItem, HomeConfig, Tejedora } from '../types';
 
-// 🆕 IMPORTAR COMPONENTES NUEVOS
+// 🆕 IMPORTAR COMPONENTES CRÍTICOS (Se cargan de inmediato)
 import AnimatedHero from '../components/AnimatedHero';
-import InteractiveGallery from '../components/InteractiveGallery';
-import TestimonialsCarousel from '../components/TestimonialsCarousel';
-import StatsSection from '../components/StatsSection';
 import ProcessTimeline from '../components/ProcessTimeline';
+import StatsSection from '../components/StatsSection';
+
+// 🆕 IMPORTAR COMPONENTES PESADOS CON LAZY LOADING (Se cargan bajo demanda)
+const InteractiveGallery = lazy(() => import('../components/InteractiveGallery'));
+const TestimonialsCarousel = lazy(() => import('../components/TestimonialsCarousel'));
 
 const Home: React.FC = () => {
+  const navigate = useNavigate();
+  
+  // Estado para el rastreador
   const [trackId, setTrackId] = useState('');
-  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
+
+  // 🆕 Estado refactorizado para Galería con Paginación
+  const [galleryData, setGalleryData] = useState<{
+    items: GalleryItem[];
+    currentPage: number;
+    totalPages: number;
+    isLoading: boolean;
+  }>({
+    items: [],
+    currentPage: 1,
+    totalPages: 1,
+    isLoading: false
+  });
+
+  // Estados de configuración (con valores por defecto para renderizar inmediatamente)
   const [homeConfig, setHomeConfig] = useState<HomeConfig>({ 
     heroImage1: '', 
     heroImage2: '',
+    cardImage3: '',
+    cardImage4: '',
+    cardImage5: '',
     cardPrice1: '',
     cardPrice2: '',
     cardPrice3: '',
     cardPrice4: ''
   });
+
   const [tejedoras, setTejedoras] = useState<Tejedora[]>([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [
-          galleryData, 
-          homeData, 
-          teamData,
-          statsData,        // 🆕 AGREGAR
-          sectionsData      // 🆕 AGREGAR
-        ] = await Promise.all([
-          db.getGallery(),
-          db.getHomeConfig(),
-          db.getTejedoras(),
-          db.getSiteStats(),        // 🆕 AGREGAR
-          db.getEditableSections()  // 🆕 AGREGAR
-        ]);
-        
-        setGalleryItems(galleryData);
-        setHomeConfig(homeData);
-        setTejedoras(teamData);
-        setSiteStats(statsData);           // 🆕 AGREGAR
-        setEditableSections(sectionsData); // 🆕 AGREGAR
-      } catch (error) {
-        console.error("Failed to load home data", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  const handleTrack = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (trackId.trim()) {
-      navigate(`/track?order=${trackId.trim()}`);
-    }
-  };
-
   const [siteStats, setSiteStats] = useState({
     amigurumiCount: 17,
     clientCount: 17,
@@ -81,8 +61,81 @@ const Home: React.FC = () => {
     testimonialsSubtitle: 'Más de 450 clientes satisfechos'
   });
 
+  // 🆕 Flag para saber si el layout básico (config) está listo
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+
+  useEffect(() => {
+    // Paso 1: Iniciar carga de datos críticos y secundarios
+    loadInitialData();
+  }, []);
+
+  const loadInitialData = async () => {
+    try {
+      // Fase 1: Cargar configuración crítica (Hero, Stats, Textos)
+      // Esto permite que la parte superior de la página se pinte rápido
+      const [configData, statsData, sectionsData] = await Promise.all([
+        db.getHomeConfig(),
+        db.getSiteStats(),
+        db.getEditableSections()
+      ]);
+
+      setHomeConfig(configData);
+      setSiteStats(statsData);
+      setEditableSections(sectionsData);
+      
+      // Marcamos el layout como listo para quitar el loader global si existiera
+      setIsLayoutReady(true);
+
+      // Fase 2: Cargar Galería (Página 1) en paralelo
+      await loadGalleryPage(1);
+
+      // Fase 3: Cargar Tejedoras en segundo plano
+      const teamData = await db.getTejedoras();
+      setTejedoras(teamData);
+
+    } catch (error) {
+      console.error("Error cargando datos iniciales:", error);
+      // Aseguramos que la UI se muestre aunque falle algo secundario
+      setIsLayoutReady(true);
+    }
+  };
+
+  // 🆕 Función para cargar una página específica de la galería
+  const loadGalleryPage = async (page: number) => {
+    try {
+      setGalleryData(prev => ({ ...prev, isLoading: true }));
+      
+      // Llamamos a la función actualizada de db.ts que soporta paginación
+      const result = await db.getGallery(page, 12);
+      
+      setGalleryData({
+        items: page === 1 ? result.data : [...galleryData.items, ...result.data], // Acumular o reemplazar
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('Error cargando galería:', error);
+      setGalleryData(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  // 🆕 Manejador para el botón "Cargar Más"
+  const loadMoreGallery = () => {
+    if (galleryData.currentPage < galleryData.totalPages) {
+      loadGalleryPage(galleryData.currentPage + 1);
+    }
+  };
+
+  const handleTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (trackId.trim()) {
+      navigate(`/track?order=${trackId.trim()}`);
+    }
+  };
+
   const scrollToGallery = () => {
-    const gallerySection = document.getElementById('how-it-works');
+    const gallerySection = document.getElementById('gallery');
     if (gallerySection) {
       const headerOffset = 80;
       const elementPosition = gallerySection.getBoundingClientRect().top;
@@ -95,7 +148,8 @@ const Home: React.FC = () => {
     }
   };
 
-  if (loading) {
+  // Mostrar un loader breve mientras carga la configuración inicial (Hero)
+  if (!isLayoutReady) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader className="animate-spin text-pink-500" size={40} />
@@ -106,21 +160,21 @@ const Home: React.FC = () => {
   return (
     <div className="flex flex-col gap-16 pb-16">
       
-      {/* 🆕 HERO SECTION ANIMADO - Reemplaza el hero anterior */}
+      {/* HERO SECTION ANIMADO */}
       <AnimatedHero 
-  heroImage1={homeConfig.heroImage1}
-  heroImage2={homeConfig.heroImage2}
-  cardImage3={homeConfig.cardImage3}
-  cardImage4={homeConfig.cardImage4}
-  cardImage5={homeConfig.cardImage5}
-  cardPrice1={homeConfig.cardPrice1}
-  cardPrice2={homeConfig.cardPrice2}
-  cardPrice3={homeConfig.cardPrice3}
-  cardPrice4={homeConfig.cardPrice4}
-  onScrollToGallery={scrollToGallery}
-/>
+        heroImage1={homeConfig.heroImage1}
+        heroImage2={homeConfig.heroImage2}
+        cardImage3={homeConfig.cardImage3}
+        cardImage4={homeConfig.cardImage4}
+        cardImage5={homeConfig.cardImage5}
+        cardPrice1={homeConfig.cardPrice1}
+        cardPrice2={homeConfig.cardPrice2}
+        cardPrice3={homeConfig.cardPrice3}
+        cardPrice4={homeConfig.cardPrice4}
+        onScrollToGallery={scrollToGallery}
+      />
 
-      {/* Order Tracker - MANTIENE EL CÓDIGO ORIGINAL */}
+      {/* Order Tracker */}
       <section className="max-w-4xl mx-auto w-full px-4 -mt-24 z-20 relative">
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-purple-100">
           <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Rastrea tu Pedido</h2>
@@ -142,15 +196,15 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* 🆕 PROCESO TIMELINE - NUEVO */}
+      {/* PROCESO TIMELINE */}
       <section id="how-it-works">
         <ProcessTimeline />
       </section>
 
-      {/* Value Props - MANTIENE EL CÓDIGO ORIGINAL */}
+      {/* Value Props */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900">¿Por Qué Elegirnos?</h2>
+          <h2 className="text-3xl font-bold text-gray-900">{editableSections.valuePropsTitle}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-8">
           {[
@@ -168,14 +222,14 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* 🆕 CONTADOR DE ESTADÍSTICAS - NUEVO */}
-     <StatsSection 
-  stats={siteStats}
-  title={editableSections.statsTitle}
-  subtitle={editableSections.statsSubtitle}
-/>
+      {/* CONTADOR DE ESTADÍSTICAS */}
+      <StatsSection 
+        stats={siteStats}
+        title={editableSections.statsTitle}
+        subtitle={editableSections.statsSubtitle}
+      />
 
-      {/* Knitters Team Section - MANTIENE EL CÓDIGO ORIGINAL */}
+      {/* Knitters Team Section */}
       {tejedoras.length > 0 && (
         <section className="bg-pink-50 py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -198,14 +252,57 @@ const Home: React.FC = () => {
         </section>
       )}
 
-      {/* 🆕 TESTIMONIOS - NUEVO */}
-     <TestimonialsCarousel 
-  title={editableSections.testimonialsTitle}
-  subtitle={editableSections.testimonialsSubtitle}
-/>
-      {/* 🆕 GALERÍA INTERACTIVA - Reemplaza la galería anterior */}
-      <div id="gallery">
-        <InteractiveGallery items={galleryItems} />
+      {/* TESTIMONIOS CON LAZY LOADING */}
+      <section className="testimonials-section">
+        <Suspense fallback={<div className="py-10 text-center">Cargando testimonios...</div>}>
+          <TestimonialsCarousel 
+            title={editableSections.testimonialsTitle}
+            subtitle={editableSections.testimonialsSubtitle}
+          />
+        </Suspense>
+      </section>
+
+      {/* GALERÍA INTERACTIVA CON PAGINACIÓN Y LAZY LOADING */}
+      <div id="gallery" className="gallery-section">
+        <Suspense fallback={
+          <div className="flex justify-center items-center py-20">
+            <Loader className="animate-spin text-pink-500" size={40} />
+          </div>
+        }>
+          {galleryData.items.length > 0 && (
+            <>
+              <InteractiveGallery items={galleryData.items} />
+              
+              {/* 🆕 BOTÓN CARGAR MÁS */}
+              {galleryData.currentPage < galleryData.totalPages && (
+                <div className="text-center mt-12 mb-8">
+                  <button
+                    onClick={loadMoreGallery}
+                    disabled={galleryData.isLoading}
+                    className="px-8 py-3 bg-pink-500 text-white rounded-full font-bold hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition transform hover:scale-105"
+                  >
+                    {galleryData.isLoading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader className="animate-spin" size={20} /> Cargando...
+                      </span>
+                    ) : (
+                      'Cargar Más Amigurumis'
+                    )}
+                  </button>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Página {galleryData.currentPage} de {galleryData.totalPages}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+          
+          {galleryData.items.length === 0 && !galleryData.isLoading && (
+             <div className="text-center py-20 text-gray-500">
+               No hay productos en la galería por el momento.
+             </div>
+          )}
+        </Suspense>
       </div>
 
     </div>

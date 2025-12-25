@@ -93,9 +93,10 @@ export interface GalleryItem {
   id: string;
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrl: string;      // URL completa
+  imagePath?: string;    // 🆕 Path limpio para OptimizedImage
+  category?: string;
   price?: number;
-  category?: string;  // ⬅️ NUEVO
 }
 
 // New Content Management Types

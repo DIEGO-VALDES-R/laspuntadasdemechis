@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { uploadImage, deleteImage } from '../services/storage';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import {
@@ -9,13 +9,14 @@ import {
   Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText, Star
 } from 'lucide-react';
 import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
+import CompleteMigration from "../components/admin/CompleteMigration";
 
 // ========================================
 // TIPOS DE DATOS
 // ========================================
 
 // Agregamos 'site-content', 'insumos-amigurumi' y 'testimonials' al tipo Tab
-type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'site-content' | 'insumos-amigurumi' | 'testimonials';
+type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'site-content' | 'insumos-amigurumi' | 'testimonials' | 'migration';
 
 // 🆕 INTERFACES PARA INSUMOS POR AMIGURUMI
 interface InsumoAmigurumi {
@@ -2535,6 +2536,7 @@ Puntadas de Mechis
             { id: 'quote-generator', label: 'Cotizaciones', icon: <FileText size={20}/>, action: () => navigate('/admin/quote-generator') },
             { id: 'testimonials', label: 'Testimonios', icon: <Star size={20}/>, action: () => navigate('/admin/testimonials') },
             { id: 'settings', label: 'Configuración', icon: <Settings size={20}/> },
+            { id: 'migration', label: '🔄 Migración', icon: <Upload size={20}/> },
           ].map((item) => (
             <button
               key={item.id}
@@ -2563,6 +2565,7 @@ Puntadas de Mechis
         {activeTab === 'challenges' && <ChallengesView />}
         {activeTab === 'settings' && <SettingsView />}
         {activeTab === 'site-content' && <SiteContentView />}
+        {activeTab === 'migration' && <CompleteMigration />}
       </main>
 
       {/* ========================================

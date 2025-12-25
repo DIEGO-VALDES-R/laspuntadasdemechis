@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { Order, Client, InventoryItem, ProductConfig, GlobalConfig, GalleryItem, DEFAULT_CONFIG, Tejedora, HomeConfig, Post, Challenge, Supply, Expense, ReturnRecord, QuoteData, Testimonial, AmigurumiRecord, InsumoAmigurumi } from '../types';
+import { getPublicImageUrl, extractStoragePath } from './imageHelpers';
 
 // =====================================================
 // MAPPING HELPERS (Database to TypeScript)
@@ -79,20 +80,29 @@ const mapReturn = (r: any): ReturnRecord => ({
   status: r.status
 });
 
-const mapGallery = (g: any): GalleryItem => ({
-  id: g.id,
-  title: g.title,
-  description: g.description,
-  imageUrl: g.image_url,
-  price: g.price
-});
+// ✅ MAPEO MEJORADO CON imagePath y category adicional
+const mapGallery = (g: any): GalleryItem => {
+  // 🆕 USAR EL PATH ORIGINAL, NO EXTRAER
+  const imagePath = g.image_url || '';
+  const publicUrl = getPublicImageUrl(imagePath, 'gallery');
+  
+  return {
+    id: g.id,
+    title: g.title,
+    description: g.description,
+    imageUrl: publicUrl, // URL completa
+    imagePath: imagePath, // 🔧 Path original sin modificar
+    category: g.category || 'Sin categoría',
+    price: g.price
+  };
+};
 
 // ✅ CORRECCIÓN: Mapeamos image_url (BD) a imageUrl (TypeScript)
 const mapTejedora = (t: any): Tejedora => ({
   id: t.id,
   nombre: t.nombre,
   especialidad: t.especialidad,
-  imageUrl: t.image_url || '' 
+  imageUrl: getPublicImageUrl(t.image_url, 'gallery') // 🆕 Helper optimizado
 });
 
 const mapPost = (p: any): Post => ({
@@ -101,7 +111,7 @@ const mapPost = (p: any): Post => ({
   userName: p.user_name,
   userAvatar: p.user_avatar,
   topic: p.topic,
-  imageUrl: p.image_url,
+  imageUrl: getPublicImageUrl(p.image_url, 'gallery'), // 🆕 Helper optimizado
   description: p.description,
   likes: p.likes,
   likedBy: p.liked_by || [],
@@ -112,7 +122,7 @@ const mapChallenge = (c: any): Challenge => ({
   id: c.id,
   title: c.title,
   description: c.description,
-  imageUrl: c.image_url,
+  imageUrl: getPublicImageUrl(c.image_url, 'gallery'), // 🆕 Helper optimizado
   startDate: c.start_date,
   endDate: c.end_date,
   difficulty: c.difficulty,
@@ -122,11 +132,11 @@ const mapChallenge = (c: any): Challenge => ({
 });
 
 const mapHomeConfig = (c: any): HomeConfig => ({
-  heroImage1: c.hero_image1,
-  heroImage2: c.hero_image2,
-  cardImage3: c.card_image3,
-  cardImage4: c.card_image4,
-  cardImage5: c.card_image5,
+  heroImage1: getPublicImageUrl(c.hero_image1, 'gallery'), // 🆕 Helper optimizado
+  heroImage2: getPublicImageUrl(c.hero_image2, 'gallery'), // 🆕 Helper optimizado
+  cardImage3: getPublicImageUrl(c.card_image3, 'gallery'), // 🆕 Helper optimizado
+  cardImage4: getPublicImageUrl(c.card_image4, 'gallery'), // 🆕 Helper optimizado
+  cardImage5: getPublicImageUrl(c.card_image5, 'gallery'), // 🆕 Helper optimizado
   cardPrice1: c.card_price1,
   cardPrice2: c.card_price2,
   cardPrice3: c.card_price3,
@@ -585,17 +595,29 @@ export const db = {
   },
 
   // --- GALLERY ---
-  getGallery: async (): Promise<GalleryItem[]> => {
-    const { data, error } = await supabase
+  // ⚡ FASE 1: MODIFICADO PARA PAGINACIÓN
+  getGallery: async (page: number = 1, pageSize: number = 12) => {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    
+    const { data, error, count } = await supabase
       .from('gallery_items')
-      .select('*')
+      .select('*', { count: 'exact' })
+      .range(from, to)
       .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Error fetching gallery:', error);
-      return [];
+      throw error;
     }
-    return (data || []).map(mapGallery);
+    
+    // Mapeamos los datos para mantener consistencia de tipos (ahora incluye imagePath)
+    return { 
+      data: (data || []).map(mapGallery), 
+      totalPages: Math.ceil((count || 0) / pageSize),
+      currentPage: page,
+      totalItems: count || 0
+    };
   },
 
   addGalleryItem: async (item: Omit<GalleryItem, 'id'>) => {
@@ -603,6 +625,7 @@ export const db = {
       title: item.title,
       description: item.description,
       image_url: item.imageUrl,
+      category: item.category,
       price: item.price
     });
     
@@ -616,6 +639,7 @@ export const db = {
         title: item.title,
         description: item.description,
         image_url: item.imageUrl,
+        category: item.category,
         price: item.price
       })
       .eq('id', item.id);
