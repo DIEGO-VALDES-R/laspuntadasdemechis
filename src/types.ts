@@ -182,6 +182,28 @@ export interface ReturnRecord {
   status: 'Reembolsado' | 'Cambio de Producto';
 }
 
+// =====================================================
+// REEMPLAZAR O AGREGAR ESTAS INTERFACES EN types.ts
+// =====================================================
+
+export interface InsumoAmigurumi {
+  id: string;
+  tipo: string;
+  marca: string;
+  referencia: string;
+  color: string;
+  cantidad: string;
+  unidad: string;
+}
+
+export interface AmigurumiRecord {
+  id: string;
+  nombre: string;
+  insumos: InsumoAmigurumi[];
+  fecha_actualizacion?: string;
+  created_at?: string;
+}
+
 // Default fallback config (if DB is empty)
 export const DEFAULT_CONFIG: ProductConfig = {
   sizes: [

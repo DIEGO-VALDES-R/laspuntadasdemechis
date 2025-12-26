@@ -1,40 +1,182 @@
 import { Link } from 'react-router-dom';
 import { uploadImage, deleteImage } from '../services/storage';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import {
   LayoutDashboard, ShoppingCart, Users, Package, DollarSign, Settings,
   Search, Eye, X, Save, ShoppingBag, Plus, Trash2, Edit2, 
-  Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText, Star
+  Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText, Star, ChevronDown
 } from 'lucide-react';
-import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig } from '../types';
+import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig, InsumoAmigurumi, AmigurumiRecord } from '../types';
 import CompleteMigration from "../components/admin/CompleteMigration";
 
 // ========================================
-// TIPOS DE DATOS
+// COMPONENTE DE AUTOCOMPLETADO INTELIGENTE
 // ========================================
 
-// Agregamos 'site-content', 'insumos-amigurumi' y 'testimonials' al tipo Tab
-type Tab = 'dashboard' | 'orders' | 'supplies' | 'inventory' | 'clients' | 'referrals' | 'gallery' | 'content' | 'community' | 'challenges' | 'settings' | 'site-content' | 'insumos-amigurumi' | 'testimonials' | 'migration';
-
-// 🆕 INTERFACES PARA INSUMOS POR AMIGURUMI
-interface InsumoAmigurumi {
-  id: string;
-  tipo: string;
-  marca: string;
-  referencia: string;
-  color: string;
-  cantidad: string;
-  unidad: string;
+interface AutocompleteInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  suggestions: string[];
+  placeholder: string;
+  field: 'marca' | 'referencia' | 'color';
+  disabled?: boolean;
 }
 
-interface AmigurumiRecord {
-  id: string;
-  nombre: string;
-  insumos: InsumoAmigurumi[];
-  fechaActualizacion: string;
-}
+const AutocompleteInput: React.FC<AutocompleteInputProps> = ({ 
+  value, 
+  onChange, 
+  suggestions, 
+  placeholder, 
+  field,
+  disabled = false
+}) => {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (value) {
+      const filtered = suggestions.filter(s => 
+        s.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredSuggestions(filtered);
+    } else {
+      setFilteredSuggestions(suggestions);
+    }
+  }, [value, suggestions]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setShowSuggestions(true)}
+          placeholder={placeholder}
+          disabled={disabled}
+          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm disabled:bg-gray-100"
+        />
+        {suggestions.length > 0 && !disabled && (
+          <button
+            type="button"
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            <ChevronDown 
+              size={16} 
+              className={`transition-transform ${showSuggestions ? 'rotate-180' : ''}`} 
+            />
+          </button>
+        )}
+      </div>
+
+      {showSuggestions && filteredSuggestions.length > 0 && !disabled && (
+        <div
+          ref={dropdownRef}
+          className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+        >
+          {filteredSuggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => {
+                onChange(suggestion);
+                setShowSuggestions(false);
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-purple-50 text-sm border-b border-gray-100 last:border-b-0 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-purple-600">•</span>
+                <span className="font-medium">{suggestion}</span>
+                <span className="text-xs text-gray-500 ml-auto">
+                  {field === 'marca' && '(En inventario)'}
+                  {field === 'referencia' && '(Stock disponible)'}
+                  {field === 'color' && '(Disponible)'}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ========================================
+// FUNCIONES HELPER PARA SUGERENCIAS
+// ========================================
+
+const getMarcasSuggestions = (supplies: Supply[], tipo: string): string[] => {
+  const tipoMap: { [key: string]: string[] } = {
+    'lana': ['lana', 'hilo', 'copito', 'silviamigurumi', 'lanasol'],
+    'hilo': ['lana', 'hilo', 'copito', 'silviamigurumi'],
+    'ojos': ['ojos', 'seguridad'],
+    'relleno': ['relleno', 'silicona']
+  };
+  
+  const searchTerms = tipoMap[tipo.toLowerCase()] || [tipo.toLowerCase()];
+  const marcas = supplies
+    .filter(s => searchTerms.some(term => s.name.toLowerCase().includes(term)))
+    .map(s => s.name);
+  
+  return [...new Set(marcas)].sort();
+};
+
+const getReferenciasSuggestions = (supplies: Supply[], marca: string): string[] => {
+  if (!marca) return [];
+  
+  const referencias = supplies
+    .filter(s => s.name.toLowerCase() === marca.toLowerCase())
+    .map(s => s.reference);
+  
+  return [...new Set(referencias)].filter(Boolean).sort();
+};
+
+const getColoresSuggestions = (supplies: Supply[], marca: string, referencia?: string): string[] => {
+  if (!marca) return [];
+  
+  let filtered = supplies.filter(s => 
+    s.name.toLowerCase() === marca.toLowerCase()
+  );
+  
+  if (referencia) {
+    filtered = filtered.filter(s => 
+      s.reference.toLowerCase() === referencia.toLowerCase()
+    );
+  }
+  
+  const colores = filtered.map(s => s.color).filter(Boolean);
+  return [...new Set(colores)].sort();
+};
+
+const isInsumoInInventory = (supplies: Supply[], insumo: InsumoAmigurumi): boolean => {
+  return supplies.some(s => 
+    s.name.toLowerCase() === insumo.marca.toLowerCase() &&
+    s.color.toLowerCase() === insumo.color.toLowerCase() &&
+    (insumo.referencia ? s.reference.toLowerCase() === insumo.referencia.toLowerCase() : true)
+  );
+};
 
 // ========================================
 // COMPONENTE PRINCIPAL - ADMIN DASHBOARD
@@ -90,7 +232,7 @@ const AdminDashboard: React.FC = () => {
     testimonialsSubtitle: 'Más de 450 clientes satisfechos'
   });
 
-  // 🆕 ESTADOS PARA INSUMOS POR AMIGURUMI
+  // 🆕 ESTADOS PARA INSUMOS POR AMIGURUMI (Mantenidos para modales globales si existieran)
   const [amigurumiRecords, setAmigurumiRecords] = useState<AmigurumiRecord[]>([]);
   const [isAmigurumiModalOpen, setIsAmigurumiModalOpen] = useState(false);
   const [editingAmigurumi, setEditingAmigurumi] = useState<AmigurumiRecord | null>(null);
@@ -188,7 +330,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   // ========================================
-  // FUNCIONES PARA INSUMOS DE AMIGURUMI
+  // FUNCIONES PARA INSUMOS DE AMIGURUMI (MANTENIDAS PARA MODAL RÁPIDO)
   // ========================================
   
   const loadAmigurumiRecords = async (): Promise<AmigurumiRecord[]> => {
@@ -207,27 +349,59 @@ const AdminDashboard: React.FC = () => {
 
   const saveAmigurumiRecord = async (amigurumiData: AmigurumiRecord) => {
     try {
-      const isUpdate = amigurumiData.id && amigurumiRecords.some(a => a.id === amigurumiData.id);
+      setLoading(true);
+      console.log('💾 Guardando amigurumi...', amigurumiData);
       
-      if (isUpdate) {
-        const { error } = await db.updateAmigurumiRecord(amigurumiData.id, amigurumiData);
-        if (error) throw error;
+      if (!amigurumiData.nombre || !amigurumiData.nombre.trim()) {
+        alert('❌ El nombre del amigurumi es obligatorio');
+        return;
+      }
+      
+      if (!amigurumiData.insumos || amigurumiData.insumos.length === 0) {
+        alert('❌ Debes agregar al menos un insumo');
+        return;
+      }
+      
+      const exists = amigurumiData.id && amigurumiRecords.some(a => a.id === amigurumiData.id);
+      
+      if (!amigurumiData.id) {
+        amigurumiData.id = `amg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      }
+      
+      if (exists) {
+        console.log('📝 Actualizando amigurumi existente:', amigurumiData.id);
+        const { data, error } = await db.updateAmigurumiRecord(amigurumiData.id, {
+          nombre: amigurumiData.nombre,
+          insumos: amigurumiData.insumos
+        });
+        
+        if (error) {
+          console.error('❌ Error al actualizar:', error);
+          throw new Error(`Error al actualizar: ${error.message || 'Error desconocido'}`);
+        }
+        
+        console.log('✅ Respuesta de actualización:', data);
         alert('✅ Amigurumi actualizado correctamente');
       } else {
-        // Generar nuevo ID si no existe
-        const newData = {
-          ...amigurumiData,
-          id: amigurumiData.id || crypto.randomUUID()
-        };
-        const { error } = await db.createAmigurumiRecord(newData);
-        if (error) throw error;
+        console.log('🆕 Creando nuevo amigurumi:', amigurumiData.id);
+        const { data, error } = await db.createAmigurumiRecord(amigurumiData);
+        
+        if (error) {
+          console.error('❌ Error al crear:', error);
+          throw new Error(`Error al crear: ${error.message || 'Error desconocido'}`);
+        }
+        
+        console.log('✅ Respuesta de creación:', data);
         alert('✅ Amigurumi creado correctamente');
       }
       
       await loadData();
+      
     } catch (error) {
-      console.error('Error al guardar amigurumi:', error);
-      alert('❌ Error al guardar: ' + (error as Error).message);
+      console.error('❌ Error al guardar amigurumi:', error);
+      alert(`❌ Error al guardar: ${(error as Error).message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -244,16 +418,55 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleSaveAmigurumiRecordModal = async () => {
+    if (!editingAmigurumi) {
+      alert('❌ No hay datos para guardar');
+      return;
+    }
+    
+    console.log('💾 Preparando para guardar:', editingAmigurumi);
+    
+    if (!editingAmigurumi.nombre || !editingAmigurumi.nombre.trim()) {
+      alert('❌ Por favor ingresa el nombre del amigurumi');
+      return;
+    }
+    
+    if (!editingAmigurumi.insumos || editingAmigurumi.insumos.length === 0) {
+      alert('❌ Por favor agrega al menos un insumo');
+      return;
+    }
+    
+    const amigurumiData: AmigurumiRecord = {
+      id: editingAmigurumi.id || `amg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      nombre: editingAmigurumi.nombre.trim(),
+      insumos: editingAmigurumi.insumos
+    };
+    
+    console.log('📦 Datos a guardar:', amigurumiData);
+    
+    await saveAmigurumiRecord(amigurumiData);
+    
+    setIsAmigurumiModalOpen(false);
+    setEditingAmigurumi(null);
+    setCurrentInsumoAmigurumi({
+      id: '',
+      tipo: 'lana',
+      marca: '',
+      referencia: '',
+      color: '',
+      cantidad: '',
+      unidad: 'gramos'
+    });
+  };
+
+  // ========================================
+  // FUNCIONES AUXILIARES UI PARA INSUMOS (Mantenidas para Modal Rápido)
+  // ========================================
+
   const handleAddInsumoToAmigurumi = () => {
     if (!editingAmigurumi) return;
     if (!currentInsumoAmigurumi.marca || !currentInsumoAmigurumi.color) {
       alert('Completa marca y color');
-      return;
-    }
-
-    // Validar que la cantidad sea un número válido si se proporciona
-    if (currentInsumoAmigurumi.cantidad && isNaN(Number(currentInsumoAmigurumi.cantidad))) {
-      alert('La cantidad debe ser un número válido');
       return;
     }
     setEditingAmigurumi({
@@ -282,8 +495,7 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
-  // 🆕 FUNCIÓN PARA BUSCAR INSUMO EN STOCK
-  const handleReferenciaChange = (referencia: string) => {
+  const handleReferenciaChangeModal = (referencia: string) => {
     const insumoEnStock = supplies.find(
       s => s.reference.toLowerCase() === referencia.toLowerCase()
     );
@@ -318,26 +530,6 @@ const AdminDashboard: React.FC = () => {
     }
     
     return { enStock: false, stockBajo: false };
-  };
-
-  const handleSaveAmigurumiRecord = async () => {
-    if (!editingAmigurumi) return;
-    if (!editingAmigurumi.nombre) {
-      alert('Ingresa el nombre del amigurumi');
-      return;
-    }
-    if (editingAmigurumi.insumos.length === 0) {
-      alert('Agrega al menos un insumo');
-      return;
-    }
-    const data: AmigurumiRecord = {
-      ...editingAmigurumi,
-      id: editingAmigurumi.id || Date.now().toString(),
-      fechaActualizacion: new Date().toISOString()
-    };
-    await saveAmigurumiRecord(data);
-    setIsAmigurumiModalOpen(false);
-    setEditingAmigurumi(null);
   };
 
   const openNewAmigurumiRecord = () => {
@@ -401,7 +593,6 @@ const AdminDashboard: React.FC = () => {
       setSiteStats(statsData);
       setEditableSections(sectionsData);
       
-      // Cargar datos de amigurumi por separado
       const amigurumiData = await loadAmigurumiRecords();
       setAmigurumiRecords(amigurumiData);
       
@@ -435,11 +626,9 @@ const AdminDashboard: React.FC = () => {
     setStatusUpdate(order.estado);
     setTrackingGuide(order.guia_transportadora || '');
     
-    // Limpiar estados de imagen final
     setFinalImageFile(null);
     setFinalImagePreview('');
 
-    // Buscar información del cliente usando el email del pedido
     try {
       const clientInfo = await db.getClientByEmail(order.clientEmail);
       setOrderClient(clientInfo);
@@ -455,7 +644,6 @@ const AdminDashboard: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Crear preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setFinalImagePreview(reader.result as string);
@@ -474,7 +662,6 @@ const AdminDashboard: React.FC = () => {
       console.log('✅ Imagen subida a Storage:', imageUrl);
       
       if (imageUrl) {
-        // Actualizar el pedido con la URL de la imagen final
         console.log('💾 Actualizando pedido en BD...');
         await db.updateOrder(selectedOrder.id, {
           final_image_url: imageUrl
@@ -485,7 +672,6 @@ const AdminDashboard: React.FC = () => {
         setFinalImageFile(null);
         setFinalImagePreview('');
         
-        // Actualizar el pedido seleccionado para mostrar la nueva imagen
         setSelectedOrder({...selectedOrder, final_image_url: imageUrl});
         console.log('✅ Estado local actualizado');
         
@@ -506,10 +692,8 @@ const AdminDashboard: React.FC = () => {
     if (!window.confirm('¿Eliminar la imagen final del amigurumi?')) return;
 
     try {
-      // Eliminar de Supabase Storage
       await deleteImage(selectedOrder.final_image_url);
       
-      // Actualizar en la base de datos
       await db.updateOrder(selectedOrder.id, {
         final_image_url: null
       });
@@ -586,11 +770,9 @@ const AdminDashboard: React.FC = () => {
     }
 
     try {
-      // 🆕 VERIFICAR SI EL CLIENTE EXISTE
       console.log('🔍 Verificando si el cliente existe:', newOrderData.clientEmail);
       let clientExists = await db.getClientByEmail(newOrderData.clientEmail);
       
-      // 🆕 SI NO EXISTE, CREARLO AUTOMÁTICAMENTE
       if (!clientExists) {
         console.log('📝 Cliente no existe, creando automáticamente...');
         
@@ -600,18 +782,16 @@ const AdminDashboard: React.FC = () => {
           telefono: newOrderData.clientPhone || '',
           cedula: '',
           direccion: '',
-          password: `temp${Date.now()}` // Password temporal para clientes manuales
+          password: `temp${Date.now()}`
         });
         
         console.log('✅ Cliente creado exitosamente');
         
-        // Esperar un momento para que se registre en la BD
         await new Promise(resolve => setTimeout(resolve, 500));
       } else {
         console.log('✅ Cliente ya existe en la base de datos');
       }
 
-      // CREAR EL PEDIDO
       const saldo = newOrderData.total_final - newOrderData.monto_pagado;
       const newOrder = {
         numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
@@ -631,11 +811,9 @@ const AdminDashboard: React.FC = () => {
       await db.addOrder(newOrder as any);
       console.log('✅ Pedido guardado exitosamente');
       
-      // Guardar el número de orden y mostrar opciones de notificación
       setCreatedOrderNumber(newOrder.numero_seguimiento);
       setShowNotificationOptions(true);
       
-      // Recargar datos
       await loadData();
       
       alert('✅ Pedido creado exitosamente');
@@ -854,18 +1032,16 @@ Puntadas de Mechis
     }
 
     try {
-      // Actualizar lista local con la tejedora editada o nueva
       const newList = tejedoras.some(t => t.id === editingTejedora.id)
         ? tejedoras.map(t => t.id === editingTejedora.id ? editingTejedora : t)
         : [...tejedoras, editingTejedora];
 
-      // ✅ Llamada corregida a la base de datos
       await db.saveTejedoras(newList);
       
       alert('✅ Tejedora guardada correctamente');
       setIsTejedoraModalOpen(false);
       setEditingTejedora(null);
-      await loadData(); // ✅ Recargar datos
+      await loadData();
       
     } catch (error) {
       console.error('❌ Error al guardar tejedora:', error);
@@ -881,7 +1057,7 @@ Puntadas de Mechis
     try {
       await db.deleteTejedora(id);
       alert('✅ Tejedora eliminada correctamente');
-      await loadData(); // ✅ Recargar datos
+      await loadData();
     } catch (error) {
       console.error('❌ Error al eliminar tejedora:', error);
       alert('❌ Error al eliminar tejedora. Revisa la consola para más detalles.');
@@ -1036,13 +1212,11 @@ Puntadas de Mechis
     }
   };
 
-  // Actualizar handleDeleteSupply para eliminar también la imagen
   const handleDeleteSupply = async (id: string) => {
     if (!confirm('¿Eliminar este insumo?')) return;
     
     const supply = supplies.find(s => s.id === id);
     
-    // Eliminar imagen del storage si existe
     if (supply?.imageUrl && supply.imageUrl.includes('supplies-images')) {
       await deleteImage(supply.imageUrl);
     }
@@ -1090,7 +1264,7 @@ Puntadas de Mechis
   };
 
   // ========================================
-  // VISTA DE INSUMOS POR AMIGURUMI
+  // VISTA DE INSUMOS POR AMIGURUMI (NUEVA VERSIÓN CON AUTOCOMPLETADO)
   // ========================================
   
   const InsumosAmigurumiView = () => {
@@ -1112,49 +1286,98 @@ Puntadas de Mechis
       cantidad: '',
       unidad: 'gramos'
     });
+    
+    // Estado local para supplies para este componente
+    const [supplies, setSupplies] = useState<Supply[]>([]);
 
     const loadData = async () => {
-      setLoading(true);
       try {
-        const { data, error } = await db.getAmigurumiRecords();
-        if (error) throw error;
-        setAmigurumis(data || []);
+        setLoading(true);
+        console.log('🔄 Cargando datos...');
+        
+        const { data: amigurumiData, error: amigurumiError } = await db.getAmigurumiRecords();
+        if (amigurumiError) throw amigurumiError;
+        
+        const suppliesData = await db.getSupplies();
+        
+        console.log('✅ Datos cargados:', { 
+          amigurumis: amigurumiData?.length || 0,
+          supplies: suppliesData?.length || 0
+        });
+        
+        setAmigurumis(amigurumiData || []);
+        setSupplies(suppliesData || []);
       } catch (error) {
-        console.error('Error al cargar amigurumis:', error);
-        alert('❌ Error al cargar los datos');
+        console.error('❌ Error al cargar datos:', error);
+        alert('Error al cargar los datos: ' + (error as Error).message);
       } finally {
         setLoading(false);
       }
     };
 
-    const saveData = async (data: AmigurumiRecord) => {
+    const saveData = async (nombre: string, insumos: InsumoAmigurumi[]) => {
       try {
+        setLoading(true);
+        console.log('💾 Guardando...', { nombre, insumos, editingId });
+        
+        const amigurumiData: AmigurumiRecord = {
+          id: editingId || crypto.randomUUID(),
+          nombre,
+          insumos,
+          fecha_actualizacion: new Date().toISOString()
+        };
+        
         if (editingId) {
-          const { error } = await db.updateAmigurumiRecord(editingId, data);
-          if (error) throw error;
-          alert('✅ Amigurumi actualizado correctamente');
+          console.log('📝 Actualizando amigurumi ID:', editingId);
+          const { error } = await db.updateAmigurumiRecord(editingId, amigurumiData);
+          
+          if (error) {
+            console.error('❌ Error al actualizar:', error);
+            throw error;
+          }
+          
+          alert('✅ Amigurumi actualizado exitosamente');
         } else {
-          const { error } = await db.createAmigurumiRecord(data);
-          if (error) throw error;
-          alert('✅ Amigurumi creado correctamente');
+          console.log('🆕 Creando nuevo amigurumi');
+          const { error } = await db.createAmigurumiRecord(amigurumiData);
+          
+          if (error) {
+            console.error('❌ Error al crear:', error);
+            throw error;
+          }
+          
+          alert('✅ Amigurumi guardado exitosamente');
         }
+        
         await loadData();
       } catch (error) {
-        console.error('Error al guardar:', error);
-        alert('❌ Error al guardar: ' + (error as Error).message);
+        console.error('❌ Error al guardar:', error);
+        alert('Error al guardar los datos: ' + (error as Error).message);
+      } finally {
+        setLoading(false);
       }
     };
 
     const deleteAmigurumi = async (id: string) => {
       if (window.confirm('¿Estás seguro de eliminar este amigurumi?')) {
         try {
+          setLoading(true);
+          console.log('🗑️ Eliminando amigurumi ID:', id);
+          
           const { error } = await db.deleteAmigurumiRecord(id);
-          if (error) throw error;
+          
+          if (error) {
+            console.error('❌ Error al eliminar:', error);
+            throw error;
+          }
+          
           await loadData();
-          alert('✅ Amigurumi eliminado correctamente');
+          alert('✅ Amigurumi eliminado exitosamente');
         } catch (error) {
-          console.error('Error al eliminar:', error);
-          alert('❌ Error al eliminar: ' + (error as Error).message);
+          console.error('❌ Error al eliminar:', error);
+          alert('Error al eliminar: ' + (error as Error).message);
+        } finally {
+          setLoading(false);
         }
       }
     };
@@ -1196,18 +1419,15 @@ Puntadas de Mechis
         return;
       }
 
-      const amigurumiData: AmigurumiRecord = {
-        ...formData,
-        id: editingId || Date.now().toString(),
-        fechaActualizacion: new Date().toISOString()
-      };
-
-      await saveData(amigurumiData);
+      await saveData(formData.nombre, formData.insumos);
       handleCancel();
     };
 
     const handleEdit = (amigurumi: AmigurumiRecord) => {
-      setFormData(amigurumi);
+      setFormData({
+        nombre: amigurumi.nombre,
+        insumos: amigurumi.insumos || []
+      });
       setEditingId(amigurumi.id);
       setIsEditing(true);
     };
@@ -1231,235 +1451,321 @@ Puntadas de Mechis
       a.nombre.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Handlers inteligentes para campos con autocompletado
+    const handleMarcaChange = (marca: string) => {
+      setCurrentInsumo(prev => ({
+        ...prev,
+        marca,
+        referencia: '',
+        color: ''
+      }));
+    };
+
+    const handleReferenciaChange = (referencia: string) => {
+      const supply = supplies.find(s => 
+        s.name.toLowerCase() === currentInsumo.marca.toLowerCase() &&
+        s.reference.toLowerCase() === referencia.toLowerCase()
+      );
+
+      if (supply && supply.color) {
+        setCurrentInsumo(prev => ({
+          ...prev,
+          referencia,
+          color: supply.color
+        }));
+      } else {
+        setCurrentInsumo(prev => ({
+          ...prev,
+          referencia,
+          color: ''
+        }));
+      }
+    };
+
     useEffect(() => {
       loadData();
     }, []);
 
     return (
       <div className="space-y-6 animate-fade-in">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Package className="text-purple-600"/> Insumos por Amigurumi
-          </h2>
+        {/* HEADER */}
+        <div className="bg-white rounded-2xl shadow-xl p-6">
+          <h1 className="text-3xl font-bold text-purple-800 mb-2">
+            Gestión de Insumos por Amigurumi
+          </h1>
+          <p className="text-gray-600 mb-4">
+            Registra los materiales con sugerencias inteligentes del inventario
+          </p>
+
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
+              disabled={loading}
+              className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50"
             >
-              <Plus size={18}/> Nuevo Amigurumi
+              <Plus size={20} />
+              Nuevo Amigurumi
             </button>
-          ) : null}
+          ) : (
+            /* FORMULARIO DE EDICIÓN */
+            <div className="bg-purple-50 rounded-xl p-6 border-2 border-purple-200">
+              <h2 className="text-xl font-bold text-purple-800 mb-4">
+                {editingId ? 'Editar Amigurumi' : 'Nuevo Amigurumi'}
+              </h2>
+
+              {/* NOMBRE DEL AMIGURUMI */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nombre del Amigurumi *
+                </label>
+                <input
+                  type="text"
+                  value={formData.nombre}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                  placeholder="Ej: Osito Teddy, Conejito Rosa, etc."
+                  className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              {/* FORMULARIO DE AGREGAR INSUMO */}
+              <div className="bg-white rounded-lg p-4 mb-4 border-2 border-gray-200">
+                <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Plus size={18} className="text-green-600" />
+                  Agregar Insumo
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+                  {/* TIPO */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Tipo de Material
+                    </label>
+                    <select
+                      value={currentInsumo.tipo}
+                      onChange={(e) => {
+                        setCurrentInsumo({ 
+                          ...currentInsumo, 
+                          tipo: e.target.value,
+                          marca: '',
+                          referencia: '',
+                          color: ''
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                    >
+                      <option value="lana">Lana</option>
+                      <option value="hilo">Hilo</option>
+                      <option value="relleno">Relleno</option>
+                      <option value="ojos">Ojos de Seguridad</option>
+                      <option value="fieltro">Fieltro</option>
+                      <option value="botones">Botones</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+
+                  {/* MARCA CON AUTOCOMPLETADO */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Marca * 
+                      <span className="text-purple-600 ml-1">↓ Sugerencias</span>
+                    </label>
+                    <AutocompleteInput
+                      value={currentInsumo.marca}
+                      onChange={handleMarcaChange}
+                      suggestions={getMarcasSuggestions(supplies, currentInsumo.tipo)}
+                      placeholder="Ej: Copito, Silviamigurumi, Lanasol"
+                      field="marca"
+                    />
+                  </div>
+
+                  {/* REFERENCIA CON AUTOCOMPLETADO */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Referencia/Código
+                      {currentInsumo.marca && (
+                        <span className="text-purple-600 ml-1">↓ Sugerencias</span>
+                      )}
+                    </label>
+                    <AutocompleteInput
+                      value={currentInsumo.referencia}
+                      onChange={handleReferenciaChange}
+                      suggestions={getReferenciasSuggestions(supplies, currentInsumo.marca)}
+                      placeholder="Ej: REF-1234"
+                      field="referencia"
+                      disabled={!currentInsumo.marca}
+                    />
+                  </div>
+
+                  {/* COLOR CON AUTOCOMPLETADO */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Color *
+                      {currentInsumo.marca && (
+                        <span className="text-purple-600 ml-1">↓ Sugerencias</span>
+                      )}
+                    </label>
+                    <AutocompleteInput
+                      value={currentInsumo.color}
+                      onChange={(val) => setCurrentInsumo({ ...currentInsumo, color: val })}
+                      suggestions={getColoresSuggestions(supplies, currentInsumo.marca, currentInsumo.referencia)}
+                      placeholder="Ej: Blanco hueso, Rosa pastel"
+                      field="color"
+                      disabled={!currentInsumo.marca}
+                    />
+                  </div>
+
+                  {/* CANTIDAD */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Cantidad
+                    </label>
+                    <input
+                      type="text"
+                      value={currentInsumo.cantidad}
+                      onChange={(e) => setCurrentInsumo({ ...currentInsumo, cantidad: e.target.value })}
+                      placeholder="Ej: 50, 1"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                    />
+                  </div>
+
+                  {/* UNIDAD */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Unidad
+                    </label>
+                    <select
+                      value={currentInsumo.unidad}
+                      onChange={(e) => setCurrentInsumo({ ...currentInsumo, unidad: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                    >
+                      <option value="gramos">Gramos</option>
+                      <option value="metros">Metros</option>
+                      <option value="unidades">Unidades</option>
+                      <option value="pares">Pares</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleAddInsumo}
+                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  <Plus size={16} />
+                  Agregar Insumo
+                </button>
+              </div>
+
+              {/* LISTA DE INSUMOS AGREGADOS */}
+              {formData.insumos.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="font-semibold text-gray-800 mb-3">
+                    Insumos Agregados ({formData.insumos.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {formData.insumos.map((insumo) => (
+                      <div
+                        key={insumo.id}
+                        className={`bg-white border-2 rounded-lg p-3 flex justify-between items-start transition-colors ${
+                          isInsumoInInventory(supplies, insumo)
+                            ? 'border-green-300 hover:border-green-400' 
+                            : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded">
+                              {insumo.tipo}
+                            </span>
+                            <span className="font-semibold text-gray-800">
+                              {insumo.marca}
+                            </span>
+                            {isInsumoInInventory(supplies, insumo) && (
+                              <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">
+                                ✓ En inventario
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Color:</span> {insumo.color}
+                            {insumo.referencia && (
+                              <span className="ml-3">
+                                <span className="font-medium">Ref:</span> {insumo.referencia}
+                              </span>
+                            )}
+                            {insumo.cantidad && (
+                              <span className="ml-3">
+                                <span className="font-medium">Cantidad:</span> {insumo.cantidad} {insumo.unidad}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRemoveInsumo(insumo.id)}
+                          className="text-red-600 hover:text-red-700 p-1"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveAmigurumi}
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50"
+                >
+                  <Save size={20} />
+                  {loading ? 'Guardando...' : 'Guardar Amigurumi'}
+                </button>
+                <button
+                  onClick={handleCancel}
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium disabled:opacity-50"
+                >
+                  <X size={20} />
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-4 mb-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar amigurumi..."
-              className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 w-full"
-            />
-          </div>
+        {/* BANNER INFORMATIVO */}
+        <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-6 text-white">
+          <h3 className="text-xl font-bold mb-2">💡 Autocompletado Inteligente</h3>
+          <ul className="space-y-2 text-sm">
+            <li>• Sugerencias basadas en tu inventario</li>
+            <li>• Escribe libremente si no encuentras</li>
+            <li>• Marca verde ✓ = en inventario</li>
+          </ul>
         </div>
 
-        {loading && (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          </div>
-        )}
-
-        {isEditing && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-xl font-bold text-purple-800 mb-4">
-              {editingId ? 'Editar Amigurumi' : 'Nuevo Amigurumi'}
-            </h3>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre del Amigurumi *
-              </label>
+        {/* LISTA DE AMIGURUMIS */}
+        <div className="bg-white rounded-2xl shadow-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-purple-800">
+              Mis Amigurumis ({filteredAmigurumis.length})
+            </h2>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
                 type="text"
-                value={formData.nombre}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:border-purple-500"
-                placeholder="Ej: Osito Teddy, Conejito Rosa, etc."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar amigurumi..."
+                className="pl-10 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500"
               />
             </div>
-
-            <div className="bg-gray-50 rounded-lg p-4 mb-4 border-2 border-gray-200">
-              <h4 className="font-semibold text-gray-800 mb-3">Agregar Insumo</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Tipo de Material
-                  </label>
-                  <select
-                    value={currentInsumo.tipo}
-                    onChange={(e) => setCurrentInsumo({ ...currentInsumo, tipo: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                  >
-                    <option value="lana">Lana</option>
-                    <option value="hilo">Hilo</option>
-                    <option value="relleno">Relleno</option>
-                    <option value="ojos">Ojos de Seguridad</option>
-                    <option value="fieltro">Fieltro</option>
-                    <option value="botones">Botones</option>
-                    <option value="otro">Otro</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Marca *
-                  </label>
-                  <input
-                    type="text"
-                    value={currentInsumo.marca}
-                    onChange={(e) => setCurrentInsumo({ ...currentInsumo, marca: e.target.value })}
-                    placeholder="Ej: Copito, Lanasol"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Referencia/Código
-                  </label>
-                  <input
-                    type="text"
-                    value={currentInsumo.referencia}
-                    onChange={(e) => setCurrentInsumo({ ...currentInsumo, referencia: e.target.value })}
-                    placeholder="Ej: REF-1234"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Color *
-                  </label>
-                  <input
-                    type="text"
-                    value={currentInsumo.color}
-                    onChange={(e) => setCurrentInsumo({ ...currentInsumo, color: e.target.value })}
-                    placeholder="Ej: Blanco hueso, Rosa pastel"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Cantidad
-                  </label>
-                  <input
-                    type="text"
-                    value={currentInsumo.cantidad}
-                    onChange={(e) => setCurrentInsumo({ ...currentInsumo, cantidad: e.target.value })}
-                    placeholder="Ej: 50, 1"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Unidad
-                  </label>
-                  <select
-                    value={currentInsumo.unidad}
-                    onChange={(e) => setCurrentInsumo({ ...currentInsumo, unidad: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                  >
-                    <option value="gramos">Gramos</option>
-                    <option value="metros">Metros</option>
-                    <option value="unidades">Unidades</option>
-                    <option value="pares">Pares</option>
-                  </select>
-                </div>
-              </div>
-
-              <button
-                onClick={handleAddInsumo}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                <Plus size={16} />
-                Agregar Insumo
-              </button>
-            </div>
-
-            {formData.insumos.length > 0 && (
-              <div className="mb-6">
-                <h4 className="font-semibold text-gray-800 mb-3">
-                  Insumos Agregados ({formData.insumos.length})
-                </h4>
-                <div className="space-y-2">
-                  {formData.insumos.map((insumo) => (
-                    <div
-                      key={insumo.id}
-                      className="bg-white border-2 border-gray-200 rounded-lg p-3 flex justify-between items-start hover:border-purple-300 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded">
-                            {insumo.tipo}
-                          </span>
-                          <span className="font-semibold text-gray-800">
-                            {insumo.marca}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          <span className="font-medium">Color:</span> {insumo.color}
-                          {insumo.referencia && (
-                            <span className="ml-3">
-                              <span className="font-medium">Ref:</span> {insumo.referencia}
-                            </span>
-                          )}
-                          {insumo.cantidad && (
-                            <span className="ml-3">
-                              <span className="font-medium">Cantidad:</span> {insumo.cantidad} {insumo.unidad}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleRemoveInsumo(insumo.id)}
-                        className="text-red-600 hover:text-red-700 p-1"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleSaveAmigurumi}
-                className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
-              >
-                <Save size={20} />
-                Guardar Amigurumi
-              </button>
-              <button
-                onClick={handleCancel}
-                className="flex items-center gap-2 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
-              >
-                <X size={20} />
-                Cancelar
-              </button>
-            </div>
           </div>
-        )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-xl font-bold text-purple-800 mb-4">
-            Mis Amigurumis ({filteredAmigurumis.length})
-          </h3>
-
-          {filteredAmigurumis.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">
+              Cargando...
+            </div>
+          ) : filteredAmigurumis.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               {searchTerm ? 'No se encontraron amigurumis' : 'No hay amigurumis registrados aún'}
             </div>
@@ -1476,19 +1782,23 @@ Puntadas de Mechis
                         {amigurumi.nombre}
                       </h3>
                       <p className="text-xs text-gray-500">
-                        Actualizado: {new Date(amigurumi.fechaActualizacion).toLocaleDateString('es-CO')}
+                        Actualizado: {amigurumi.fecha_actualizacion 
+                          ? new Date(amigurumi.fecha_actualizacion).toLocaleDateString('es-CO') 
+                          : 'N/A'}
                       </p>
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleEdit(amigurumi)}
-                        className="bg-blue-100 text-blue-700 p-2 rounded-lg hover:bg-blue-200 transition-colors"
+                        disabled={loading}
+                        className="bg-blue-100 text-blue-700 p-2 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button
                         onClick={() => deleteAmigurumi(amigurumi.id)}
-                        className="bg-red-100 text-red-700 p-2 rounded-lg hover:bg-red-200 transition-colors"
+                        disabled={loading}
+                        className="bg-red-100 text-red-700 p-2 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -1500,7 +1810,7 @@ Puntadas de Mechis
                       Lista de Insumos:
                     </h4>
                     <div className="space-y-2">
-                      {amigurumi.insumos.map((insumo) => (
+                      {(amigurumi.insumos || []).map((insumo) => (
                         <div key={insumo.id} className="bg-white rounded-lg p-2 border border-gray-200">
                           <div className="flex items-start gap-2">
                             <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded shrink-0">
@@ -1537,10 +1847,9 @@ Puntadas de Mechis
   };
 
   // ========================================
-  // VISTAS DEL DASHBOARD
+  // VISTAS DEL DASHBOARD (Resto de vistas)
   // ========================================
   
-  // Vista principal del dashboard
   const DashboardView = () => (
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-gray-800">Panel de Control</h2>
@@ -1577,7 +1886,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de gestión de pedidos
   const OrdersView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1628,7 +1936,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de gestión de insumos
   const SuppliesView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1702,7 +2009,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de gestión de inventario
   const InventoryView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1800,7 +2106,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de gestión de clientes
   const ClientsView = () => (
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-gray-800">Clientes</h2>
@@ -1835,7 +2140,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de gestión de referidos
   const ReferralsView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1922,7 +2226,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de gestión de galería
   const GalleryView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -1952,7 +2255,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de gestión de contenido del home
   const ContentView = () => {
     const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
     const [localCardPrice2, setLocalCardPrice2] = useState(homeConfig.cardPrice2 || '$27.00');
@@ -2234,7 +2536,6 @@ Puntadas de Mechis
     );
   };
 
-  // Vista de gestión de comunidad
   const CommunityView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -2269,7 +2570,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de gestión de retos
   const ChallengesView = () => (
     <div className="space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -2323,7 +2623,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // Vista de configuración global
   const SettingsView = () => (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-gray-800">Configuración Global</h2>
@@ -2346,7 +2645,6 @@ Puntadas de Mechis
     </div>
   );
 
-  // 🆕 Vista de edición de contenido del sitio
   const SiteContentView = () => (
     <div className="space-y-8 animate-fade-in">
       <h2 className="text-2xl font-bold">📝 Editor de Contenido del Sitio</h2>
@@ -3466,7 +3764,7 @@ Puntadas de Mechis
                     <input
                       type="text"
                       value={currentInsumoAmigurumi.referencia}
-                      onChange={(e) => handleReferenciaChange(e.target.value)}
+                      onChange={(e) => handleReferenciaChangeModal(e.target.value)}
                       placeholder="Ej: REF-1234"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
@@ -3526,7 +3824,7 @@ Puntadas de Mechis
 
               <div className="flex gap-3">
                 <button
-                  onClick={handleSaveAmigurumiRecord}
+                  onClick={handleSaveAmigurumiRecordModal}
                   className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
                 >
                   <Save size={20} />

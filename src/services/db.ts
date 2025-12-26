@@ -143,6 +143,18 @@ const mapHomeConfig = (c: any): HomeConfig => ({
   cardPrice4: c.card_price4
 });
 
+// =====================================================
+// AGREGAR ESTA FUNCIÓN DE MAPEO AL INICIO (junto con las otras funciones map)
+// =====================================================
+
+const mapAmigurumiRecord = (a: any): AmigurumiRecord => ({
+  id: a.id,
+  nombre: a.nombre,
+  insumos: a.insumos || [],
+  fecha_actualizacion: a.fecha_actualizacion,
+  created_at: a.created_at
+});
+
 // 🆕 FUNCIÓN AUXILIAR PARA CALCULAR EL TOTAL DE UNA COTIZACIÓN
 function calculateQuoteTotal(quoteData: QuoteData, inventoryItems?: InventoryItem[]): number {
   let total = 0;
@@ -1335,6 +1347,10 @@ export const db = {
     }
   },
 
+  // =====================================================
+  // REEMPLAZAR ESTAS FUNCIONES EN LA SECCIÓN DE AMIGURUMI RECORDS
+  // =====================================================
+
   // --- AMIGURUMI RECORDS ---
   getAmigurumiRecords: async () => {
     try {
@@ -1347,10 +1363,18 @@ export const db = {
       
       if (error) {
         console.error('❌ Error fetching amigurumi records:', error);
+        console.error('❌ Detalles:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
         return { data: null, error };
       }
       
-      return { data, error: null };
+      // ✅ Mapear los datos correctamente
+      const mappedData = (data || []).map(mapAmigurumiRecord);
+      console.log('✅ Registros obtenidos:', mappedData.length);
+      return { data: mappedData, error: null };
     } catch (error) {
       console.error('❌ Error en getAmigurumiRecords:', error);
       return { data: null, error };
@@ -1361,17 +1385,34 @@ export const db = {
     try {
       console.log('➕ Creando registro de amigurumi:', record);
       
+      // ✅ VALIDAR QUE TODOS LOS CAMPOS REQUERIDOS EXISTEN
+      if (!record.nombre || !record.insumos) {
+        throw new Error('Faltan campos obligatorios: nombre e insumos');
+      }
+      
       const { data, error } = await supabase
         .from('amigurumi_records')
-        .insert([record])
+        .insert([{
+          id: record.id,
+          nombre: record.nombre,
+          insumos: record.insumos,
+          fecha_actualizacion: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        }])
         .select();
       
       if (error) {
-        console.error('❌ Error creando registro de amigurumi:', error);
+        console.error('❌ Error creando registro:', error);
+        console.error('❌ Detalles del error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         return { data: null, error };
       }
       
-      console.log('✅ Registro de amigurumi creado:', data);
+      console.log('✅ Registro creado exitosamente:', data);
       return { data, error: null };
     } catch (error) {
       console.error('❌ Error en createAmigurumiRecord:', error);
@@ -1381,20 +1422,34 @@ export const db = {
 
   updateAmigurumiRecord: async (id: string, record: Partial<AmigurumiRecord>) => {
     try {
-      console.log('🔄 Actualizando registro de amigurumi:', { id, record });
+      console.log('🔄 Actualizando registro:', { id, record });
+      
+      // ✅ CONSTRUIR OBJETO DE ACTUALIZACIÓN
+      const updateData: any = {
+        fecha_actualizacion: new Date().toISOString()
+      };
+      
+      if (record.nombre !== undefined) updateData.nombre = record.nombre;
+      if (record.insumos !== undefined) updateData.insumos = record.insumos;
       
       const { data, error } = await supabase
         .from('amigurumi_records')
-        .update(record)
+        .update(updateData)
         .eq('id', id)
         .select();
       
       if (error) {
-        console.error('❌ Error al actualizar registro de amigurumi:', error);
+        console.error('❌ Error actualizando:', error);
+        console.error('❌ Detalles del error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         return { data: null, error };
       }
       
-      console.log('✅ Registro de amigurumi actualizado:', data);
+      console.log('✅ Registro actualizado:', data);
       return { data, error: null };
     } catch (error) {
       console.error('❌ Error en updateAmigurumiRecord:', error);
@@ -1413,14 +1468,14 @@ export const db = {
       
       if (error) {
         console.error('❌ Error al eliminar registro de amigurumi:', error);
-        return { error: null };
+        return { error };
       }
       
       console.log('✅ Registro de amigurumi eliminado correctamente');
       return { error: null };
     } catch (error) {
       console.error('❌ Error en deleteAmigurumiRecord:', error);
-      return { error: null };
+      return { error };
     }
   },
 
