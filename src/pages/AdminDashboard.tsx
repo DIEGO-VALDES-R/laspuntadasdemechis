@@ -825,9 +825,11 @@ const AdminDashboard: React.FC = () => {
         setUploadingImage(false);
       }
 
-      const newOrder = {
+	const newOrder = {
         numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
         clientEmail: newOrderData.clientEmail,
+        clientName: newOrderData.clientName, // ✅ Agregado
+        clientPhone: newOrderData.clientPhone, // ✅ Agregado
         nombre_producto: newOrderData.nombre_producto,
         descripcion: newOrderData.descripcion || 'Pedido creado manualmente',
         estado: (saldo === 0 ? 'Agendado' : 'En espera de agendar') as any,
