@@ -1,10 +1,9 @@
-import { supabase } from './supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export const uploadImage = async (
   file: File,
-  folder: 'supplies' | 'gallery' | 'tejedoras' | 'posts' | 'challenges' | 'orders' = 'supplies' // ← Agregar 'orders'
+  folder: 'supplies' | 'gallery' | 'tejedoras' | 'posts' | 'challenges' | 'orders' = 'gallery'
 ): Promise<string | null> => {
-  // ... resto del código igual
   try {
     // Validar tamaño (máx 5MB)
     if (file.size > 5 * 1024 * 1024) {
@@ -23,9 +22,9 @@ export const uploadImage = async (
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${folder}/${fileName}`;
 
-    // Subir archivo
+    // Subir archivo al bucket 'gallery' que es el que se usa en el resto del proyecto
     const { error: uploadError } = await supabase.storage
-      .from('supplies-images')
+      .from('gallery')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false
@@ -39,7 +38,7 @@ export const uploadImage = async (
 
     // Obtener URL pública
     const { data } = supabase.storage
-      .from('supplies-images')
+      .from('gallery')
       .getPublicUrl(filePath);
 
     return data.publicUrl;
@@ -53,13 +52,20 @@ export const uploadImage = async (
 export const deleteImage = async (imageUrl: string): Promise<boolean> => {
   try {
     // Extraer el path del URL
-    const urlParts = imageUrl.split('/supplies-images/');
-    if (urlParts.length < 2) return false;
+    // Intentar con el bucket 'gallery' primero
+    let filePath = '';
+    if (imageUrl.includes('/gallery/')) {
+      filePath = imageUrl.split('/gallery/')[1];
+    } else if (imageUrl.includes('/supplies-images/')) {
+      filePath = imageUrl.split('/supplies-images/')[1];
+    }
 
-    const filePath = urlParts[1];
+    if (!filePath) return false;
+
+    const bucket = imageUrl.includes('/supplies-images/') ? 'supplies-images' : 'gallery';
 
     const { error } = await supabase.storage
-      .from('supplies-images')
+      .from(bucket)
       .remove([filePath]);
 
     if (error) {

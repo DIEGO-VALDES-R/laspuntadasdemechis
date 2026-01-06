@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from '../lib/supabase';
 import { Order, Client, InventoryItem, ProductConfig, GlobalConfig, GalleryItem, DEFAULT_CONFIG, Tejedora, HomeConfig, Post, Challenge, Supply, Expense, ReturnRecord, QuoteData, Testimonial, AmigurumiRecord, InsumoAmigurumi } from '../types';
 import { getPublicImageUrl, extractStoragePath } from './imageHelpers';
 

@@ -549,61 +549,61 @@ const AdminDashboard: React.FC = () => {
   // ========================================
   
   const loadData = async () => {
-    setLoading(true);
-    try {
-      const [
-        ordersData, 
-        clientsData, 
-        suppliesData, 
-        inventoryData, 
-        galleryData, 
-        configData, 
-        homeData, 
-        teamData, 
-        postsData, 
-        challengesData, 
-        referralsData,
-        statsData,
-        sectionsData
-      ] = await Promise.all([
-        db.getOrders(),
-        db.getAllClients(),
-        db.getSupplies(),
-        db.getInventoryItems(),
-        db.getGallery(),
-        db.getConfig(),
-        db.getHomeConfig(),
-        db.getTejedoras(),
-        db.getPosts(),
-        db.getChallenges(),
-        db.getAllReferrals(),
-        db.getSiteStats(),
-        db.getEditableSections()
-      ]);
-      
-      setOrders(ordersData);
-      setClients(clientsData);
-      setSupplies(suppliesData);
-      setInventoryItems(inventoryData);
-      setGallery(galleryData);
-      setConfig(configData);
-      setHomeConfig(homeData);
-      setTejedoras(teamData);
-      setPosts(postsData);
-      setChallenges(challengesData);
-      setReferrals(referralsData);
-      setSiteStats(statsData);
-      setEditableSections(sectionsData);
-      
-      const amigurumiData = await loadAmigurumiRecords();
-      setAmigurumiRecords(amigurumiData);
-      
-    } catch (error) {
-      console.error('Failed to load data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  try {
+    const [
+      ordersData, 
+      clientsData, 
+      suppliesData, 
+      inventoryData, 
+      galleryResponse, // 🔧 CAMBIADO
+      configData, 
+      homeData, 
+      teamData, 
+      postsData, 
+      challengesData, 
+      referralsData,
+      statsData,
+      sectionsData
+    ] = await Promise.all([
+      db.getOrders(),
+      db.getAllClients(),
+      db.getSupplies(),
+      db.getInventoryItems(),
+      db.getGallery(1, 100), // 🔧 Pedir 100 items
+      db.getConfig(),
+      db.getHomeConfig(),
+      db.getTejedoras(),
+      db.getPosts(),
+      db.getChallenges(),
+      db.getAllReferrals(),
+      db.getSiteStats(),
+      db.getEditableSections()
+    ]);
+    
+    setOrders(ordersData);
+    setClients(clientsData);
+    setSupplies(suppliesData);
+    setInventoryItems(inventoryData);
+    setGallery(galleryResponse.data); // 🔧 Extraer .data
+    setConfig(configData);
+    setHomeConfig(homeData);
+    setTejedoras(teamData);
+    setPosts(postsData);
+    setChallenges(challengesData);
+    setReferrals(referralsData);
+    setSiteStats(statsData);
+    setEditableSections(sectionsData);
+    
+    const amigurumiData = await loadAmigurumiRecords();
+    setAmigurumiRecords(amigurumiData);
+    
+  } catch (error) {
+    console.error('Failed to load data:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     const user = localStorage.getItem('puntadas_user');
@@ -825,7 +825,7 @@ const AdminDashboard: React.FC = () => {
         setUploadingImage(false);
       }
 
-	const newOrder = {
+      const newOrder = {
         numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
         clientEmail: newOrderData.clientEmail,
         clientName: newOrderData.clientName, // ✅ Agregado
@@ -1006,51 +1006,124 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
     }
   };
 
-  // ========================================
-  // MANEJO DE GALERÍA
-  // ========================================
+// ========================================
+// MANEJO DE GALERÍA
+// ========================================
+
+const handleFileUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>, 
+  setter: (val: any) => void
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
   
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: any) => void) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 800000) alert("Imagen muy pesada (>800KB)");
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setter((prev: any) => prev ? { ...prev, imageUrl: ev.target?.result as string } : null);
-      };
-      reader.readAsDataURL(file);
+  // Validar tamaño (5MB máx)
+  if (file.size > 5 * 1024 * 1024) {
+    alert("Imagen muy pesada (máx 5MB)");
+    return;
+  }
+  
+  try {
+    console.log('📤 Subiendo imagen a Supabase Storage...');
+    
+    // Subir a Supabase Storage
+    const imageUrl = await uploadImage(file, 'gallery');
+    
+    if (imageUrl) {
+      console.log('✅ Imagen subida:', imageUrl);
+      
+      // Actualizar el estado con la URL de Supabase
+      setter((prev: any) => prev ? { ...prev, imageUrl } : null);
+      
+      alert('✅ Imagen cargada correctamente');
+    } else {
+      alert('❌ Error al subir la imagen');
     }
-  };
+  } catch (error) {
+    console.error('❌ Error uploading image:', error);
+    alert('Error al subir la imagen');
+  }
+};
 
-  const handleSaveGallery = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingGallery) {
-      try {
-        const exists = gallery.some(g => g.id === editingGallery.id);
-        if (exists) {
-          await db.updateGalleryItem(editingGallery);
-        } else {
-          await db.addGalleryItem(editingGallery);
-        }
-        setIsGalleryModalOpen(false);
-        loadData();
-      } catch (error: any) {
-        alert(error.message || "Error al guardar");
-      }
+const handleSaveGallery = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!editingGallery) {
+    alert('❌ No hay datos para guardar');
+    return;
+  }
+  
+  // Validar campos requeridos
+  if (!editingGallery.title || !editingGallery.description) {
+    alert('❌ Por favor completa título y descripción');
+    return;
+  }
+  
+  if (!editingGallery.imageUrl) {
+    alert('❌ Por favor sube una imagen');
+    return;
+  }
+  
+  try {
+    console.log('💾 Guardando en galería:', editingGallery);
+    
+    const exists = gallery.some(g => g.id === editingGallery.id);
+    
+    if (exists) {
+      console.log('🔄 Actualizando imagen existente');
+      await db.updateGalleryItem(editingGallery);
+      alert('✅ Imagen actualizada correctamente');
+    } else {
+      console.log('🆕 Agregando nueva imagen');
+      await db.addGalleryItem(editingGallery);
+      alert('✅ Imagen agregada a la galería');
     }
-  };
+    
+    setIsGalleryModalOpen(false);
+    setEditingGallery(null);
+    await loadData(); // Recargar datos
+    
+  } catch (error: any) {
+    console.error('❌ Error saving gallery:', error);
+    alert('❌ Error al guardar: ' + (error.message || 'Error desconocido'));
+  }
+};
 
-  const handleDeleteGallery = async (id: string) => {
-    if (confirm('¿Eliminar imagen?')) {
-      await db.deleteGalleryItem(id);
-      loadData();
+const handleDeleteGallery = async (id: string) => {
+  if (!confirm('¿Eliminar esta imagen de la galería?')) return;
+  
+  try {
+    console.log('🗑️ Eliminando imagen:', id);
+    
+    // Obtener la imagen antes de borrarla para eliminar el archivo de Storage
+    const item = gallery.find(g => g.id === id);
+    
+    if (item?.imageUrl && item.imageUrl.includes('supabase')) {
+      console.log('🗑️ Eliminando archivo de Storage...');
+      await deleteImage(item.imageUrl);
     }
-  };
+    
+    await db.deleteGalleryItem(id);
+    
+    alert('✅ Imagen eliminada correctamente');
+    await loadData();
+  } catch (error) {
+    console.error('❌ Error deleting gallery:', error);
+    alert('Error al eliminar la imagen');
+  }
+};
 
-  const openNewGallery = () => {
-    setEditingGallery({ id: `gal-${Date.now()}`, title: '', description: '', imageUrl: '', price: 0 });
-    setIsGalleryModalOpen(true);
-  };
+const openNewGallery = () => {
+  setEditingGallery({ 
+    id: `gal-${Date.now()}`, 
+    title: '', 
+    description: '', 
+    imageUrl: '', 
+    category: 'Sin categoría', // 🆕 Agregado
+    price: 0 
+  });
+  setIsGalleryModalOpen(true);
+};
 
   // ========================================
   // MANEJO DE CONTENIDO DEL HOME
@@ -2287,21 +2360,51 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
   );
 
   const GalleryView = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Galería del Home</h2>
-        <button onClick={openNewGallery} className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700">
-          <Plus size={18}/> Nueva Foto
-        </button>
+  <div className="space-y-6 animate-fade-in">
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-bold text-gray-800">Galería del Home</h2>
+      <button 
+        onClick={openNewGallery} 
+        className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
+      >
+        <Plus size={18}/> Nueva Foto
+      </button>
+    </div>
+    
+    {/* 🔧 AGREGADO: Mensaje si no hay items */}
+    {gallery.length === 0 ? (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+        <ImageIcon size={48} className="mx-auto text-gray-300 mb-4" />
+        <p className="text-gray-500 text-lg">No hay imágenes en la galería</p>
+        <p className="text-gray-400 text-sm mt-2">Haz clic en "Nueva Foto" para agregar una</p>
       </div>
+    ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {gallery.map(item => (
           <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group">
             <div className="h-48 overflow-hidden relative">
-              <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover transition group-hover:scale-105"/>
+              <img 
+                src={item.imageUrl} 
+                alt={item.title} 
+                className="w-full h-full object-cover transition group-hover:scale-105"
+                onError={(e) => {
+                  console.error('Error loading image:', item.imageUrl);
+                  e.currentTarget.src = 'https://placehold.co/400x400/e8e8e8/666666?text=Error+Cargando';
+                }}
+              />
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition gap-2">
-                <button onClick={() => { setEditingGallery(item); setIsGalleryModalOpen(true); }} className="bg-white p-2 rounded-full text-blue-600"><Edit2 size={18}/></button>
-                <button onClick={() => handleDeleteGallery(item.id)} className="bg-white p-2 rounded-full text-red-600"><Trash2 size={18}/></button>
+                <button 
+                  onClick={() => { setEditingGallery(item); setIsGalleryModalOpen(true); }} 
+                  className="bg-white p-2 rounded-full text-blue-600"
+                >
+                  <Edit2 size={18}/>
+                </button>
+                <button 
+                  onClick={() => handleDeleteGallery(item.id)} 
+                  className="bg-white p-2 rounded-full text-red-600"
+                >
+                  <Trash2 size={18}/>
+                </button>
               </div>
             </div>
             <div className="p-4">
@@ -2312,8 +2415,9 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
           </div>
         ))}
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
 
   const ContentView = () => {
     const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
@@ -3648,39 +3752,124 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
       )}
 
       {/* Modal de galería */}
-      {isGalleryModalOpen && editingGallery && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
-            <h3 className="font-bold text-xl mb-4">Editar Galería</h3>
-            <form onSubmit={handleSaveGallery} className="space-y-4">
-              <div>
-                <label className="text-sm font-bold">Título</label>
-                <input className="w-full border p-2 rounded" value={editingGallery.title} onChange={(e) => setEditingGallery({...editingGallery, title: e.target.value})} required/>
-              </div>
-              <div>
-                <label className="text-sm font-bold">Descripción</label>
-                <textarea className="w-full border p-2 rounded" value={editingGallery.description} onChange={(e) => setEditingGallery({...editingGallery, description: e.target.value})} required/>
-              </div>
-              <div>
-                <label className="text-sm font-bold">Precio</label>
-                <input 
-                  type="number"
-                  placeholder="0"
-                  value={editingGallery.price || ''}
-                  onChange={(e) => setEditingGallery({...editingGallery, price: parseFloat(e.target.value) || 0})}
-                  className="w-full border p-2 rounded"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-bold">Imagen</label>
-                {editingGallery.imageUrl && <img src={editingGallery.imageUrl} alt="preview" className="w-full h-32 object-cover rounded mb-2"/>}
-                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setEditingGallery)}/>
-              </div>
-              <button type="submit" className="w-full bg-purple-600 text-white p-2 rounded font-bold">Guardar</button>
-            </form>
-          </div>
+{isGalleryModalOpen && editingGallery && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-xl">
+          {gallery.some(g => g.id === editingGallery.id) ? 'Editar Imagen' : 'Nueva Imagen'}
+        </h3>
+        <button 
+          onClick={() => {
+            setIsGalleryModalOpen(false);
+            setEditingGallery(null);
+          }}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X size={24}/>
+        </button>
+      </div>
+      
+      <form onSubmit={handleSaveGallery} className="space-y-4">
+        {/* Título */}
+        <div>
+          <label className="text-sm font-bold">Título *</label>
+          <input 
+            className="w-full border p-2 rounded" 
+            value={editingGallery.title} 
+            onChange={(e) => setEditingGallery({...editingGallery, title: e.target.value})} 
+            placeholder="Ej: Osito Teddy"
+            required
+          />
         </div>
-      )}
+        
+        {/* Descripción */}
+        <div>
+          <label className="text-sm font-bold">Descripción *</label>
+          <textarea 
+            className="w-full border p-2 rounded h-24" 
+            value={editingGallery.description} 
+            onChange={(e) => setEditingGallery({...editingGallery, description: e.target.value})} 
+            placeholder="Describe el amigurumi..."
+            required
+          />
+        </div>
+        
+        {/* Categoría */}
+        <div>
+          <label className="text-sm font-bold">Categoría</label>
+          <input 
+            className="w-full border p-2 rounded" 
+            value={editingGallery.category || 'Sin categoría'} 
+            onChange={(e) => setEditingGallery({...editingGallery, category: e.target.value})} 
+            placeholder="Ej: Animales, Personajes, etc."
+          />
+        </div>
+        
+        {/* Precio */}
+        <div>
+          <label className="text-sm font-bold">Precio (opcional)</label>
+          <input 
+            type="number"
+            placeholder="0"
+            value={editingGallery.price || ''}
+            onChange={(e) => setEditingGallery({...editingGallery, price: parseFloat(e.target.value) || 0})}
+            className="w-full border p-2 rounded"
+          />
+        </div>
+        
+        {/* Preview de imagen */}
+        {editingGallery.imageUrl && (
+          <div className="relative">
+            <img 
+              src={editingGallery.imageUrl} 
+              alt="preview" 
+              className="w-full h-48 object-cover rounded border-2 border-gray-200"
+              onError={(e) => {
+                console.error('Error loading preview');
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setEditingGallery({...editingGallery, imageUrl: ''})}
+              className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600"
+            >
+              <X size={16}/>
+            </button>
+          </div>
+        )}
+        
+        {/* Upload de imagen */}
+        <div>
+          <label className="text-sm font-bold block mb-2">Imagen *</label>
+          <label className="w-full border-2 border-dashed border-purple-300 rounded-lg p-6 cursor-pointer hover:bg-purple-50 flex flex-col items-center gap-2">
+            <Upload size={32} className="text-purple-600" />
+            <span className="font-medium text-purple-700 text-center">
+              {uploadingImage ? 'Subiendo...' : 'Click para subir imagen'}
+            </span>
+            <span className="text-xs text-gray-500">Máx 5MB - JPG, PNG</span>
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={(e) => handleFileUpload(e, setEditingGallery)}
+              disabled={uploadingImage}
+              className="hidden"
+            />
+          </label>
+        </div>
+        
+        <button 
+          type="submit" 
+          disabled={uploadingImage}
+          className="w-full bg-purple-600 text-white p-3 rounded-lg font-bold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {uploadingImage ? 'Subiendo imagen...' : 'Guardar en Galería'}
+        </button>
+      </form>
+    </div>
+  </div>
+)}
 
       {/* Modal de tejedoras */}
       {isTejedoraModalOpen && editingTejedora && (
