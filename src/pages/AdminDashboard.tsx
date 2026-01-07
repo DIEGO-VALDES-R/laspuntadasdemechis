@@ -763,33 +763,27 @@ const AdminDashboard: React.FC = () => {
   if (!selectedOrder) return;
   
   try {
-    // 🆕 Objeto con todos los datos a actualizar, incluidos los del cliente
     const updateData: any = {
       estado: statusUpdate,
       guia_transportadora: trackingGuide,
-      clientName: editingOrderClientName,
-      clientEmail: editingOrderClientEmail,
-      clientPhone: editingOrderClientPhone
+      clientName: editingOrderClientName || selectedOrder.clientName || '',  // ✅
+      clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '' // ✅
     };
 
-    // Actualizar en la base de datos
+    console.log('💾 Actualizando pedido con datos:', updateData);
+
     await db.updateOrder(selectedOrder.id, updateData);
     
-    // Actualizar el estado local para que el modal se sienta actualizado
-    if (selectedOrder) {
-        setSelectedOrder({
-            ...selectedOrder,
-            clientName: editingOrderClientName,
-            clientEmail: editingOrderClientEmail,
-            clientPhone: editingOrderClientPhone,
-            estado: statusUpdate,
-            guia_transportadora: trackingGuide
-        });
-    }
+    setSelectedOrder({
+      ...selectedOrder,
+      clientName: updateData.clientName,
+      clientPhone: updateData.clientPhone,
+      estado: statusUpdate,
+      guia_transportadora: trackingGuide
+    });
 
     alert('✅ Pedido actualizado correctamente');
     
-    // Preguntar si desea notificar
     const shouldNotify = window.confirm(
       '¿Deseas enviar una notificación por WhatsApp al cliente sobre esta actualización?'
     );

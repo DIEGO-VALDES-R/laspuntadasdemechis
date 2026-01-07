@@ -25,6 +25,8 @@ export interface Order {
   id: string;
   numero_seguimiento: string;
   clientEmail: string;
+  clientName?: string;        // ✅ Agregar
+  clientPhone?: string;       // ✅ Agregar
   nombre_producto: string;
   descripcion: string;
   estado: 'En espera de agendar' | 'Agendado' | 'En proceso' | 'Listo para entregar' | 'Entregado' | 'Cancelado';
@@ -37,7 +39,6 @@ export interface Order {
   guia_transportadora?: string;
   desglose: any;
 }
-
 export interface PaymentMethod {
   id: string;
   tipo: string;
