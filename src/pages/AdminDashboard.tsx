@@ -637,17 +637,24 @@ const AdminDashboard: React.FC = () => {
     setFinalImageFile(null);
     setFinalImagePreview('');
 
-    // 🆕 Cargar datos de cliente para edición
-    setEditingOrderClientName(order.clientName || '');
-    setEditingOrderClientEmail(order.clientEmail || '');
-    setEditingOrderClientPhone(order.clientPhone || '');
-
     try {
+      // 🔧 PRIMERO cargar info del cliente de la BD
       const clientInfo = await db.getClientByEmail(order.clientEmail);
       setOrderClient(clientInfo);
+      
+      // 🔧 LUEGO inicializar estados con prioridad: datos del pedido > datos del cliente BD > valores por defecto
+      setEditingOrderClientName(order.clientName || clientInfo?.nombre_completo || '');
+      setEditingOrderClientEmail(order.clientEmail || '');
+      setEditingOrderClientPhone(order.clientPhone || clientInfo?.telefono || '');
+      
     } catch (error) {
       console.error('Error al cargar información del cliente:', error);
       setOrderClient(null);
+      
+      // 🔧 Si no hay cliente en BD, usar solo los datos del pedido
+      setEditingOrderClientName(order.clientName || '');
+      setEditingOrderClientEmail(order.clientEmail || '');
+      setEditingOrderClientPhone(order.clientPhone || '');
     }
 
     setIsOrderModalOpen(true);
