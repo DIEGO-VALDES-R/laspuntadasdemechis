@@ -6,7 +6,7 @@ import { db } from '../services/db';
 import {
   LayoutDashboard, ShoppingCart, Users, Package, DollarSign, Settings,
   Search, Eye, X, Save, ShoppingBag, Plus, Trash2, Edit2, 
-  Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText, Star, ChevronDown
+  Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText, Star, ChevronDown, Pencil
 } from 'lucide-react';
 import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig, InsumoAmigurumi, AmigurumiRecord } from '../types';
 import CompleteMigration from "../components/admin/CompleteMigration";
@@ -254,6 +254,12 @@ const AdminDashboard: React.FC = () => {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderClient, setOrderClient] = useState<Client | null>(null);
+  
+  // 🆕 ESTADOS PARA EDICIÓN DE DATOS DEL CLIENTE EN EL MODAL
+  const [editingOrderClientName, setEditingOrderClientName] = useState('');
+  const [editingOrderClientEmail, setEditingOrderClientEmail] = useState('');
+  const [editingOrderClientPhone, setEditingOrderClientPhone] = useState('');
+
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [newOrderData, setNewOrderData] = useState({
     clientEmail: '',
@@ -631,6 +637,11 @@ const AdminDashboard: React.FC = () => {
     setFinalImageFile(null);
     setFinalImagePreview('');
 
+    // 🆕 Cargar datos de cliente para edición
+    setEditingOrderClientName(order.clientName || '');
+    setEditingOrderClientEmail(order.clientEmail || '');
+    setEditingOrderClientPhone(order.clientPhone || '');
+
     try {
       const clientInfo = await db.getClientByEmail(order.clientEmail);
       setOrderClient(clientInfo);
@@ -742,15 +753,122 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleUpdateStatusAndGuide = async () => {
-    if (!selectedOrder) return;
-    await db.updateOrder(selectedOrder.id, {
-      estado: statusUpdate as any,
-      guia_transportadora: trackingGuide
-    });
-    alert('Pedido actualizado.');
+  if (!selectedOrder) return;
+  
+  try {
+    // 🆕 Objeto con todos los datos a actualizar, incluidos los del cliente
+    const updateData: any = {
+      estado: statusUpdate,
+      guia_transportadora: trackingGuide,
+      clientName: editingOrderClientName,
+      clientEmail: editingOrderClientEmail,
+      clientPhone: editingOrderClientPhone
+    };
+
+    // Actualizar en la base de datos
+    await db.updateOrder(selectedOrder.id, updateData);
+    
+    // Actualizar el estado local para que el modal se sienta actualizado
+    if (selectedOrder) {
+        setSelectedOrder({
+            ...selectedOrder,
+            clientName: editingOrderClientName,
+            clientEmail: editingOrderClientEmail,
+            clientPhone: editingOrderClientPhone,
+            estado: statusUpdate,
+            guia_transportadora: trackingGuide
+        });
+    }
+
+    alert('✅ Pedido actualizado correctamente');
+    
+    // Preguntar si desea notificar
+    const shouldNotify = window.confirm(
+      '¿Deseas enviar una notificación por WhatsApp al cliente sobre esta actualización?'
+    );
+    
+    if (shouldNotify) {
+      sendOrderUpdateNotification();
+    }
+    
     setIsOrderModalOpen(false);
-    loadData();
-  };
+    await loadData();
+  } catch (error) {
+    console.error('Error updating order:', error);
+    alert('❌ Error al actualizar el pedido');
+  }
+};
+
+// Nueva función para enviar notificación de actualización
+const sendOrderUpdateNotification = () => {
+  if (!selectedOrder) return;
+  
+  // Usar los datos editados actuales para notificar
+  const clientName = editingOrderClientName || orderClient?.nombre_completo || 'Cliente';
+  const clientPhone = editingOrderClientPhone || orderClient?.telefono || '';
+  const clientEmail = editingOrderClientEmail || selectedOrder.clientEmail;
+  
+  const phone = clientPhone.replace(/\D/g, '') || '';
+  if (!phone) {
+    alert('❌ El cliente no tiene teléfono registrado');
+    return;
+  }
+  
+  const formattedPhone = phone.startsWith('57') ? phone : `57${phone}`;
+  
+  // Construir mensaje según el estado
+  let statusEmoji = '📦';
+  let statusMessage = '';
+  
+  switch (statusUpdate) {
+    case 'Agendado':
+      statusEmoji = '✅';
+      statusMessage = 'Tu pedido ha sido *agendado* y pronto comenzaremos a trabajar en él.';
+      break;
+    case 'En proceso':
+      statusEmoji = '🧵';
+      statusMessage = '¡Ya estamos tejiendo tu pedido! Pronto estará listo.';
+      break;
+    case 'Listo para entregar':
+      statusEmoji = '🎁';
+      statusMessage = '¡Tu pedido está *listo*! Ya puedes recogerlo o está en camino.';
+      break;
+    case 'Entregado':
+      statusEmoji = '🎉';
+      statusMessage = 'Tu pedido ha sido *entregado*. ¡Esperamos que lo disfrutes!';
+      break;
+    case 'Cancelado':
+      statusEmoji = '❌';
+      statusMessage = 'Tu pedido ha sido cancelado. Si tienes dudas, contáctanos.';
+      break;
+    default:
+      statusMessage = `El estado de tu pedido ha cambiado a: *${statusUpdate}*`;
+  }
+  
+  const message = `
+Hola *${clientName}*, 👋
+
+ ${statusEmoji} *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
+
+ ${statusMessage}
+
+📋 *Detalles:*
+- Producto: ${selectedOrder.nombre_producto}
+- Estado actual: *${statusUpdate}*
+ ${trackingGuide ? `• 📮 Guía de envío: *${trackingGuide}*` : ''}
+ ${selectedOrder.saldo_pendiente > 0 ? `• 💰 Saldo pendiente: $${selectedOrder.saldo_pendiente.toLocaleString()}` : ''}
+
+ ${trackingGuide && statusUpdate === 'Listo para entregar' ? `
+Puedes rastrear tu envío aquí: 👇
+https://www.google.com/search?q=${encodeURIComponent(trackingGuide)}
+` : ''}
+
+¡Gracias por confiar en *Puntadas de Mechis*! ✨
+  `.trim();
+  
+  const whatsappLink = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+  window.open(whatsappLink, '_blank');
+};
 
   const handleDeleteOrder = async (e: React.MouseEvent, orderId: string) => {
     e.stopPropagation();
@@ -3048,31 +3166,56 @@ const openNewGallery = () => {
                 <Users size={20} className="text-blue-600"/>
                 Información del Cliente
               </h4>
-              {orderClient ? (
+              
+              {/* 🆕 FORMULARIO DE EDICIÓN */}
+              <div className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-600">Nombre completo</p>
-                    <p className="font-medium">{orderClient.nombre_completo}</p>
+                    <label className="block text-xs font-bold text-blue-800 mb-1">
+                      Nombre completo
+                    </label>
+                    <input
+                      type="text"
+                      value={editingOrderClientName}
+                      onChange={(e) => setEditingOrderClientName(e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholder="Nombre del cliente"
+                    />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium">{orderClient.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Teléfono</p>
-                    <p className="font-medium">{orderClient.telefono || 'No registrado'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Descuento activo</p>
-                    <p className="font-medium">{orderClient.descuento_activo}%</p>
+                    <label className="block text-xs font-bold text-blue-800 mb-1">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={editingOrderClientEmail}
+                      onChange={(e) => setEditingOrderClientEmail(e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholder="cliente@email.com"
+                    />
                   </div>
                 </div>
-              ) : (
-                <div className="text-gray-500">
-                  <p>El cliente no está registrado en el sistema</p>
-                  <p className="text-sm mt-1">Email: {selectedOrder.clientEmail}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-blue-800 mb-1">
+                      Teléfono
+                    </label>
+                    <input
+                      type="tel"
+                      value={editingOrderClientPhone}
+                      onChange={(e) => setEditingOrderClientPhone(e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-blue-200 rounded-lg focus:outline-none focus:border-blue-500"
+                      placeholder="3001234567"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-blue-800 mb-1">
+                      Descuento Activo
+                    </label>
+                    <p className="font-medium">{orderClient?.descuento_activo || '0'}%</p>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
             
             <div className="mb-6 bg-gray-50 p-4 rounded-xl">
@@ -3264,6 +3407,40 @@ const openNewGallery = () => {
               >
                 Guardar Cambios
               </button>
+
+              {/* 🆕 AGREGA ESTA SECCIÓN NUEVA */}
+              <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200">
+                <h4 className="font-bold text-green-800 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                  </svg>
+                  Notificaciones WhatsApp
+                </h4>
+                
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={sendOrderUpdateNotification}
+                    disabled={!editingOrderClientPhone}
+                    className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                    </svg>
+                    Notificar Cliente
+                  </button>
+                  
+                  {!editingOrderClientPhone && (
+                    <p className="text-xs text-red-600 text-center">
+                      ⚠️ Cliente sin teléfono registrado
+                    </p>
+                  )}
+                  
+                  <p className="text-xs text-gray-500 text-center">
+                    Se enviará un mensaje con la actualización del estado
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -3543,7 +3720,7 @@ const openNewGallery = () => {
                     className="w-full bg-blue-600 text-white p-4 rounded-lg font-bold hover:bg-blue-700 flex items-center justify-center gap-3"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002-2z"></path>
                     </svg>
                     Enviar por Email
                   </button>
@@ -3999,6 +4176,11 @@ const openNewGallery = () => {
                             <span className="font-semibold text-gray-800">
                               {insumo.marca}
                             </span>
+                            {isInsumoInInventory(supplies, insumo) && (
+                              <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">
+                                ✓ En inventario
+                              </span>
+                            )}
                           </div>
                           <div className="text-sm text-gray-600">
                             <span className="font-medium">Color:</span> {insumo.color}
@@ -4028,7 +4210,7 @@ const openNewGallery = () => {
 
               <div className="bg-purple-50 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-800 mb-3">Agregar Nuevo Insumo</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+                <div className="grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">
                       Tipo de Material
@@ -4036,7 +4218,7 @@ const openNewGallery = () => {
                     <select
                       value={currentInsumoAmigurumi.tipo}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, tipo: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     >
                       <option value="lana">Lana</option>
                       <option value="hilo">Hilo</option>
@@ -4057,7 +4239,7 @@ const openNewGallery = () => {
                       value={currentInsumoAmigurumi.marca}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, marca: e.target.value})}
                       placeholder="Ej: Copito, Lanasol"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
                   </div>
 
@@ -4070,7 +4252,7 @@ const openNewGallery = () => {
                       value={currentInsumoAmigurumi.referencia}
                       onChange={(e) => handleReferenciaChangeModal(e.target.value)}
                       placeholder="Ej: REF-1234"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
                   </div>
 
@@ -4083,7 +4265,7 @@ const openNewGallery = () => {
                       value={currentInsumoAmigurumi.color}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, color: e.target.value})}
                       placeholder="Ej: Blanco hueso, Rosa pastel"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
                   </div>
 
@@ -4096,7 +4278,7 @@ const openNewGallery = () => {
                       value={currentInsumoAmigurumi.cantidad}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, cantidad: e.target.value})}
                       placeholder="Ej: 50, 1"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
                   </div>
 
@@ -4107,7 +4289,7 @@ const openNewGallery = () => {
                     <select
                       value={currentInsumoAmigurumi.unidad}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, unidad: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     >
                       <option value="gramos">Gramos</option>
                       <option value="metros">Metros</option>
