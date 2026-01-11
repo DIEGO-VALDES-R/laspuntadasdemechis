@@ -2,9 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
-import { Search } from 'lucide-react';
+import { Search, ShoppingCart, Share2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { GalleryItem } from '../types';
-import OptimizedImage from './OptimizedImage'; // 🆕 AÑADE ESTA LÍNEA
 
 // Colores de marca
 const COLORS = {
@@ -12,12 +12,6 @@ const COLORS = {
   sageGreen: '#A9B4A1',
 };
 
-// 🆕 Función para detectar si una URL es base64 o URL normal
-const isBase64Image = (url: string): boolean => {
-  return url.startsWith('data:image');
-};
-
-// Variantes de animación para el contenedor
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -28,7 +22,6 @@ const containerVariants = {
   },
 };
 
-// Variantes de animación para cada tarjeta
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
@@ -40,51 +33,77 @@ interface InteractiveGalleryProps {
 }
 
 const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // Extraer categorías únicas
   const categories = useMemo(() => {
     const cats = ['Todos', ...new Set(items.map(item => item.category || 'Sin categoría'))];
     return cats;
   }, [items]);
 
-  // Filtrar items
   const filteredItems = useMemo(() => {
-    const filtered = items.filter(item => {
+    return items.filter(item => {
       const matchesCategory = selectedCategory === 'Todos' || item.category === selectedCategory;
       const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            item.description.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-    
-    // 🐛 DEBUG: Ver qué tipo de URLs tenemos
-    if (filtered.length > 0) {
-      console.log('📊 Sample imageUrl:', filtered[0]?.imageUrl?.substring(0, 100));
-      console.log('🔍 Is Base64?', isBase64Image(filtered[0]?.imageUrl || ''));
-    }
-    
-    return filtered;
   }, [items, selectedCategory, searchTerm]);
 
-  // Preparar imágenes para lightbox (Usamos imageUrl original para mejor calidad)
   const lightboxSlides = filteredItems.map(item => ({
     src: item.imageUrl,
     title: item.title,
     description: item.description,
   }));
 
+  // 🆕 Función para compartir corregida
+  const handleShare = async (e: React.MouseEvent, item: GalleryItem) => {
+    e.stopPropagation();
+    
+    const shareText = `🧶 *Mira este Amigurumi de Puntadas de Mechis* 🧶\n\n*Producto:* ${item.title}\n*Categoría:* ${item.category}\n*Precio:* $${item.price?.toLocaleString()}\n*Descripción:* ${item.description}\n\nVer más en: ${window.location.href}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: item.title,
+          text: shareText,
+          url: window.location.href,
+        });
+      } else {
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText )}`;
+        window.open(whatsappUrl, '_blank');
+      }
+    } catch (err) {
+      console.error('Error al compartir:', err);
+    }
+  };
+
+  // 🆕 Función para solicitar corregida (Elimina el "undefined")
+  const handleBuy = (e: React.MouseEvent, item: GalleryItem) => {
+    e.stopPropagation();
+    navigate('/request', { 
+      state: { 
+        reorderOrder: { 
+          nombre_producto: item.title,
+          descripcion: item.description,
+          imagen_url: item.imageUrl,
+          numero_seguimiento: 'GALERIA' // 👈 Esto evita el "undefined"
+        } 
+      } 
+    });
+  };
+
   return (
-    <section className="py-16 bg-white">
+    <section className="py-16 bg-white" id="gallery">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold" style={{ color: COLORS.coral }}>Nuestras Creaciones</h2>
           <p className="text-gray-600 mt-2">Un poco de nuestro trabajo reciente</p>
         </div>
 
-        {/* Barra de búsqueda */}
         <div className="mb-6">
           <div className="relative max-w-md mx-auto">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -98,7 +117,6 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
           </div>
         </div>
 
-        {/* Filtros de categoría */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
           {categories.map(cat => (
             <button
@@ -115,7 +133,6 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
           ))}
         </div>
 
-        {/* Grid de galería animado */}
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
           variants={containerVariants}
@@ -139,39 +156,67 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
                   key={item.id}
                   variants={itemVariants}
                   whileHover={{ 
-                    scale: 1.03, 
-                    boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
-                    y: -8
+                    scale: 1.02, 
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
                   }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                  className="group relative overflow-hidden rounded-2xl shadow-lg bg-white border border-gray-100 cursor-pointer"
+                  className="group relative overflow-hidden rounded-2xl shadow-md bg-white border border-gray-100 flex flex-col h-full cursor-pointer"
                   onClick={() => {
                     setLightboxIndex(index);
                     setLightboxOpen(true);
                   }}
                 >
-                  {/* 🆕 SECCIÓN REEMPLAZADA: OptimizedImage */}
-                  <div className="aspect-square overflow-hidden bg-gray-100">
+                  {/* Imagen */}
+                  <div className="aspect-square overflow-hidden bg-gray-100 relative">
                     {item.imageUrl && (
                       <img
-  src={item.imageUrl}
-  alt={item.title}
-  className="w-full h-full object-cover transition duration-500 group-hover:scale-110"
-  loading="lazy"
-/>
+                        src={item.imageUrl}
+                        alt={item.title}
+                        className="w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
                     )}
-                    
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                      <p className="text-white text-sm">Click para ampliar</p>
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                       <span className="text-white text-xs font-medium bg-black/40 px-3 py-1 rounded-full backdrop-blur-sm">Ver detalles</span>
                     </div>
                   </div>
                   
-                  <div className="p-4">
-                    <h3 className="font-bold text-lg" style={{ color: COLORS.coral }}>{item.title}</h3>
-                    <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>
-                    {item.price && item.price > 0 && (
-                      <p className="font-extrabold text-xl mt-2 text-purple-600">${item.price.toLocaleString()}</p>
-                    )}
+                  {/* Contenido */}
+                  <div className="p-5 flex flex-col flex-grow">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-bold text-lg leading-tight" style={{ color: COLORS.coral }}>{item.title}</h3>
+                      <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-1 bg-sage-100 text-sage-700 rounded-lg">
+                        {item.category}
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-500 line-clamp-2 mb-4 flex-grow">{item.description}</p>
+                    
+                    <div className="mb-4">
+                      {item.price && item.price > 0 ? (
+                        <p className="font-black text-2xl text-purple-600">${item.price.toLocaleString()}</p>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">Precio bajo consulta</p>
+                      )}
+                    </div>
+
+                    {/* 🆕 BOTONES SEPARADOS Y VISIBLES */}
+                    <div className="grid grid-cols-2 gap-2 mt-auto">
+                      <button
+                        onClick={(e) => handleBuy(e, item)}
+                        className="flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white py-2.5 rounded-xl font-bold text-xs shadow-sm hover:shadow-md transition-all active:scale-95"
+                      >
+                        <ShoppingCart size={14} />
+                        Solicitar
+                      </button>
+                      
+                      <button
+                        onClick={(e) => handleShare(e, item)}
+                        className="flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-2.5 rounded-xl font-bold text-xs hover:bg-gray-200 transition-all active:scale-95"
+                      >
+                        <Share2 size={14} />
+                        Compartir
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))
@@ -179,7 +224,6 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
           </AnimatePresence>
         </motion.div>
 
-        {/* Lightbox */}
         <Lightbox
           open={lightboxOpen}
           close={() => setLightboxOpen(false)}
