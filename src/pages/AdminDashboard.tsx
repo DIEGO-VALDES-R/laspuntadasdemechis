@@ -2889,10 +2889,19 @@ const openNewGallery = () => {
                   To: {ch.endDate}
                 </td>
                 <td className="p-4">
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${ch.status === 'active' ? 'bg-green-100 text-green-700' : ch.status === 'completed' ? 'bg-gray-200 text-gray-600' : 'bg-blue-100 text-blue-700'}`}>
-                    {ch.status.toUpperCase()}
-                  </span>
-                </td>
+  <span className={`px-2 py-1 rounded text-xs font-bold ${
+    ch.status === 'active' ? 'bg-green-100 text-green-700' : 
+    ch.status === 'completed' ? 'bg-gray-200 text-gray-600' : 
+    ch.status === 'starting' ? 'bg-yellow-100 text-yellow-700' :
+    'bg-blue-100 text-blue-700'
+  }`}>
+    {ch.status === 'upcoming' ? 'PRÓXIMAMENTE' : 
+     ch.status === 'starting' ? 'POR INICIAR' : 
+     ch.status === 'active' ? 'EN PROCESO' : 
+     'FINALIZADO'}
+  </span>
+</td>
+
                 <td className="p-4">{ch.participants}</td>
                 <td className="p-4 flex gap-2">
                   <button onClick={() => { setEditingChallenge(ch); setIsChallengeModalOpen(true); }} className="text-blue-500 p-1"><Edit2 size={16}/></button>
@@ -4110,15 +4119,30 @@ const openNewGallery = () => {
                 <textarea className="w-full border p-2 rounded" value={editingChallenge.description} onChange={e => setEditingChallenge({...editingChallenge, description: e.target.value})} required/>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-bold">Inicio</label>
-                  <input type="date" className="w-full border p-2 rounded" value={editingChallenge.startDate} onChange={e => setEditingChallenge({...editingChallenge, startDate: e.target.value})} required/>
-                </div>
-                <div>
-                  <label className="text-sm font-bold">Fin</label>
-                  <input type="date" className="w-full border p-2 rounded" value={editingChallenge.endDate} onChange={e => setEditingChallenge({...editingChallenge, endDate: e.target.value})} required/>
-                </div>
-              </div>
+  <div>
+    <label className="text-sm font-bold">Inicio</label>
+    <input type="date" className="w-full border p-2 rounded" value={editingChallenge.startDate} onChange={e => setEditingChallenge({...editingChallenge, startDate: e.target.value})} required/>
+  </div>
+  <div>
+    <label className="text-sm font-bold">Fin</label>
+    <input type="date" className="w-full border p-2 rounded" value={editingChallenge.endDate} onChange={e => setEditingChallenge({...editingChallenge, endDate: e.target.value})} required/>
+  </div>
+</div>
+{/* NUEVO CAMPO DE ESTADO */}
+<div>
+  <label className="text-sm font-bold">Estado del Reto</label>
+  <select 
+    className="w-full border p-2 rounded" 
+    value={editingChallenge.status} 
+    onChange={e => setEditingChallenge({...editingChallenge, status: e.target.value as any})}
+  >
+    <option value="upcoming">Próximamente</option>
+    <option value="starting">Por iniciar</option>
+    <option value="active">En proceso</option>
+    <option value="completed">Finalizado</option>
+  </select>
+</div>
+
               <div>
                 <label className="text-sm font-bold">Imagen</label>
                 {editingChallenge.imageUrl && <img src={editingChallenge.imageUrl} alt="preview" className="w-full h-32 object-cover rounded mb-2"/>}

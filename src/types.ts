@@ -147,7 +147,7 @@ export interface Challenge {
   difficulty: 'Fácil' | 'Medio' | 'Difícil';
   reward: string;
   participants: number;
-  status: 'upcoming' | 'active' | 'completed';
+  status: 'upcoming' | 'starting' | 'active' | 'completed';
 }
 
 // Raw Materials / Supplies Type

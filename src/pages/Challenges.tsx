@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { Challenge } from '../types';
@@ -23,7 +22,7 @@ const Challenges: React.FC = () => {
 
   const activeChallenges = challenges.filter(c => c.status === 'active');
   const pastChallenges = challenges.filter(c => c.status === 'completed');
-  const upcomingChallenges = challenges.filter(c => c.status === 'upcoming');
+  const upcomingChallenges = challenges.filter(c => c.status === 'upcoming' || c.status === 'starting');
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader className="animate-spin text-pink-500" size={40}/></div>
@@ -62,7 +61,7 @@ const Challenges: React.FC = () => {
                            <div className="md:w-2/5 relative">
                                <img src={ch.imageUrl} alt={ch.title} className="w-full h-full object-cover min-h-[200px]"/>
                                <div className="absolute top-4 left-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                                   Activo
+                                   En Proceso
                                </div>
                            </div>
                            <div className="p-6 md:w-3/5 flex flex-col justify-between">
@@ -115,7 +114,9 @@ const Challenges: React.FC = () => {
                                <div>
                                    <h4 className="font-bold text-gray-900">{ch.title}</h4>
                                    <p className="text-sm text-gray-500 mb-2">Inicia: {new Date(ch.startDate).toLocaleDateString()}</p>
-                                   <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold">Prepárate</span>
+                                   <span className={`text-xs px-2 py-1 rounded font-bold ${ch.status === 'starting' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                       {ch.status === 'starting' ? 'Por Iniciar' : 'Próximamente'}
+                                   </span>
                                </div>
                            </div>
                        ))}
@@ -145,7 +146,6 @@ const Challenges: React.FC = () => {
                    </div>
                </section>
            </div>
-
        </div>
     </div>
   );

@@ -78,6 +78,32 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   const dashboardLink = isAdmin ? '/admin' : '/dashboard';
 
+  // Función reutilizable para navegar a la galería
+  const handleGalleryClick = () => {
+    setIsMenuOpen(false); // Cerrar menú móvil si está abierto
+    if (location.pathname !== '/') {
+      navigate('/');
+      // Pequeño retraso para esperar a que cargue la página de inicio
+      setTimeout(() => {
+        const element = document.getElementById('gallery');
+        if (element) {
+          const headerOffset = 80;
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+        }
+      }, 100);
+    } else {
+      const element = document.getElementById('gallery');
+      if (element) {
+        const headerOffset = 80;
+        const elementPosition = element.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans">
       {/* Header */}
@@ -90,23 +116,29 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <img src={solocorazon} alt="Logo Solocorazon" className="h-10 w-auto" />
               </Link>
               <div className="flex-shrink-0 flex flex-col items-start">
-  <Link to="/" className="text-2xl font-bold flex items-center uppercase">
-    <span className="mr-1" style={{ color: '#D43A51' }}>Puntadas</span>
-    <span className="mr-1" style={{ color: '#E87A2B' }}>de</span>
-    <span style={{ color: '#2E8B57' }}>Mechis</span>
-  </Link>
-  <span className="text-xs font-semibold uppercase mt-[-4px]" style={{ color: '#2E8B57' }}>
-    HILOS QUE CONECTAN CORAZONES
-  </span>
-</div>
-
+                <Link to="/" className="text-2xl font-bold flex items-center uppercase">
+                  <span className="mr-1" style={{ color: '#D43A51' }}>Puntadas</span>
+                  <span className="mr-1" style={{ color: '#E87A2B' }}>de</span>
+                  <span style={{ color: '#2E8B57' }}>Mechis</span>
+                </Link>
+                <span className="text-xs font-semibold uppercase mt-[-4px]" style={{ color: '#2E8B57' }}>
+                  HILOS QUE CONECTAN CORAZONES
+                </span>
+              </div>
             </div>
 
             {/* Desktop Menu */}
             <nav className="hidden md:flex space-x-8 items-center">
               <Link to="/" className="text-gray-600 hover:text-pink-500 transition">Inicio</Link>
               <Link to="/request" className="text-gray-600 hover:text-pink-500 transition">Solicitar</Link>
-              <Link to="/#gallery" className="text-gray-600 hover:text-pink-500 transition">Galería</Link>
+              
+              {/* BOTÓN DE GALERÍA CORREGIDO */}
+              <button 
+                onClick={handleGalleryClick} 
+                className="text-gray-600 hover:text-pink-500 transition"
+              >
+                Galería
+              </button>
 
               <Link to="/community" className="text-gray-600 hover:text-pink-500 transition flex items-center gap-1">
                 <Heart size={16} /> Comunidad
@@ -157,6 +189,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               <Link to="/" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md">Inicio</Link>
               <Link to="/request" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md">Solicitar Pedido</Link>
+              
+              {/* BOTÓN DE GALERÍA MÓVIL CORREGIDO */}
+              <button 
+                onClick={handleGalleryClick} 
+                className="w-full text-left block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md"
+              >
+                Galería
+              </button>
+
               <Link to="/community" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md">Comunidad</Link>
               <Link to="/challenges" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2 text-gray-600 hover:bg-pink-50 rounded-md">Retos</Link>
 
