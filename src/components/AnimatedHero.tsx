@@ -2,16 +2,12 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import logo from '../assets/logo.png'; // Ajusta la extensión si es .jpg, .svg, etc.
+import logo from '../assets/logo.png';
 
-// Colores de marca actualizados
 const COLORS = {
   coral: '#FF69B4',
   sageGreen: '#A9B4A1',
 };
-
-// Datos para las tarjetas flotantes (sin el heroImage1)
-// Nota: Los precios ahora vienen desde las props
 
 interface AnimatedHeroProps {
   heroImage1?: string;
@@ -19,10 +15,16 @@ interface AnimatedHeroProps {
   cardImage3?: string;
   cardImage4?: string;
   cardImage5?: string;
+  cardImage6?: string;  // 🆕 Nueva
+  cardImage7?: string;  // 🆕 Nueva
+  cardImage8?: string;  // 🆕 Nueva
   cardPrice1?: string;
   cardPrice2?: string;
   cardPrice3?: string;
   cardPrice4?: string;
+  cardPrice5?: string;  // 🆕 Nuevo
+  cardPrice6?: string;  // 🆕 Nuevo
+  cardPrice7?: string;  // 🆕 Nuevo
   onScrollToGallery?: () => void;
 }
 
@@ -32,21 +34,35 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
   cardImage3,
   cardImage4,
   cardImage5,
+  cardImage6,  // 🆕
+  cardImage7,  // 🆕
+  cardImage8,  // 🆕
   cardPrice1 = '$30.00',
   cardPrice2 = '$27.00', 
   cardPrice3 = '$26.00',
   cardPrice4 = '$25.00',
+  cardPrice5 = '$24.00',  // 🆕
+  cardPrice6 = '$23.00',  // 🆕
+  cardPrice7 = '$22.00',  // 🆕
   onScrollToGallery 
 }) => {
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
 
-  // Datos para las tarjetas flotantes usando los precios desde props
-  const floatingCards = [
-    { id: 2, price: cardPrice1, image: heroImage2 || '/images/product-2.jpg', bgColor: 'bg-green-200' },
-    { id: 3, price: cardPrice2, image: cardImage3 || '/images/product-3.jpg', bgColor: 'bg-purple-200' },
-    { id: 4, price: cardPrice3, image: cardImage4 || '/images/product-4.jpg', bgColor: 'bg-yellow-200' },
-    { id: 5, price: cardPrice4, image: cardImage5 || '/images/product-5.jpg', bgColor: 'bg-pink-200' },
+  // 🆕 ARRAY EXTENDIDO CON 8 TARJETAS - Solo se agregan si tienen imagen
+  const allPossibleCards = [
+    { id: 2, price: cardPrice1, image: heroImage2, bgColor: 'bg-green-200' },
+    { id: 3, price: cardPrice2, image: cardImage3, bgColor: 'bg-purple-200' },
+    { id: 4, price: cardPrice3, image: cardImage4, bgColor: 'bg-yellow-200' },
+    { id: 5, price: cardPrice4, image: cardImage5, bgColor: 'bg-pink-200' },
+    { id: 6, price: cardPrice5, image: cardImage6, bgColor: 'bg-blue-200' },
+    { id: 7, price: cardPrice6, image: cardImage7, bgColor: 'bg-orange-200' },
+    { id: 8, price: cardPrice7, image: cardImage8, bgColor: 'bg-red-200' },
   ];
+
+  // ✅ FILTRAR: Solo mostrar tarjetas que tengan imagen Y precio configurados
+  const floatingCards = allPossibleCards.filter(card => 
+    card.image && card.image.trim() !== '' && card.price && card.price.trim() !== ''
+  );
 
   return (
     <section className="relative bg-gradient-to-br from-pink-100 via-purple-50 to-orange-50 overflow-hidden min-h-screen flex items-center">
@@ -62,7 +78,6 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
           
           {/* COLUMNA IZQUIERDA: Logo + Texto */}
           <div className="space-y-8">
-            {/* Logo */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8, y: -20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -76,7 +91,6 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
               />
             </motion.div>
 
-            {/* Texto */}
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -99,8 +113,6 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
                 className="text-lg text-gray-600 max-w-lg leading-relaxed"
               >
                 Cada pieza es única y tejida a mano con materiales de alta calidad.
-                  
-
                 Perfectos para regalar o decorar tu espacio con ternura.
               </motion.p>
 
@@ -133,83 +145,89 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
 
           {/* COLUMNA DERECHA: Tarjetas Apiladas en Cascada 3D */}
           <div className="relative h-[500px] flex items-center justify-center">
-            {floatingCards.map((card, index) => {
-              const colors = ['bg-green-200', 'bg-purple-200', 'bg-yellow-200', 'bg-pink-200'];
-              
-              // Cálculo de separación escalonada (cascada diagonal)
-              const horizontalOffset = index * 15; // 0%, 15%, 30%, 45%
-              const verticalOffset = index * 12;   // 0%, 12%, 24%, 36%
-              
-              // Rotación de cada tarjeta: -16°, -8°, 0°, 8°
-              const rotation = index * 8 - 16;
-              
-              // zIndex decreciente: 10, 9, 8, 7
-              const baseZIndex = 10 - index;
-              
-              // Usar las imágenes correctas para cada tarjeta
-              let imageSrc = card.image;
-              
-              return (
-                <motion.div
-                  key={card.id}
-                  initial={{ 
-                    opacity: 0, 
-                    scale: 0.8,
-                    rotate: rotation - 20,
-                  }}
-                  animate={{ 
-                    opacity: 1, 
-                    scale: hoveredCard === card.id ? 1.05 : 1, // Escala si está seleccionada
-                    rotate: hoveredCard === card.id ? 0 : rotation, // Rotación si está seleccionada
-                    y: [-10, 0, -10], // Animación de flotación
-                  }}
-                  transition={{ 
-                    opacity: { duration: 0.8, delay: 0.8 + index * 0.1 },
-                    scale: { type: "spring", stiffness: 300, damping: 20, duration: 0.3 },
-                    rotate: { type: "spring", stiffness: 300, damping: 20, duration: 0.3 },
-                    y: { 
-                      duration: 3 + index * 0.5, 
-                      repeat: Infinity, 
-                      ease: "easeInOut" 
-                    }
-                  }}
-                  whileHover={{
-                    scale: 1.05,
-                    rotate: 0,
-                    transition: {
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 20,
-                      duration: 0.3
-                    }
-                  }}
-                  style={{
-                    position: 'absolute',
-                    left: `${horizontalOffset}%`,
-                    top: `${verticalOffset}%`,
-                    // zIndex dinámico: 50 si está hover, sino el baseZIndex
-                    zIndex: hoveredCard === card.id ? 50 : baseZIndex,
-                  }}
-                  // Manejo de hover para escritorio
-                  onHoverStart={() => setHoveredCard(card.id)}
-                  onHoverEnd={() => setHoveredCard(null)}
-                  // Manejo de click/tap para móvil: alterna el estado de superposición
-                  onClick={() => setHoveredCard(prevId => (prevId === card.id ? null : card.id))}
-                  className={`w-64 h-80 rounded-3xl shadow-2xl overflow-hidden ${colors[index]} border-8 border-white cursor-pointer`}
-                >
-                  <div className="w-full h-full flex items-center justify-center p-6">
-                    <img 
-                      src={imageSrc} 
-                      alt={`Producto ${card.id}`} 
-                      className="w-full h-full object-contain drop-shadow-2xl"
-                    />
-                  </div>
-                  <div className="absolute top-4 right-4 bg-white text-gray-900 text-lg font-bold px-4 py-2 rounded-full shadow-lg">
-                    {card.price}
-                  </div>
-                </motion.div>
-              );
-            })}
+            {floatingCards.length > 0 ? (
+              floatingCards.map((card, index) => {
+                const colors = ['bg-green-200', 'bg-purple-200', 'bg-yellow-200', 'bg-pink-200', 'bg-blue-200', 'bg-orange-200', 'bg-red-200'];
+                
+                // 🆕 CÁLCULO DINÁMICO según cantidad de tarjetas visibles
+                const totalCards = floatingCards.length;
+                const horizontalOffset = index * (70 / Math.max(totalCards - 1, 1));
+                const verticalOffset = index * (56 / Math.max(totalCards - 1, 1));
+                
+                // Rotación gradual ajustada dinámicamente
+                const maxRotation = 21;
+                const rotation = totalCards > 1 
+                  ? (index * (maxRotation * 2 / (totalCards - 1))) - maxRotation
+                  : 0;
+                
+                // zIndex decreciente
+                const baseZIndex = 15 - index;
+                
+                let imageSrc = card.image;
+                
+                return (
+                  <motion.div
+                    key={card.id}
+                    initial={{ 
+                      opacity: 0, 
+                      scale: 0.8,
+                      rotate: rotation - 20,
+                    }}
+                    animate={{ 
+                      opacity: 1, 
+                      scale: hoveredCard === card.id ? 1.05 : 1,
+                      rotate: hoveredCard === card.id ? 0 : rotation,
+                      y: [-10, 0, -10],
+                    }}
+                    transition={{ 
+                      opacity: { duration: 0.8, delay: 0.8 + index * 0.1 },
+                      scale: { type: "spring", stiffness: 300, damping: 20, duration: 0.3 },
+                      rotate: { type: "spring", stiffness: 300, damping: 20, duration: 0.3 },
+                      y: { 
+                        duration: 3 + index * 0.5, 
+                        repeat: Infinity, 
+                        ease: "easeInOut" 
+                      }
+                    }}
+                    whileHover={{
+                      scale: 1.05,
+                      rotate: 0,
+                      transition: {
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 20,
+                        duration: 0.3
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: `${horizontalOffset}%`,
+                      top: `${verticalOffset}%`,
+                      zIndex: hoveredCard === card.id ? 50 : baseZIndex,
+                    }}
+                    onHoverStart={() => setHoveredCard(card.id)}
+                    onHoverEnd={() => setHoveredCard(null)}
+                    onClick={() => setHoveredCard(prevId => (prevId === card.id ? null : card.id))}
+                    className={`w-64 h-80 rounded-3xl shadow-2xl overflow-hidden ${colors[index % colors.length]} border-8 border-white cursor-pointer`}
+                  >
+                    <div className="w-full h-full flex items-center justify-center p-6">
+                      <img 
+                        src={imageSrc} 
+                        alt={`Producto ${card.id}`} 
+                        className="w-full h-full object-contain drop-shadow-2xl"
+                      />
+                    </div>
+                    <div className="absolute top-4 right-4 bg-white text-gray-900 text-lg font-bold px-4 py-2 rounded-full shadow-lg">
+                      {card.price}
+                    </div>
+                  </motion.div>
+                );
+              })
+            ) : (
+              <div className="text-center text-gray-400 italic">
+                No hay tarjetas configuradas aún
+              </div>
+            )}
           </div>
 
         </div>

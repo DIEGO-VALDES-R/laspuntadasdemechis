@@ -161,18 +161,24 @@ const Home: React.FC = () => {
     <div className="flex flex-col gap-16 pb-16">
       
       {/* HERO SECTION ANIMADO */}
-      <AnimatedHero 
-        heroImage1={homeConfig.heroImage1}
-        heroImage2={homeConfig.heroImage2}
-        cardImage3={homeConfig.cardImage3}
-        cardImage4={homeConfig.cardImage4}
-        cardImage5={homeConfig.cardImage5}
-        cardPrice1={homeConfig.cardPrice1}
-        cardPrice2={homeConfig.cardPrice2}
-        cardPrice3={homeConfig.cardPrice3}
-        cardPrice4={homeConfig.cardPrice4}
-        onScrollToGallery={scrollToGallery}
-      />
+<AnimatedHero 
+  heroImage1={homeConfig.heroImage1}
+  heroImage2={homeConfig.heroImage2}
+  cardImage3={homeConfig.cardImage3}
+  cardImage4={homeConfig.cardImage4}
+  cardImage5={homeConfig.cardImage5}
+  cardImage6={homeConfig.cardImage6}  // 🆕
+  cardImage7={homeConfig.cardImage7}  // 🆕
+  cardImage8={homeConfig.cardImage8}  // 🆕
+  cardPrice1={homeConfig.cardPrice1}
+  cardPrice2={homeConfig.cardPrice2}
+  cardPrice3={homeConfig.cardPrice3}
+  cardPrice4={homeConfig.cardPrice4}
+  cardPrice5={homeConfig.cardPrice5}  // 🆕
+  cardPrice6={homeConfig.cardPrice6}  // 🆕
+  cardPrice7={homeConfig.cardPrice7}  // 🆕
+  onScrollToGallery={scrollToGallery}
+/>
 
       {/* Order Tracker */}
       <section className="max-w-4xl mx-auto w-full px-4 -mt-24 z-20 relative">

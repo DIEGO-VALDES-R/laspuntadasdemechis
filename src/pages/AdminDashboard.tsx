@@ -2538,286 +2538,413 @@ const openNewGallery = () => {
   </div>
 );
 
-  const ContentView = () => {
-    const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
-    const [localCardPrice2, setLocalCardPrice2] = useState(homeConfig.cardPrice2 || '$27.00');
-    const [localCardPrice3, setLocalCardPrice3] = useState(homeConfig.cardPrice3 || '$26.00');
-    const [localCardPrice4, setLocalCardPrice4] = useState(homeConfig.cardPrice4 || '$25.00');
+  // 🆕 REEMPLAZA COMPLETAMENTE LA FUNCIÓN ContentView EN AdminDashboard.tsx
 
-    useEffect(() => {
-      setLocalCardPrice1(homeConfig.cardPrice1 || '$30.00');
-      setLocalCardPrice2(homeConfig.cardPrice2 || '$27.00');
-      setLocalCardPrice3(homeConfig.cardPrice3 || '$26.00');
-      setLocalCardPrice4(homeConfig.cardPrice4 || '$25.00');
-    }, [homeConfig]);
+const ContentView = () => {
+  const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
+  const [localCardPrice2, setLocalCardPrice2] = useState(homeConfig.cardPrice2 || '$27.00');
+  const [localCardPrice3, setLocalCardPrice3] = useState(homeConfig.cardPrice3 || '$26.00');
+  const [localCardPrice4, setLocalCardPrice4] = useState(homeConfig.cardPrice4 || '$25.00');
+  const [localCardPrice5, setLocalCardPrice5] = useState(homeConfig.cardPrice5 || '$24.00');  // 🆕
+  const [localCardPrice6, setLocalCardPrice6] = useState(homeConfig.cardPrice6 || '$23.00');  // 🆕
+  const [localCardPrice7, setLocalCardPrice7] = useState(homeConfig.cardPrice7 || '$22.00');  // 🆕
 
-    const handleCardImageUpload = (e: React.ChangeEvent<HTMLInputElement>, cardNumber: 2 | 3 | 4 | 5) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        if (file.size > 800000) {
-          alert("Imagen muy pesada (máx 800KB)");
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          const imageUrl = ev.target?.result as string;
-          if (cardNumber === 2) {
-            setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
-          } else if (cardNumber === 3) {
-            setHomeConfig(prev => ({ ...prev, cardImage3: imageUrl }));
-          } else if (cardNumber === 4) {
-            setHomeConfig(prev => ({ ...prev, cardImage4: imageUrl }));
-          } else if (cardNumber === 5) {
-            setHomeConfig(prev => ({ ...prev, cardImage5: imageUrl }));
-          }
-        };
-        reader.readAsDataURL(file);
+  useEffect(() => {
+    setLocalCardPrice1(homeConfig.cardPrice1 || '$30.00');
+    setLocalCardPrice2(homeConfig.cardPrice2 || '$27.00');
+    setLocalCardPrice3(homeConfig.cardPrice3 || '$26.00');
+    setLocalCardPrice4(homeConfig.cardPrice4 || '$25.00');
+    setLocalCardPrice5(homeConfig.cardPrice5 || '$24.00');  // 🆕
+    setLocalCardPrice6(homeConfig.cardPrice6 || '$23.00');  // 🆕
+    setLocalCardPrice7(homeConfig.cardPrice7 || '$22.00');  // 🆕
+  }, [homeConfig]);
+
+  const handleCardImageUpload = (e: React.ChangeEvent<HTMLInputElement>, cardNumber: 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 800000) {
+        alert("Imagen muy pesada (máx 800KB)");
+        return;
       }
-    };
-
-    const handleSaveContentConfig = async () => {
-      try {
-        const updatedConfig = {
-          ...homeConfig,
-          cardPrice1: localCardPrice1,
-          cardPrice2: localCardPrice2,
-          cardPrice3: localCardPrice3,
-          cardPrice4: localCardPrice4
-        };
-        
-        console.log('💾 Guardando configuración:', updatedConfig);
-        
-        const result = await db.saveHomeConfig(updatedConfig);
-        
-        if (result.error) {
-          console.error('❌ Error al guardar:', result.error);
-          alert('❌ Error al guardar: ' + result.error.message);
-          return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const imageUrl = ev.target?.result as string;
+        if (cardNumber === 2) {
+          setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
+        } else if (cardNumber === 3) {
+          setHomeConfig(prev => ({ ...prev, cardImage3: imageUrl }));
+        } else if (cardNumber === 4) {
+          setHomeConfig(prev => ({ ...prev, cardImage4: imageUrl }));
+        } else if (cardNumber === 5) {
+          setHomeConfig(prev => ({ ...prev, cardImage5: imageUrl }));
+        } else if (cardNumber === 6) {  // 🆕
+          setHomeConfig(prev => ({ ...prev, cardImage6: imageUrl }));
+        } else if (cardNumber === 7) {  // 🆕
+          setHomeConfig(prev => ({ ...prev, cardImage7: imageUrl }));
+        } else if (cardNumber === 8) {  // 🆕
+          setHomeConfig(prev => ({ ...prev, cardImage8: imageUrl }));
         }
-        
-        setHomeConfig(updatedConfig);
-        alert('✅ Contenido actualizado correctamente');
-        await loadData();
-      } catch (error) {
-        console.error('❌ Error inesperado:', error);
-        alert('❌ Error al guardar: ' + (error as Error).message);
-      }
-    };
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
-    return (
-      <div className="space-y-8 animate-fade-in">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-800">Gestión de Contenido</h2>
-        </div>
-        
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <ImageIcon size={20}/> Logo Principal (Izquierda)
-          </h3>
-          <div>
-            <label className="block text-sm font-medium mb-2">Logo del Sitio</label>
-            {homeConfig.heroImage1 && (
-              <img 
-                src={homeConfig.heroImage1} 
-                alt="Logo" 
-                className="w-40 h-40 object-contain rounded-lg mb-2 border-2 border-gray-200 bg-white p-2"
-              />
-            )}
-            <input 
-              type="file" 
-              accept="image/*" 
-              onChange={(e) => handleHeroUpload(e, 'heroImage1')} 
-              className="text-sm w-full"
+  const handleSaveContentConfig = async () => {
+    try {
+      const updatedConfig = {
+        ...homeConfig,
+        cardPrice1: localCardPrice1,
+        cardPrice2: localCardPrice2,
+        cardPrice3: localCardPrice3,
+        cardPrice4: localCardPrice4,
+        cardPrice5: localCardPrice5,  // 🆕
+        cardPrice6: localCardPrice6,  // 🆕
+        cardPrice7: localCardPrice7,  // 🆕
+      };
+      
+      console.log('💾 Guardando configuración:', updatedConfig);
+      
+      const result = await db.saveHomeConfig(updatedConfig);
+      
+      if (result.error) {
+        console.error('❌ Error al guardar:', result.error);
+        alert('❌ Error al guardar: ' + result.error.message);
+        return;
+      }
+      
+      setHomeConfig(updatedConfig);
+      alert('✅ Contenido actualizado correctamente');
+      await loadData();
+    } catch (error) {
+      console.error('❌ Error inesperado:', error);
+      alert('❌ Error al guardar: ' + (error as Error).message);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Gestión de Contenido</h2>
+      </div>
+      
+      {/* LOGO PRINCIPAL */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <ImageIcon size={20}/> Logo Principal (Izquierda)
+        </h3>
+        <div>
+          <label className="block text-sm font-medium mb-2">Logo del Sitio</label>
+          {homeConfig.heroImage1 && (
+            <img 
+              src={homeConfig.heroImage1} 
+              alt="Logo" 
+              className="w-40 h-40 object-contain rounded-lg mb-2 border-2 border-gray-200 bg-white p-2"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Este logo aparece en la columna izquierda sobre el texto
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <ImageIcon size={20}/> Tarjetas Flotantes (Derecha)
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                <h4 className="font-bold text-green-800">Tarjeta 1 (Verde)</h4>
-              </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium mb-2">Imagen</label>
-                {homeConfig.heroImage2 && (
-                  <img 
-                    src={homeConfig.heroImage2} 
-                    alt="Tarjeta 1" 
-                    className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-green-300"
-                  />
-                )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={(e) => handleCardImageUpload(e, 2)} 
-                  className="text-sm w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Precio</label>
-                <input
-                  type="text"
-                  value={localCardPrice1}
-                  onChange={(e) => setLocalCardPrice1(e.target.value)}
-                  onBlur={() => setHomeConfig(prev => ({...prev, cardPrice1: localCardPrice1}))}
-                  className="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:outline-none focus:border-green-500"
-                  placeholder="$30.00"
-                />
-              </div>
-            </div>
-
-            <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
-                <h4 className="font-bold text-purple-800">Tarjeta 2 (Morada)</h4>
-              </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium mb-2">Imagen</label>
-                {homeConfig.cardImage3 && (
-                  <img 
-                    src={homeConfig.cardImage3} 
-                    alt="Tarjeta 2" 
-                    className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-purple-300"
-                  />
-                )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={(e) => handleCardImageUpload(e, 3)} 
-                  className="text-sm w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Precio</label>
-                <input
-                  type="text"
-                  value={localCardPrice2}
-                  onChange={(e) => setLocalCardPrice2(e.target.value)}
-                  onBlur={() => setHomeConfig(prev => ({...prev, cardPrice2: localCardPrice2}))}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500"
-                  placeholder="$27.00"
-                />
-              </div>
-            </div>
-
-            <div className="border-2 border-yellow-200 rounded-xl p-4 bg-yellow-50">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-                <h4 className="font-bold text-yellow-800">Tarjeta 3 (Amarilla)</h4>
-              </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium mb-2">Imagen</label>
-                {homeConfig.cardImage4 && (
-                  <img 
-                    src={homeConfig.cardImage4} 
-                    alt="Tarjeta 3" 
-                    className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-yellow-300"
-                  />
-                )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={(e) => handleCardImageUpload(e, 4)} 
-                  className="text-sm w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Precio</label>
-                <input
-                  type="text"
-                  value={localCardPrice3}
-                  onChange={(e) => setLocalCardPrice3(e.target.value)}
-                  onBlur={() => setHomeConfig(prev => ({...prev, cardPrice3: localCardPrice3}))}
-                  className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500"
-                  placeholder="$26.00"
-                />
-              </div>
-            </div>
-
-            <div className="border-2 border-pink-200 rounded-xl p-4 bg-pink-50">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-4 h-4 bg-pink-500 rounded-full"></div>
-                <h4 className="font-bold text-pink-800">Tarjeta 4 (Rosa)</h4>
-              </div>
-              <div className="mb-3">
-                <label className="block text-sm font-medium mb-2">Imagen</label>
-                {homeConfig.cardImage5 && (
-                  <img 
-                    src={homeConfig.cardImage5} 
-                    alt="Tarjeta 4" 
-                    className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-pink-300"
-                  />
-                )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={(e) => handleCardImageUpload(e, 5)} 
-                  className="text-sm w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Precio</label>
-                <input
-                  type="text"
-                  value={localCardPrice4}
-                  onChange={(e) => setLocalCardPrice4(e.target.value)}
-                  onBlur={() => setHomeConfig(prev => ({...prev, cardPrice4: localCardPrice4}))}
-                  className="w-full px-3 py-2 border-2 border-pink-300 rounded-lg focus:outline-none focus:border-pink-500"
-                  placeholder="$25.00"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 text-right">
-            <button 
-              onClick={handleSaveContentConfig} 
-              className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-8 py-3 rounded-lg font-bold hover:from-pink-700 hover:to-purple-700 shadow-lg flex items-center gap-2 ml-auto"
-            >
-              <Save size={20}/>
-              Guardar Todo el Contenido
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold flex items-center gap-2"><Users size={20}/> Equipo de Tejedoras</h3>
-            <button
-              onClick={() => { setEditingTejedora({ id: `tej-${Date.now()}`, nombre: '', especialidad: '', imageUrl: '' }); setIsTejedoraModalOpen(true); }}
-              className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2"
-            >
-              <Plus size={16}/> Agregar
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tejedoras.map(t => (
-              <div key={t.id} className="border border-gray-100 rounded-lg p-3 flex gap-3 items-center">
-                <img src={t.imageUrl} alt={t.nombre} className="w-12 h-12 rounded-full object-cover"/>
-                <div className="flex-1">
-                  <p className="font-bold text-sm">{t.nombre}</p>
-                  <p className="text-xs text-gray-500">{t.especialidad}</p>
-                </div>
-                <div className="flex gap-1">
-                  <button onClick={() => { setEditingTejedora(t); setIsTejedoraModalOpen(true); }} className="p-1 text-blue-500"><Edit2 size={16}/></button>
-                  <button onClick={() => handleDeleteTejedora(t.id)} className="p-1 text-red-500"><Trash2 size={16}/></button>
-                </div>
-              </div>
-            ))}
-          </div>
+          )}
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={(e) => handleHeroUpload(e, 'heroImage1')} 
+            className="text-sm w-full"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Este logo aparece en la columna izquierda sobre el texto
+          </p>
         </div>
       </div>
-    );
-  };
+
+      {/* TARJETAS FLOTANTES */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <ImageIcon size={20}/> Tarjetas Flotantes (Derecha)
+        </h3>
+        <p className="text-sm text-gray-600 mb-6">
+          💡 Solo se mostrarán las tarjetas que tengan imagen Y precio configurados
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          
+          {/* TARJETA 1 - Verde */}
+          <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+              <h4 className="font-bold text-green-800">Tarjeta 1 (Verde)</h4>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.heroImage2 && (
+                <img 
+                  src={homeConfig.heroImage2} 
+                  alt="Tarjeta 1" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-green-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 2)} 
+                className="text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice1}
+                onChange={(e) => setLocalCardPrice1(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-green-300 rounded-lg focus:outline-none focus:border-green-500"
+                placeholder="$30.00"
+              />
+            </div>
+          </div>
+
+          {/* TARJETA 2 - Morada */}
+          <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+              <h4 className="font-bold text-purple-800">Tarjeta 2 (Morada)</h4>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage3 && (
+                <img 
+                  src={homeConfig.cardImage3} 
+                  alt="Tarjeta 2" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-purple-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 3)} 
+                className="text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice2}
+                onChange={(e) => setLocalCardPrice2(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500"
+                placeholder="$27.00"
+              />
+            </div>
+          </div>
+
+          {/* TARJETA 3 - Amarilla */}
+          <div className="border-2 border-yellow-200 rounded-xl p-4 bg-yellow-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+              <h4 className="font-bold text-yellow-800">Tarjeta 3 (Amarilla)</h4>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage4 && (
+                <img 
+                  src={homeConfig.cardImage4} 
+                  alt="Tarjeta 3" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-yellow-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 4)} 
+                className="text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice3}
+                onChange={(e) => setLocalCardPrice3(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500"
+                placeholder="$26.00"
+              />
+            </div>
+          </div>
+
+          {/* TARJETA 4 - Rosa */}
+          <div className="border-2 border-pink-200 rounded-xl p-4 bg-pink-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-pink-500 rounded-full"></div>
+              <h4 className="font-bold text-pink-800">Tarjeta 4 (Rosa)</h4>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage5 && (
+                <img 
+                  src={homeConfig.cardImage5} 
+                  alt="Tarjeta 4" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-pink-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 5)} 
+                className="text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice4}
+                onChange={(e) => setLocalCardPrice4(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-pink-300 rounded-lg focus:outline-none focus:border-pink-500"
+                placeholder="$25.00"
+              />
+            </div>
+          </div>
+
+          {/* 🆕 TARJETA 5 - Azul */}
+          <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+              <h4 className="font-bold text-blue-800">Tarjeta 5 (Azul)</h4>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage6 && (
+                <img 
+                  src={homeConfig.cardImage6} 
+                  alt="Tarjeta 5" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-blue-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 6)} 
+                className="text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice5}
+                onChange={(e) => setLocalCardPrice5(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:border-blue-500"
+                placeholder="$24.00"
+              />
+            </div>
+          </div>
+
+          {/* 🆕 TARJETA 6 - Naranja */}
+          <div className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+              <h4 className="font-bold text-orange-800">Tarjeta 6 (Naranja)</h4>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage7 && (
+                <img 
+                  src={homeConfig.cardImage7} 
+                  alt="Tarjeta 6" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-orange-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 7)} 
+                className="text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice6}
+                onChange={(e) => setLocalCardPrice6(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-orange-300 rounded-lg focus:outline-none focus:border-orange-500"
+                placeholder="$23.00"
+              />
+            </div>
+          </div>
+
+          {/* 🆕 TARJETA 7 - Roja */}
+          <div className="border-2 border-red-200 rounded-xl p-4 bg-red-50">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+              <h4 className="font-bold text-red-800">Tarjeta 7 (Roja)</h4>
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm font-medium mb-2">Imagen</label>
+              {homeConfig.cardImage8 && (
+                <img 
+                  src={homeConfig.cardImage8} 
+                  alt="Tarjeta 7" 
+                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-red-300"
+                />
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => handleCardImageUpload(e, 8)} 
+                className="text-sm w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Precio</label>
+              <input
+                type="text"
+                value={localCardPrice7}
+                onChange={(e) => setLocalCardPrice7(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-red-300 rounded-lg focus:outline-none focus:border-red-500"
+                placeholder="$22.00"
+              />
+            </div>
+          </div>
+
+        </div>
+
+        <div className="mt-6 text-right">
+          <button 
+            onClick={handleSaveContentConfig} 
+            className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-8 py-3 rounded-lg font-bold hover:from-pink-700 hover:to-purple-700 shadow-lg flex items-center gap-2 ml-auto"
+          >
+            <Save size={20}/>
+            Guardar Todo el Contenido
+          </button>
+        </div>
+      </div>
+
+      {/* EQUIPO DE TEJEDORAS */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold flex items-center gap-2"><Users size={20}/> Equipo de Tejedoras</h3>
+          <button
+            onClick={() => { setEditingTejedora({ id: `tej-${Date.now()}`, nombre: '', especialidad: '', imageUrl: '' }); setIsTejedoraModalOpen(true); }}
+            className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2"
+          >
+            <Plus size={16}/> Agregar
+          </button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {tejedoras.map(t => (
+            <div key={t.id} className="border border-gray-100 rounded-lg p-3 flex gap-3 items-center">
+              <img src={t.imageUrl} alt={t.nombre} className="w-12 h-12 rounded-full object-cover"/>
+              <div className="flex-1">
+                <p className="font-bold text-sm">{t.nombre}</p>
+                <p className="text-xs text-gray-500">{t.especialidad}</p>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => { setEditingTejedora(t); setIsTejedoraModalOpen(true); }} className="p-1 text-blue-500"><Edit2 size={16}/></button>
+                <button onClick={() => handleDeleteTejedora(t.id)} className="p-1 text-red-500"><Trash2 size={16}/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
   const CommunityView = () => (
     <div className="space-y-6 animate-fade-in">

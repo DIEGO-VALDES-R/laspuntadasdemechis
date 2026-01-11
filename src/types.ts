@@ -1,10 +1,10 @@
 export interface Client {
   id: string;
   nombre_completo: string;
-  cedula?: string; // New
-  direccion?: string; // New
+  cedula?: string;
+  direccion?: string;
   email: string;
-  password?: string; // New (for mock auth)
+  password?: string;
   telefono?: string;
   compras_totales: number;
   descuento_activo: number;
@@ -25,8 +25,8 @@ export interface Order {
   id: string;
   numero_seguimiento: string;
   clientEmail: string;
-  clientName?: string;        // ✅ Agregar
-  clientPhone?: string;       // ✅ Agregar
+  clientName?: string;
+  clientPhone?: string;
   nombre_producto: string;
   descripcion: string;
   estado: 'En espera de agendar' | 'Agendado' | 'En proceso' | 'Listo para entregar' | 'Entregado' | 'Cancelado';
@@ -39,6 +39,7 @@ export interface Order {
   guia_transportadora?: string;
   desglose: any;
 }
+
 export interface PaymentMethod {
   id: string;
   tipo: string;
@@ -70,7 +71,6 @@ export interface Testimonial {
   updated_at?: string;
 }
 
-// New Types for Dynamic Management
 export interface InventoryItem {
   id: string;
   category: 'sizes' | 'packaging' | 'accessories';
@@ -94,13 +94,12 @@ export interface GalleryItem {
   id: string;
   title: string;
   description: string;
-  imageUrl: string;      // URL completa
-  imagePath?: string;    // 🆕 Path limpio para OptimizedImage
+  imageUrl: string;
+  imagePath?: string;
   category?: string;
   price?: number;
 }
 
-// New Content Management Types
 export interface Tejedora {
   id: string;
   nombre: string;
@@ -108,32 +107,35 @@ export interface Tejedora {
   imageUrl: string;
 }
 
-// 🆕 ACTUALIZADO
+// 🆕 ACTUALIZADO CON 8 TARJETAS
 export interface HomeConfig {
   heroImage1: string;
   heroImage2: string;
-  // 🆕 Imágenes adicionales para las tarjetas
   cardImage3?: string;
   cardImage4?: string;
   cardImage5?: string;
-  // 🆕 Precios de las tarjetas
+  cardImage6?: string;  // 🆕 Nueva tarjeta 6
+  cardImage7?: string;  // 🆕 Nueva tarjeta 7
+  cardImage8?: string;  // 🆕 Nueva tarjeta 8
   cardPrice1?: string;
   cardPrice2?: string;
   cardPrice3?: string;
   cardPrice4?: string;
+  cardPrice5?: string;  // 🆕 Precio tarjeta 5
+  cardPrice6?: string;  // 🆕 Precio tarjeta 6
+  cardPrice7?: string;  // 🆕 Precio tarjeta 7
 }
 
-// Community & Challenges Types
 export interface Post {
   id: string;
   userId: string;
   userName: string;
   userAvatar?: string;
-  topic?: string; // New: Post Topic/Category
+  topic?: string;
   imageUrl: string;
   description: string;
   likes: number;
-  likedBy: string[]; // List of user emails who liked
+  likedBy: string[];
   timestamp: string;
 }
 
@@ -150,20 +152,18 @@ export interface Challenge {
   status: 'upcoming' | 'starting' | 'active' | 'completed';
 }
 
-// Raw Materials / Supplies Type
 export interface Supply {
   id: string;
   name: string;
   reference: string;
-  unitValue: number; // Costo unitario
+  unitValue: number;
   quantity: number;
   color: string;
-  number: string; // Calibre o número de lote
-  lowStockThreshold: number; // Cantidad mínima para alerta
+  number: string;
+  lowStockThreshold: number;
   imageUrl?: string;
 }
 
-// Accounting Types
 export interface Expense {
   id: string;
   date: string;
@@ -183,10 +183,6 @@ export interface ReturnRecord {
   status: 'Reembolsado' | 'Cambio de Producto';
 }
 
-// =====================================================
-// REEMPLAZAR O AGREGAR ESTAS INTERFACES EN types.ts
-// =====================================================
-
 export interface InsumoAmigurumi {
   id: string;
   tipo: string;
@@ -205,7 +201,32 @@ export interface AmigurumiRecord {
   created_at?: string;
 }
 
-// Default fallback config (if DB is empty)
+export interface QuoteData {
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  productName: string;
+  description: string;
+  basePrice: number;
+  selectedSizeId?: string;
+  selectedPackagingId?: string;
+  selectedAccessories?: string[];
+  imageUrl?: string;
+  notes?: string;
+  totalAmount?: number;
+  status?: string;
+  client_name?: string;
+  client_email?: string;
+  client_phone?: string;
+  product_name?: string;
+  base_price?: number;
+  selected_size_id?: string;
+  selected_packaging_id?: string;
+  selected_accessories?: string[];
+  image_url?: string;
+  total_amount?: number;
+}
+
 export const DEFAULT_CONFIG: ProductConfig = {
   sizes: [
     { id: 'sz1', category: 'sizes', label: '15cm - Mini', price: 65000 },
