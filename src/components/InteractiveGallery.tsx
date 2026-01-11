@@ -59,18 +59,30 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
     description: item.description,
   }));
 
-  // 🆕 Función para compartir corregida
+    // 🆕 FUNCIÓN DE COMPARTIR OPTIMIZADA PARA VISTA PREVIA VISUAL (V4)
   const handleShare = async (e: React.MouseEvent, item: GalleryItem) => {
     e.stopPropagation();
     
-    const shareText = `🧶 *Mira este Amigurumi de Puntadas de Mechis* 🧶\n\n*Producto:* ${item.title}\n*Categoría:* ${item.category}\n*Precio:* $${item.price?.toLocaleString()}\n*Descripción:* ${item.description}\n\nVer más en: ${window.location.href}`;
+    // Ponemos la imagen al principio para que WhatsApp genere la vista previa visual
+    const imageLink = item.imageUrl;
+    const pageUrl = window.location.href.includes('localhost') 
+      ? 'https://laspuntadasdemechis.vercel.app/' 
+      : window.location.href;
+
+    const shareText = 
+      `📸 *Mira la foto:* ${imageLink}\n\n` +
+      `🧶 *¡Hermoso Amigurumi de Puntadas de Mechis!* 🧶\n\n` +
+      `✨ *Producto:* ${item.title}\n` +
+      `🏷️ *Categoría:* ${item.category || 'Personalizado'}\n` +
+      `💰 *Precio:* $${item.price?.toLocaleString( ) || 'Consultar'}\n` +
+      `📝 *Descripción:* ${item.description}\n\n` +
+      `👇 *Ver en la web:* ${pageUrl}`;
 
     try {
       if (navigator.share) {
         await navigator.share({
           title: item.title,
           text: shareText,
-          url: window.location.href,
         });
       } else {
         const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText )}`;
@@ -80,6 +92,7 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
       console.error('Error al compartir:', err);
     }
   };
+
 
   // 🆕 Función para solicitar corregida (Elimina el "undefined")
   const handleBuy = (e: React.MouseEvent, item: GalleryItem) => {
