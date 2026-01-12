@@ -134,15 +134,21 @@ const mapChallenge = (c: any): Challenge => ({
 });
 
 const mapHomeConfig = (c: any): HomeConfig => ({
-  heroImage1: getPublicImageUrl(c.hero_image1, 'gallery'), // 🆕 Helper optimizado
-  heroImage2: getPublicImageUrl(c.hero_image2, 'gallery'), // 🆕 Helper optimizado
-  cardImage3: getPublicImageUrl(c.card_image3, 'gallery'), // 🆕 Helper optimizado
-  cardImage4: getPublicImageUrl(c.card_image4, 'gallery'), // 🆕 Helper optimizado
-  cardImage5: getPublicImageUrl(c.card_image5, 'gallery'), // 🆕 Helper optimizado
+  heroImage1: getPublicImageUrl(c.hero_image1, 'gallery'),
+  heroImage2: getPublicImageUrl(c.hero_image2, 'gallery'),
+  cardImage3: getPublicImageUrl(c.card_image3, 'gallery'),
+  cardImage4: getPublicImageUrl(c.card_image4, 'gallery'),
+  cardImage5: getPublicImageUrl(c.card_image5, 'gallery'),
+  cardImage6: getPublicImageUrl(c.card_image6, 'gallery'), // Nueva
+  cardImage7: getPublicImageUrl(c.card_image7, 'gallery'), // Nueva
+  cardImage8: getPublicImageUrl(c.card_image8, 'gallery'), // Nueva
   cardPrice1: c.card_price1,
   cardPrice2: c.card_price2,
   cardPrice3: c.card_price3,
-  cardPrice4: c.card_price4
+  cardPrice4: c.card_price4,
+  cardPrice5: c.card_price5, // Nueva
+  cardPrice6: c.card_price6, // Nueva
+  cardPrice7: c.card_price7  // Nueva
 });
 
 // =====================================================
@@ -713,25 +719,31 @@ export const db = {
 
   // --- HOME CONFIG ---
   saveHomeConfig: async (config: HomeConfig) => {
-    try {
-      console.log('📝 Guardando en Supabase con columnas directas...', config);
+  try {
+    const { data, error } = await supabase
+      .from('home_config')
+      .upsert({
+        id: 1, 
+        section_key: 'hero_section',
+        hero_image1: config.heroImage1 || '',
+        hero_image2: config.heroImage2 || '',
+        card_image3: config.cardImage3 || '',
+        card_image4: config.cardImage4 || '',
+        card_image5: config.cardImage5 || '',
+        card_image6: config.cardImage6 || '', // Añadir esta
+        card_image7: config.card_image7 || '', // Añadir esta
+        card_image8: config.card_image8 || '', // Añadir esta
+        card_price1: config.cardPrice1 || '$30.00',
+        card_price2: config.cardPrice2 || '$27.00',
+        card_price3: config.cardPrice3 || '$26.00',
+        card_price4: config.cardPrice4 || '$25.00',
+        card_price5: config.cardPrice5 || '$24.00', // Añadir esta
+        card_price6: config.cardPrice6 || '$23.00', // Añadir esta
+        card_price7: config.cardPrice7 || '$22.00', // Añadir esta
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    // ... resto del código
 
-      const { data, error } = await supabase
-        .from('home_config')
-        .upsert({
-          id: 1, 
-          section_key: 'hero_section',
-          hero_image1: config.heroImage1 || '',
-          hero_image2: config.heroImage2 || '',
-          card_image3: config.cardImage3 || '',
-          card_image4: config.cardImage4 || '',
-          card_image5: config.cardImage5 || '',
-          card_price1: config.cardPrice1 || '$30.00',
-          card_price2: config.cardPrice2 || '$27.00',
-          card_price3: config.cardPrice3 || '$26.00',
-          card_price4: config.cardPrice4 || '$25.00',
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
 
       if (error) {
         console.error('❌ Error de Supabase:', error);

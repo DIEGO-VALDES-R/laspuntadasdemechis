@@ -201,16 +201,23 @@ const AdminDashboard: React.FC = () => {
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [config, setConfig] = useState<GlobalConfig>({ limite_pago_completo: 70000, abono_minimo_fijo: 50000, descuento_referido: 10 });
   const [homeConfig, setHomeConfig] = useState<HomeConfig>({ 
-    heroImage1: '', 
-    heroImage2: '',
-    cardPrice1: '$30.00',
-    cardPrice2: '$27.00',
-    cardPrice3: '$26.00',
-    cardPrice4: '$25.00',
-    cardImage3: '',
-    cardImage4: '',
-    cardImage5: ''
-  });
+  heroImage1: '', 
+  heroImage2: '',
+  cardPrice1: '$30.00',
+  cardPrice2: '$27.00',
+  cardPrice3: '$26.00',
+  cardPrice4: '$25.00',
+  cardPrice5: '$24.00', // Nueva
+  cardPrice6: '$23.00', // Nueva
+  cardPrice7: '$22.00', // Nueva
+  cardImage3: '',
+  cardImage4: '',
+  cardImage5: '',
+  cardImage6: '', // Nueva
+  cardImage7: '', // Nueva
+  cardImage8: ''  // Nueva
+});
+
   const [tejedoras, setTejedoras] = useState<Tejedora[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -2587,23 +2594,31 @@ const ContentView = () => {
       console.log(`✅ Imagen subida: ${imageUrl}`);
 
       // 🔧 ACTUALIZAR EL ESTADO INMEDIATAMENTE
-      if (cardNumber === 2) {
-        setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
-      } else if (cardNumber === 3) {
-        setHomeConfig(prev => ({ ...prev, cardImage3: imageUrl }));
-      } else if (cardNumber === 4) {
-        setHomeConfig(prev => ({ ...prev, cardImage4: imageUrl }));
-      } else if (cardNumber === 5) {
-        setHomeConfig(prev => ({ ...prev, cardImage5: imageUrl }));
-      } else if (cardNumber === 6) {
-        setHomeConfig(prev => ({ ...prev, cardImage6: imageUrl }));
-      } else if (cardNumber === 7) {
-        setHomeConfig(prev => ({ ...prev, cardImage7: imageUrl }));
-      } else if (cardNumber === 8) {
-        setHomeConfig(prev => ({ ...prev, cardImage8: imageUrl }));
+      // 🔧 ACTUALIZAR ESTADO Y BASE DE DATOS INMEDIATAMENTE
+      const fieldMap: Record<number, keyof HomeConfig> = {
+        2: 'heroImage2',
+        3: 'cardImage3',
+        4: 'cardImage4',
+        5: 'cardImage5',
+        6: 'cardImage6',
+        7: 'cardImage7',
+        8: 'cardImage8'
+      };
+      
+      const field = fieldMap[cardNumber];
+      
+      if (field) {
+        // Actualizar estado local
+        setHomeConfig(prev => ({ ...prev, [field]: imageUrl }));
+        
+        // 🆕 GUARDAR INMEDIATAMENTE EN BD
+        const updatedConfig = { ...homeConfig, [field]: imageUrl };
+        await db.saveHomeConfig(updatedConfig);
+        
+        console.log(`✅ Tarjeta ${cardNumber - 1} guardada automáticamente`);
       }
 
-      alert(`✅ Imagen de tarjeta ${cardNumber - 1} cargada. Haz clic en "Guardar Todo el Contenido" para confirmar.`);
+      alert(`✅ Imagen de tarjeta ${cardNumber - 1} cargada y guardada automáticamente.`);
 
     } catch (error) {
       console.error('❌ Error uploading image:', error);
