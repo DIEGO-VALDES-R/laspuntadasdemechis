@@ -1132,6 +1132,34 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
     }
   };
 
+  const handleEditClient = (client: Client) => {
+    setEditingClient(client);
+    setIsClientModalOpen(true);
+  };
+
+  const handleSaveClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+
+    try {
+      await db.updateClient(editingClient.id, {
+        nombre_completo: editingClient.nombre_completo,
+        email: editingClient.email,
+        telefono: editingClient.telefono,
+        cedula: editingClient.cedula,
+        direccion: editingClient.direccion,
+        descuento_activo: editingClient.descuento_activo
+      });
+      setIsClientModalOpen(false);
+      setEditingClient(null);
+      loadData();
+      alert('✅ Cliente actualizado correctamente');
+    } catch (error) {
+      console.error('Error updating client:', error);
+      alert('❌ Error al actualizar el cliente');
+    }
+  };
+
 // ========================================
 // MANEJO DE GALERÍA
 // ========================================
@@ -2387,9 +2415,22 @@ const openNewGallery = () => {
                 <td className="p-4">{c.telefono || 'N/A'}</td>
                 <td className="p-4">{c.descuento_activo}%</td>
                 <td className="p-4">
-                  <button onClick={(e) => handleDeleteClient(e, c.id)} className="text-red-600 hover:text-red-800">
-                    <Trash2 size={16}/>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleEditClient(c)} 
+                      className="text-blue-600 hover:text-blue-800"
+                      title="Editar cliente"
+                    >
+                      <Edit2 size={16}/>
+                    </button>
+                    <button 
+                      onClick={(e) => handleDeleteClient(e, c.id)} 
+                      className="text-red-600 hover:text-red-800"
+                      title="Eliminar cliente"
+                    >
+                      <Trash2 size={16}/>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -3411,6 +3452,93 @@ const ContentView = () => {
        MODALES
        ======================================== */}
       
+      {/* Modal de edición de cliente */}
+      {isClientModalOpen && editingClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Editar Cliente</h3>
+              <button onClick={() => setIsClientModalOpen(false)}><X size={24}/></button>
+            </div>
+            <form onSubmit={handleSaveClient} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={editingClient.nombre_completo}
+                  onChange={(e) => setEditingClient({...editingClient, nombre_completo: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={editingClient.email}
+                  onChange={(e) => setEditingClient({...editingClient, email: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                <input
+                  type="text"
+                  value={editingClient.telefono || ''}
+                  onChange={(e) => setEditingClient({...editingClient, telefono: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cédula</label>
+                <input
+                  type="text"
+                  value={editingClient.cedula || ''}
+                  onChange={(e) => setEditingClient({...editingClient, cedula: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                <input
+                  type="text"
+                  value={editingClient.direccion || ''}
+                  onChange={(e) => setEditingClient({...editingClient, direccion: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descuento Activo (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editingClient.descuento_activo}
+                  onChange={(e) => setEditingClient({...editingClient, descuento_activo: parseInt(e.target.value) || 0})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsClientModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal de detalles de pedido */}
       {isOrderModalOpen && selectedOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
