@@ -79,15 +79,30 @@ const AnimatedHero: React.FC<AnimatedHeroProps> = ({
           {/* COLUMNA IZQUIERDA: Logo + Texto */}
           <div className="space-y-8">
             <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.8, type: "spring", stiffness: 100 }}
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ 
+                opacity: 1, 
+                y: 0 
+              }}
+              transition={{ 
+                duration: 0.8, 
+                type: "spring", 
+                stiffness: 100 
+              }}
               className="flex justify-center md:justify-start mb-8"
             >
-              <img 
+              <motion.img 
                 src={logo} 
                 alt="Puntadas de Mechis - Logo" 
                 className="w-72 h-72 object-contain drop-shadow-2xl"
+                animate={{ 
+                  scale: [1, 1.1, 1],
+                }}
+                transition={{ 
+                  duration: 1.5, 
+                  repeat: Infinity, 
+                  ease: "easeInOut" 
+                }}
               />
             </motion.div>
 
