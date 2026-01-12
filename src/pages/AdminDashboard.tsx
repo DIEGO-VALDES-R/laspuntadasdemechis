@@ -2538,54 +2538,78 @@ const openNewGallery = () => {
   </div>
 );
 
-  // 🆕 REEMPLAZA COMPLETAMENTE LA FUNCIÓN ContentView EN AdminDashboard.tsx
+  // 🔧 REEMPLAZA LA FUNCIÓN ContentView COMPLETA EN AdminDashboard.tsx
 
 const ContentView = () => {
   const [localCardPrice1, setLocalCardPrice1] = useState(homeConfig.cardPrice1 || '$30.00');
   const [localCardPrice2, setLocalCardPrice2] = useState(homeConfig.cardPrice2 || '$27.00');
   const [localCardPrice3, setLocalCardPrice3] = useState(homeConfig.cardPrice3 || '$26.00');
   const [localCardPrice4, setLocalCardPrice4] = useState(homeConfig.cardPrice4 || '$25.00');
-  const [localCardPrice5, setLocalCardPrice5] = useState(homeConfig.cardPrice5 || '$24.00');  // 🆕
-  const [localCardPrice6, setLocalCardPrice6] = useState(homeConfig.cardPrice6 || '$23.00');  // 🆕
-  const [localCardPrice7, setLocalCardPrice7] = useState(homeConfig.cardPrice7 || '$22.00');  // 🆕
+  const [localCardPrice5, setLocalCardPrice5] = useState(homeConfig.cardPrice5 || '$24.00');
+  const [localCardPrice6, setLocalCardPrice6] = useState(homeConfig.cardPrice6 || '$23.00');
+  const [localCardPrice7, setLocalCardPrice7] = useState(homeConfig.cardPrice7 || '$22.00');
+
+  // 🆕 Estados para saber si se está subiendo una imagen
+  const [uploadingCard, setUploadingCard] = useState<number | null>(null);
 
   useEffect(() => {
     setLocalCardPrice1(homeConfig.cardPrice1 || '$30.00');
     setLocalCardPrice2(homeConfig.cardPrice2 || '$27.00');
     setLocalCardPrice3(homeConfig.cardPrice3 || '$26.00');
     setLocalCardPrice4(homeConfig.cardPrice4 || '$25.00');
-    setLocalCardPrice5(homeConfig.cardPrice5 || '$24.00');  // 🆕
-    setLocalCardPrice6(homeConfig.cardPrice6 || '$23.00');  // 🆕
-    setLocalCardPrice7(homeConfig.cardPrice7 || '$22.00');  // 🆕
+    setLocalCardPrice5(homeConfig.cardPrice5 || '$24.00');
+    setLocalCardPrice6(homeConfig.cardPrice6 || '$23.00');
+    setLocalCardPrice7(homeConfig.cardPrice7 || '$22.00');
   }, [homeConfig]);
 
-  const handleCardImageUpload = (e: React.ChangeEvent<HTMLInputElement>, cardNumber: 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
+  // 🔧 FUNCIÓN CORREGIDA - Ahora sube a Supabase Storage
+  const handleCardImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, cardNumber: 2 | 3 | 4 | 5 | 6 | 7 | 8) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 800000) {
-        alert("Imagen muy pesada (máx 800KB)");
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Imagen muy pesada (máx 5MB)");
+      return;
+    }
+
+    try {
+      setUploadingCard(cardNumber);
+      console.log(`📤 Subiendo imagen para tarjeta ${cardNumber}...`);
+
+      // 🔧 SUBIR A SUPABASE STORAGE
+      const imageUrl = await uploadImage(file, 'gallery');
+      
+      if (!imageUrl) {
+        alert('❌ Error al subir la imagen');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const imageUrl = ev.target?.result as string;
-        if (cardNumber === 2) {
-          setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
-        } else if (cardNumber === 3) {
-          setHomeConfig(prev => ({ ...prev, cardImage3: imageUrl }));
-        } else if (cardNumber === 4) {
-          setHomeConfig(prev => ({ ...prev, cardImage4: imageUrl }));
-        } else if (cardNumber === 5) {
-          setHomeConfig(prev => ({ ...prev, cardImage5: imageUrl }));
-        } else if (cardNumber === 6) {  // 🆕
-          setHomeConfig(prev => ({ ...prev, cardImage6: imageUrl }));
-        } else if (cardNumber === 7) {  // 🆕
-          setHomeConfig(prev => ({ ...prev, cardImage7: imageUrl }));
-        } else if (cardNumber === 8) {  // 🆕
-          setHomeConfig(prev => ({ ...prev, cardImage8: imageUrl }));
-        }
-      };
-      reader.readAsDataURL(file);
+
+      console.log(`✅ Imagen subida: ${imageUrl}`);
+
+      // 🔧 ACTUALIZAR EL ESTADO INMEDIATAMENTE
+      if (cardNumber === 2) {
+        setHomeConfig(prev => ({ ...prev, heroImage2: imageUrl }));
+      } else if (cardNumber === 3) {
+        setHomeConfig(prev => ({ ...prev, cardImage3: imageUrl }));
+      } else if (cardNumber === 4) {
+        setHomeConfig(prev => ({ ...prev, cardImage4: imageUrl }));
+      } else if (cardNumber === 5) {
+        setHomeConfig(prev => ({ ...prev, cardImage5: imageUrl }));
+      } else if (cardNumber === 6) {
+        setHomeConfig(prev => ({ ...prev, cardImage6: imageUrl }));
+      } else if (cardNumber === 7) {
+        setHomeConfig(prev => ({ ...prev, cardImage7: imageUrl }));
+      } else if (cardNumber === 8) {
+        setHomeConfig(prev => ({ ...prev, cardImage8: imageUrl }));
+      }
+
+      alert(`✅ Imagen de tarjeta ${cardNumber - 1} cargada. Haz clic en "Guardar Todo el Contenido" para confirmar.`);
+
+    } catch (error) {
+      console.error('❌ Error uploading image:', error);
+      alert('❌ Error al subir la imagen');
+    } finally {
+      setUploadingCard(null);
     }
   };
 
@@ -2597,12 +2621,12 @@ const ContentView = () => {
         cardPrice2: localCardPrice2,
         cardPrice3: localCardPrice3,
         cardPrice4: localCardPrice4,
-        cardPrice5: localCardPrice5,  // 🆕
-        cardPrice6: localCardPrice6,  // 🆕
-        cardPrice7: localCardPrice7,  // 🆕
+        cardPrice5: localCardPrice5,
+        cardPrice6: localCardPrice6,
+        cardPrice7: localCardPrice7,
       };
       
-      console.log('💾 Guardando configuración:', updatedConfig);
+      console.log('💾 Guardando configuración completa:', updatedConfig);
       
       const result = await db.saveHomeConfig(updatedConfig);
       
@@ -2658,14 +2682,24 @@ const ContentView = () => {
         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
           <ImageIcon size={20}/> Tarjetas Flotantes (Derecha)
         </h3>
-        <p className="text-sm text-gray-600 mb-6">
-          💡 Solo se mostrarán las tarjetas que tengan imagen Y precio configurados
-        </p>
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+          <p className="text-sm text-blue-800 font-medium">
+            💡 <strong>Importante:</strong> Solo se mostrarán las tarjetas que tengan imagen Y precio configurados.
+          </p>
+          <p className="text-xs text-blue-600 mt-2">
+            Después de subir cada imagen, haz clic en "Guardar Todo el Contenido" al final de la página.
+          </p>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           
           {/* TARJETA 1 - Verde */}
-          <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50">
+          <div className="border-2 border-green-200 rounded-xl p-4 bg-green-50 relative">
+            {uploadingCard === 2 && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 bg-green-500 rounded-full"></div>
               <h4 className="font-bold text-green-800">Tarjeta 1 (Verde)</h4>
@@ -2673,16 +2707,22 @@ const ContentView = () => {
             <div className="mb-3">
               <label className="block text-sm font-medium mb-2">Imagen</label>
               {homeConfig.heroImage2 && (
-                <img 
-                  src={homeConfig.heroImage2} 
-                  alt="Tarjeta 1" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-green-300"
-                />
+                <div className="relative mb-2">
+                  <img 
+                    src={homeConfig.heroImage2} 
+                    alt="Tarjeta 1" 
+                    className="w-full h-40 object-cover rounded-lg border-2 border-green-300"
+                  />
+                  <span className="absolute top-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded-full">
+                    ✓ Cargada
+                  </span>
+                </div>
               )}
               <input 
                 type="file" 
                 accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 2)} 
+                onChange={(e) => handleCardImageUpload(e, 2)}
+                disabled={uploadingCard === 2}
                 className="text-sm w-full"
               />
             </div>
@@ -2699,7 +2739,12 @@ const ContentView = () => {
           </div>
 
           {/* TARJETA 2 - Morada */}
-          <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50">
+          <div className="border-2 border-purple-200 rounded-xl p-4 bg-purple-50 relative">
+            {uploadingCard === 3 && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
               <h4 className="font-bold text-purple-800">Tarjeta 2 (Morada)</h4>
@@ -2707,16 +2752,22 @@ const ContentView = () => {
             <div className="mb-3">
               <label className="block text-sm font-medium mb-2">Imagen</label>
               {homeConfig.cardImage3 && (
-                <img 
-                  src={homeConfig.cardImage3} 
-                  alt="Tarjeta 2" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-purple-300"
-                />
+                <div className="relative mb-2">
+                  <img 
+                    src={homeConfig.cardImage3} 
+                    alt="Tarjeta 2" 
+                    className="w-full h-40 object-cover rounded-lg border-2 border-purple-300"
+                  />
+                  <span className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full">
+                    ✓ Cargada
+                  </span>
+                </div>
               )}
               <input 
                 type="file" 
                 accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 3)} 
+                onChange={(e) => handleCardImageUpload(e, 3)}
+                disabled={uploadingCard === 3}
                 className="text-sm w-full"
               />
             </div>
@@ -2733,7 +2784,12 @@ const ContentView = () => {
           </div>
 
           {/* TARJETA 3 - Amarilla */}
-          <div className="border-2 border-yellow-200 rounded-xl p-4 bg-yellow-50">
+          <div className="border-2 border-yellow-200 rounded-xl p-4 bg-yellow-50 relative">
+            {uploadingCard === 4 && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
               <h4 className="font-bold text-yellow-800">Tarjeta 3 (Amarilla)</h4>
@@ -2741,16 +2797,22 @@ const ContentView = () => {
             <div className="mb-3">
               <label className="block text-sm font-medium mb-2">Imagen</label>
               {homeConfig.cardImage4 && (
-                <img 
-                  src={homeConfig.cardImage4} 
-                  alt="Tarjeta 3" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-yellow-300"
-                />
+                <div className="relative mb-2">
+                  <img 
+                    src={homeConfig.cardImage4} 
+                    alt="Tarjeta 3" 
+                    className="w-full h-40 object-cover rounded-lg border-2 border-yellow-300"
+                  />
+                  <span className="absolute top-2 right-2 bg-yellow-600 text-white text-xs px-2 py-1 rounded-full">
+                    ✓ Cargada
+                  </span>
+                </div>
               )}
               <input 
                 type="file" 
                 accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 4)} 
+                onChange={(e) => handleCardImageUpload(e, 4)}
+                disabled={uploadingCard === 4}
                 className="text-sm w-full"
               />
             </div>
@@ -2767,7 +2829,12 @@ const ContentView = () => {
           </div>
 
           {/* TARJETA 4 - Rosa */}
-          <div className="border-2 border-pink-200 rounded-xl p-4 bg-pink-50">
+          <div className="border-2 border-pink-200 rounded-xl p-4 bg-pink-50 relative">
+            {uploadingCard === 5 && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600"></div>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 bg-pink-500 rounded-full"></div>
               <h4 className="font-bold text-pink-800">Tarjeta 4 (Rosa)</h4>
@@ -2775,16 +2842,22 @@ const ContentView = () => {
             <div className="mb-3">
               <label className="block text-sm font-medium mb-2">Imagen</label>
               {homeConfig.cardImage5 && (
-                <img 
-                  src={homeConfig.cardImage5} 
-                  alt="Tarjeta 4" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-pink-300"
-                />
+                <div className="relative mb-2">
+                  <img 
+                    src={homeConfig.cardImage5} 
+                    alt="Tarjeta 4" 
+                    className="w-full h-40 object-cover rounded-lg border-2 border-pink-300"
+                  />
+                  <span className="absolute top-2 right-2 bg-pink-600 text-white text-xs px-2 py-1 rounded-full">
+                    ✓ Cargada
+                  </span>
+                </div>
               )}
               <input 
                 type="file" 
                 accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 5)} 
+                onChange={(e) => handleCardImageUpload(e, 5)}
+                disabled={uploadingCard === 5}
                 className="text-sm w-full"
               />
             </div>
@@ -2801,7 +2874,12 @@ const ContentView = () => {
           </div>
 
           {/* 🆕 TARJETA 5 - Azul */}
-          <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50">
+          <div className="border-2 border-blue-200 rounded-xl p-4 bg-blue-50 relative">
+            {uploadingCard === 6 && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
               <h4 className="font-bold text-blue-800">Tarjeta 5 (Azul)</h4>
@@ -2809,16 +2887,22 @@ const ContentView = () => {
             <div className="mb-3">
               <label className="block text-sm font-medium mb-2">Imagen</label>
               {homeConfig.cardImage6 && (
-                <img 
-                  src={homeConfig.cardImage6} 
-                  alt="Tarjeta 5" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-blue-300"
-                />
+                <div className="relative mb-2">
+                  <img 
+                    src={homeConfig.cardImage6} 
+                    alt="Tarjeta 5" 
+                    className="w-full h-40 object-cover rounded-lg border-2 border-blue-300"
+                  />
+                  <span className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                    ✓ Cargada
+                  </span>
+                </div>
               )}
               <input 
                 type="file" 
                 accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 6)} 
+                onChange={(e) => handleCardImageUpload(e, 6)}
+                disabled={uploadingCard === 6}
                 className="text-sm w-full"
               />
             </div>
@@ -2835,7 +2919,12 @@ const ContentView = () => {
           </div>
 
           {/* 🆕 TARJETA 6 - Naranja */}
-          <div className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50">
+          <div className="border-2 border-orange-200 rounded-xl p-4 bg-orange-50 relative">
+            {uploadingCard === 7 && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
               <h4 className="font-bold text-orange-800">Tarjeta 6 (Naranja)</h4>
@@ -2843,16 +2932,22 @@ const ContentView = () => {
             <div className="mb-3">
               <label className="block text-sm font-medium mb-2">Imagen</label>
               {homeConfig.cardImage7 && (
-                <img 
-                  src={homeConfig.cardImage7} 
-                  alt="Tarjeta 6" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-orange-300"
-                />
+                <div className="relative mb-2">
+                  <img 
+                    src={homeConfig.cardImage7} 
+                    alt="Tarjeta 6" 
+                    className="w-full h-40 object-cover rounded-lg border-2 border-orange-300"
+                  />
+                  <span className="absolute top-2 right-2 bg-orange-600 text-white text-xs px-2 py-1 rounded-full">
+                    ✓ Cargada
+                  </span>
+                </div>
               )}
               <input 
                 type="file" 
                 accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 7)} 
+                onChange={(e) => handleCardImageUpload(e, 7)}
+                disabled={uploadingCard === 7}
                 className="text-sm w-full"
               />
             </div>
@@ -2869,7 +2964,12 @@ const ContentView = () => {
           </div>
 
           {/* 🆕 TARJETA 7 - Roja */}
-          <div className="border-2 border-red-200 rounded-xl p-4 bg-red-50">
+          <div className="border-2 border-red-200 rounded-xl p-4 bg-red-50 relative">
+            {uploadingCard === 8 && (
+              <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-3">
               <div className="w-4 h-4 bg-red-500 rounded-full"></div>
               <h4 className="font-bold text-red-800">Tarjeta 7 (Roja)</h4>
@@ -2877,16 +2977,22 @@ const ContentView = () => {
             <div className="mb-3">
               <label className="block text-sm font-medium mb-2">Imagen</label>
               {homeConfig.cardImage8 && (
-                <img 
-                  src={homeConfig.cardImage8} 
-                  alt="Tarjeta 7" 
-                  className="w-full h-40 object-cover rounded-lg mb-2 border-2 border-red-300"
-                />
+                <div className="relative mb-2">
+                  <img 
+                    src={homeConfig.cardImage8} 
+                    alt="Tarjeta 7" 
+                    className="w-full h-40 object-cover rounded-lg border-2 border-red-300"
+                  />
+                  <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded-full">
+                    ✓ Cargada
+                  </span>
+                </div>
               )}
               <input 
                 type="file" 
                 accept="image/*" 
-                onChange={(e) => handleCardImageUpload(e, 8)} 
+                onChange={(e) => handleCardImageUpload(e, 8)}
+                disabled={uploadingCard === 8}
                 className="text-sm w-full"
               />
             </div>
@@ -2906,8 +3012,9 @@ const ContentView = () => {
 
         <div className="mt-6 text-right">
           <button 
-            onClick={handleSaveContentConfig} 
-            className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-8 py-3 rounded-lg font-bold hover:from-pink-700 hover:to-purple-700 shadow-lg flex items-center gap-2 ml-auto"
+            onClick={handleSaveContentConfig}
+            disabled={uploadingCard !== null}
+            className="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-8 py-3 rounded-lg font-bold hover:from-pink-700 hover:to-purple-700 shadow-lg flex items-center gap-2 ml-auto disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save size={20}/>
             Guardar Todo el Contenido
