@@ -79,7 +79,10 @@ export function processHomeConfig(config: any): any {
     'hero_image3',
     'card_image3',
     'card_image4',
-    'card_image5'
+    'card_image5',
+    'card_image6',
+    'card_image7',
+    'card_image8'
   ];
 
   const processed = { ...config };

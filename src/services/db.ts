@@ -146,9 +146,9 @@ const mapHomeConfig = (c: any): HomeConfig => ({
   cardPrice2: c.card_price2,
   cardPrice3: c.card_price3,
   cardPrice4: c.card_price4,
-  cardPrice5: c.card_price5, // Nueva
-  cardPrice6: c.card_price6, // Nueva
-  cardPrice7: c.card_price7  // Nueva
+  cardPrice5: c.card_price5,
+  cardPrice6: c.card_price6,
+  cardPrice7: c.card_price7
 });
 
 // =====================================================
@@ -730,9 +730,9 @@ export const db = {
         card_image3: config.cardImage3 || '',
         card_image4: config.cardImage4 || '',
         card_image5: config.cardImage5 || '',
-        card_image6: config.cardImage6 || '', // Añadir esta
-        card_image7: config.card_image7 || '', // Añadir esta
-        card_image8: config.card_image8 || '', // Añadir esta
+        card_image6: config.cardImage6 || '',
+        card_image7: config.cardImage7 || '',
+        card_image8: config.cardImage8 || '',
         card_price1: config.cardPrice1 || '$30.00',
         card_price2: config.cardPrice2 || '$27.00',
         card_price3: config.cardPrice3 || '$26.00',
@@ -775,31 +775,43 @@ export const db = {
 
       if (!data) {
         console.log('⚠️ No existe registro, creando uno por defecto...');
-        const defaultConfig = {
+        const defaultConfig: HomeConfig = {
           heroImage1: '',
           heroImage2: '',
           cardImage3: '',
           cardImage4: '',
           cardImage5: '',
+          cardImage6: '',
+          cardImage7: '',
+          cardImage8: '',
           cardPrice1: '$30.00',
           cardPrice2: '$27.00',
           cardPrice3: '$26.00',
-          cardPrice4: '25.00',
+          cardPrice4: '$25.00',
+          cardPrice5: '$24.00',
+          cardPrice6: '$23.00',
+          cardPrice7: '$22.00',
         };
         await db.saveHomeConfig(defaultConfig);
         return defaultConfig;
       }
 
-      const config = {
+      const config: HomeConfig = {
         heroImage1: data.hero_image1 || '',
         heroImage2: data.hero_image2 || '',
         cardImage3: data.card_image3 || '',
         cardImage4: data.card_image4 || '',
         cardImage5: data.card_image5 || '',
+        cardImage6: data.card_image6 || '',
+        cardImage7: data.card_image7 || '',
+        cardImage8: data.card_image8 || '',
         cardPrice1: data.card_price1 || '$30.00',
         cardPrice2: data.card_price2 || '$27.00',
         cardPrice3: data.card_price3 || '$26.00',
         cardPrice4: data.card_price4 || '$25.00',
+        cardPrice5: data.card_price5 || '$24.00',
+        cardPrice6: data.card_price6 || '$23.00',
+        cardPrice7: data.card_price7 || '$22.00',
       };
 
       console.log('✅ Config cargada:', config);
@@ -813,10 +825,16 @@ export const db = {
         cardImage3: '',
         cardImage4: '',
         cardImage5: '',
+        cardImage6: '',
+        cardImage7: '',
+        cardImage8: '',
         cardPrice1: '$30.00',
         cardPrice2: '$27.00',
         cardPrice3: '$26.00',
         cardPrice4: '$25.00',
+        cardPrice5: '$24.00',
+        cardPrice6: '$23.00',
+        cardPrice7: '$22.00',
       };
     }
   },
