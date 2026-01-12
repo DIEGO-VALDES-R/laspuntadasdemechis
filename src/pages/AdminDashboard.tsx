@@ -266,6 +266,8 @@ const AdminDashboard: React.FC = () => {
   const [editingOrderClientName, setEditingOrderClientName] = useState('');
   const [editingOrderClientEmail, setEditingOrderClientEmail] = useState('');
   const [editingOrderClientPhone, setEditingOrderClientPhone] = useState('');
+  const [editingOrderTotal, setEditingOrderTotal] = useState(0);
+  const [editingOrderPaid, setEditingOrderPaid] = useState(0);
 
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [newOrderData, setNewOrderData] = useState({
@@ -664,6 +666,9 @@ const AdminDashboard: React.FC = () => {
       setEditingOrderClientPhone(order.clientPhone || '');
     }
 
+    setEditingOrderTotal(order.total_final || 0);
+    setEditingOrderPaid(order.monto_pagado || 0);
+
     setIsOrderModalOpen(true);
   };
 
@@ -774,7 +779,10 @@ const AdminDashboard: React.FC = () => {
       estado: statusUpdate,
       guia_transportadora: trackingGuide,
       clientName: editingOrderClientName || selectedOrder.clientName || '',  // ✅
-      clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '' // ✅
+      clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '', // ✅
+      total_final: editingOrderTotal,
+      monto_pagado: editingOrderPaid,
+      saldo_pendiente: editingOrderTotal - editingOrderPaid
     };
 
     console.log('💾 Actualizando pedido con datos:', updateData);
@@ -786,7 +794,10 @@ const AdminDashboard: React.FC = () => {
       clientName: updateData.clientName,
       clientPhone: updateData.clientPhone,
       estado: statusUpdate,
-      guia_transportadora: trackingGuide
+      guia_transportadora: trackingGuide,
+      total_final: updateData.total_final,
+      monto_pagado: updateData.monto_pagado,
+      saldo_pendiente: updateData.saldo_pendiente
     });
 
     alert('✅ Pedido actualizado correctamente');
@@ -833,9 +844,13 @@ const sendOrderUpdateNotification = () => {
       statusEmoji = '✅';
       statusMessage = 'Tu pedido ha sido *agendado* y pronto comenzaremos a trabajar en él.';
       break;
-    case 'En proceso':
+    case '¡Ya estamos tejiendo tu pedido! Pronto estará listo.':
       statusEmoji = '🧵';
       statusMessage = '¡Ya estamos tejiendo tu pedido! Pronto estará listo.';
+      break;
+    case 'Tu Amigurumi ya fue tejido.':
+      statusEmoji = '✨';
+      statusMessage = '¡Buenas noticias! Tu Amigurumi ya fue tejido y está quedando hermoso.';
       break;
     case 'Listo para entregar':
       statusEmoji = '🎁';
@@ -855,24 +870,30 @@ const sendOrderUpdateNotification = () => {
   
   const message = `
 Hola *${clientName}*, 👋
-
- ${statusEmoji} *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
-
- ${statusMessage}
-
+${statusEmoji} *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
+${statusMessage}
 📋 *Detalles:*
 - Producto: ${selectedOrder.nombre_producto}
 - Estado actual: *${statusUpdate}*
- ${trackingGuide ? `• 📮 Guía de envío: *${trackingGuide}*` : ''}
- ${selectedOrder.saldo_pendiente > 0 ? `• 💰 Saldo pendiente: $${selectedOrder.saldo_pendiente.toLocaleString()}` : ''}
-
- ${trackingGuide && statusUpdate === 'Listo para entregar' ? `
-Puedes rastrear tu envío aquí: 👇
+${trackingGuide ? `• 📮 Guía de envío: *${trackingGuide}*` : ''}
+${selectedOrder.saldo_pendiente > 0 ? `• 💰 Saldo pendiente: $${selectedOrder.saldo_pendiente.toLocaleString()}` : ''}
+${statusUpdate === 'Listo para entregar' ? `
+🚚 *INFORMACIÓN DE ENTREGA/RECOGIDA:*
+${selectedOrder.saldo_pendiente > 0 ? `• Pago a domicilio requerido: *$${selectedOrder.saldo_pendiente.toLocaleString()}*` : '• Recogida sin costo adicional'}
+• Por favor, ten el monto exacto disponible si aplica
+• Confirma tu disponibilidad para recibir el pedido
+` : ''}
+${trackingGuide && statusUpdate === 'Listo para entregar' ? `
+📦 Puedes rastrear tu envío aquí: 👇
 https://www.google.com/search?q=${encodeURIComponent(trackingGuide)}
 ` : ''}
-
+⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+Tu artículo cuenta con *cúpula de vidrio delicada*. Te recomendamos:
+• Manipular con ambas manos al desempacar
+• Evitar movimientos bruscos o golpes
+• Limpiar solo con paño suave y seco
 ¡Gracias por confiar en *Puntadas de Mechis*! ✨
-  `.trim();
+`.trim();
   
   const whatsappLink = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
   window.open(whatsappLink, '_blank');
@@ -3628,16 +3649,26 @@ const ContentView = () => {
                   <p className="font-medium">{selectedOrder.estado}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total</p>
-                  <p className="font-medium">${selectedOrder.total_final.toLocaleString()}</p>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Total</label>
+                  <input
+                    type="number"
+                    value={editingOrderTotal}
+                    onChange={(e) => setEditingOrderTotal(Number(e.target.value))}
+                    className="w-full px-2 py-1 border rounded font-medium"
+                  />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Pagado</p>
-                  <p className="font-medium">${selectedOrder.monto_pagado.toLocaleString()}</p>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Pagado</label>
+                  <input
+                    type="number"
+                    value={editingOrderPaid}
+                    onChange={(e) => setEditingOrderPaid(Number(e.target.value))}
+                    className="w-full px-2 py-1 border rounded font-medium"
+                  />
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Saldo pendiente</p>
-                  <p className="font-medium text-red-600">${selectedOrder.saldo_pendiente.toLocaleString()}</p>
+                  <p className="font-medium text-red-600">${(editingOrderTotal - editingOrderPaid).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Guía de transportadora</p>
@@ -3772,7 +3803,8 @@ const ContentView = () => {
                 >
                   <option value="En espera de agendar">En espera de agendar</option>
                   <option value="Agendado">Agendado</option>
-                  <option value="En proceso">En proceso</option>
+                  <option value="¡Ya estamos tejiendo tu pedido! Pronto estará listo.">¡Ya estamos tejiendo tu pedido! Pronto estará listo.</option>
+                  <option value="Tu Amigurumi ya fue tejido.">Tu Amigurumi ya fue tejido.</option>
                   <option value="Listo para entregar">Listo para entregar</option>
                   <option value="Entregado">Entregado</option>
                   <option value="Cancelado">Cancelado</option>

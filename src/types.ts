@@ -29,7 +29,7 @@ export interface Order {
   clientPhone?: string;
   nombre_producto: string;
   descripcion: string;
-  estado: 'En espera de agendar' | 'Agendado' | 'En proceso' | 'Listo para entregar' | 'Entregado' | 'Cancelado';
+  estado: 'En espera de agendar' | 'Agendado' | '¡Ya estamos tejiendo tu pedido! Pronto estará listo.' | 'Tu Amigurumi ya fue tejido.' | 'Listo para entregar' | 'Entregado' | 'Cancelado';
   fecha_solicitud: string;
   total_final: number;
   monto_pagado: number;

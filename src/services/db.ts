@@ -409,6 +409,26 @@ export const db = {
     if (error) console.error('Error deleting client:', error);
   },
 
+  updateClient: async (clientId: string, updates: Partial<Client>) => {
+    const dbUpdates: any = {};
+    if (updates.nombre_completo !== undefined) dbUpdates.nombre_completo = updates.nombre_completo;
+    if (updates.email !== undefined) dbUpdates.email = updates.email;
+    if (updates.telefono !== undefined) dbUpdates.telefono = updates.telefono;
+    if (updates.cedula !== undefined) dbUpdates.cedula = updates.cedula;
+    if (updates.direccion !== undefined) dbUpdates.direccion = updates.direccion;
+    if (updates.descuento_activo !== undefined) dbUpdates.descuento_activo = updates.descuento_activo;
+
+    const { error } = await supabase
+      .from('clients')
+      .update(dbUpdates)
+      .eq('id', clientId);
+
+    if (error) {
+      console.error('Error updating client:', error);
+      throw error;
+    }
+  },
+
   // --- SUPPLIES ---
   getSupplies: async (): Promise<Supply[]> => {
     const { data, error } = await supabase
