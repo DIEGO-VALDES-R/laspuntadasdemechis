@@ -8,7 +8,7 @@ import {
   Search, Eye, X, Save, ShoppingBag, Plus, Trash2, Edit2, 
   Image as ImageIcon, Upload, PenTool, Truck, Heart, Trophy, Box, PieChart, FileText, Star, ChevronDown, Pencil
 } from 'lucide-react';
-import { Order, Client, Supply, InventoryItem, GalleryItem, Tejedora, HomeConfig, Post, Challenge, GlobalConfig, InsumoAmigurumi, AmigurumiRecord } from '../types';
+import { Order, Client, Supply, InventoryItem, GalleryItem, DEFAULT_CONFIG, Tejedora, HomeConfig, Post, Challenge, GlobalConfig, InsumoAmigurumi, AmigurumiRecord } from '../types';
 import CompleteMigration from "../components/admin/CompleteMigration";
 
 // ========================================
@@ -283,7 +283,7 @@ const AdminDashboard: React.FC = () => {
     monto_pagado: 0,
     imagen: null as File | null,
     imagenPreview: '',
-    tipo_empaque: 'cupula_vidrio' as 'cupula_vidrio' | 'caja_carton' | 'bolsa_organza' | 'sin_empaque' // 🆕 Inicializado
+    tipo_empaque: '' as 'cupula_vidrio' | 'caja_carton' | 'bolsa_organza' | 'sin_empaque' // 🆕 Inicializado en vacío para el select dinámico
   });
   const [showNotificationOptions, setShowNotificationOptions] = useState(false);
   const [createdOrderNumber, setCreatedOrderNumber] = useState('');
@@ -646,7 +646,7 @@ const AdminDashboard: React.FC = () => {
     setSelectedOrder(order);
     setStatusUpdate(order.estado);
     setTrackingGuide(order.guia_transportadora || '');
-    setTipoEmpaqueOrder((order as any).tipo_empaque || 'cupula_vidrio'); // ✅ NUEVA LÍNEA
+    setTipoEmpaqueOrder((order as any).tipo_empaque || ''); // ✅ NUEVA LÍNEA
     
     setFinalImageFile(null);
     setFinalImagePreview('');
@@ -874,57 +874,24 @@ const sendOrderUpdateNotification = () => {
   }
   
   // 🆕 Mensajes personalizados según el tipo de empaque
-  const tipoEmpaque = (selectedOrder as any).tipo_empaque || tipoEmpaqueOrder || 'cupula_vidrio';
+  const tipoEmpaque = tipoEmpaqueOrder || '';
   let cuidadoProducto = '';
   
-  switch (tipoEmpaque) {
-    case 'cupula_vidrio':
-      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
-Tu artículo cuenta con *cúpula de vidrio delicada*.
-
+  if (tipoEmpaque && tipoEmpaque !== 'sin_empaque') {
+    // Tiene empaque específico - mostrar nombre sin precio
+    cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+Tu pedido viene empacado en: *${tipoEmpaque}*
 Te recomendamos:
-• Manipular con ambas manos al desempacar
-• Evitar movimientos bruscos o golpes
-• Limpiar solo con paño suave y seco`;
-      break;
-      
-    case 'caja_carton':
-      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
-Tu amigurumi viene en *caja de cartón*.
-
+- Manipular con cuidado
+- Guardar en lugar seco cuando no esté en uso`;
+  } else if (tipoEmpaque === 'sin_empaque') {
+    // Sin empaque
+    cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
 Te recomendamos:
-• Guardar en lugar seco y fresco
-• Evitar la exposición directa al sol
-• Manipular con cuidado para mantener su forma`;
-      break;
-      
-    case 'bolsa_organza':
-      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
-Tu amigurumi viene en *bolsa de organza*.
-
-Te recomendamos:
-• Guardar en lugar limpio y seco
-• Evitar contacto con líquidos
-• Mantener alejado de mascotas`;
-      break;
-      
-    case 'sin_empaque':
-      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
-Te recomendamos:
-• Manipular con las manos limpias
-• Guardar en lugar seco cuando no esté en uso
-• Lavar solo si es necesario, siguiendo instrucciones de cuidado`;
-      break;
-      
-    default:
-      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
-Te recomendamos:
-• Manipular con cuidado
-• Guardar en lugar seco y fresco
-• Evitar la exposición prolongada al sol`;
+- Manipular con las manos limpias
+- Guardar en lugar seco cuando no esté en uso`;
   }
-  
-  // 🆕 Mensajes personalizados según el tipo de empaque
+
   const infoPago = selectedOrder.saldo_pendiente > 0 ? `
 💳 *DATOS DE PAGO:*
 - *Bre-B:* @sandrab1072
@@ -934,21 +901,21 @@ Te recomendamos:
   const message = `
 Hola *${clientName}*, 👋
 
- ${statusEmoji} *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
+${statusEmoji} *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
 
- ${statusMessage}
+${statusMessage}
 
 📋 *Detalles:*
 - Producto: ${selectedOrder.nombre_producto}
 - Estado actual: *${statusUpdate}*
- ${trackingGuide ? `• 📮 Guía de envío: *${trackingGuide}*` : ''}
- ${selectedOrder.saldo_pendiente > 0 ? `• 💰 Saldo pendiente: ${selectedOrder.saldo_pendiente.toLocaleString('es-CO')}` : ''}
- ${infoPago}
- ${trackingGuide && statusUpdate === 'Listo para entregar' ? `
+${trackingGuide ? `• 📮 Guía de envío: *${trackingGuide}*` : ''}
+${selectedOrder.saldo_pendiente > 0 ? `• 💰 Saldo pendiente: ${selectedOrder.saldo_pendiente.toLocaleString('es-CO')}` : ''}
+${infoPago}
+${trackingGuide && statusUpdate === 'Listo para entregar' ? `
 📦 Puedes rastrear tu envío aquí: 👇
 https://www.google.com/search?q=${encodeURIComponent(trackingGuide)}
 ` : ''}
- ${cuidadoProducto}
+${cuidadoProducto}
 
 ¡Gracias por confiar en *Puntadas de Mechis*! ✨
 `.trim();
@@ -956,7 +923,6 @@ https://www.google.com/search?q=${encodeURIComponent(trackingGuide)}
   const whatsappLink = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
   window.open(whatsappLink, '_blank');
 };
-
   const handleDeleteOrder = async (e: React.MouseEvent, orderId: string) => {
     e.stopPropagation();
     if (window.confirm('¿Eliminar este pedido?')) {
@@ -1154,7 +1120,7 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
       monto_pagado: 0,
       imagen: null,
       imagenPreview: '',
-      tipo_empaque: 'cupula_vidrio' // ✅ AGREGADO
+      tipo_empaque: '' // ✅ AGREGADO (Reseteado a vacío)
     });
   };
 
@@ -1195,7 +1161,7 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
       quantity: 0,
       color: '',
       number: '',
-      lowStockThreshold: 5,
+      lowStockThreshold:5,
       imageUrl: ''
     });
     setIsSupplyModalOpen(true);
@@ -1689,7 +1655,7 @@ const openNewGallery = () => {
         console.log('💾 Guardando...', { nombre, insumos, editingId });
         
         const amigurumiData: AmigurumiRecord = {
-          id: editingId || crypto.randomUUID(),
+          id: editingId || `amg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           nombre,
           insumos,
           fecha_actualizacion: new Date().toISOString()
@@ -2161,14 +2127,14 @@ const openNewGallery = () => {
                         disabled={loading}
                         className="bg-blue-100 text-blue-700 p-2 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
                       >
-                        <Edit2 size={18} />
+                        <Edit2 size={18}/>
                       </button>
                       <button
                         onClick={() => deleteAmigurumi(amigurumi.id)}
                         disabled={loading}
                         className="bg-red-100 text-red-700 p-2 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={18}/>
                       </button>
                     </div>
                   </div>
@@ -2716,7 +2682,6 @@ const ContentView = () => {
       console.log(`✅ Imagen subida: ${imageUrl}`);
 
       // 🔧 ACTUALIZAR EL ESTADO INMEDIATAMENTE
-      // 🔧 ACTUALIZAR ESTADO Y BASE DE DATOS INMEDIATAMENTE
       const fieldMap: Record<number, keyof HomeConfig> = {
         2: 'heroImage2',
         3: 'cardImage3',
@@ -3823,7 +3788,7 @@ const ContentView = () => {
                           type="button"
                           onClick={handleUploadFinalImage}
                           disabled={uploadingFinalImage}
-                          className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                          className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 flex items-center justify-center gap-2"
                         >
                           {uploadingFinalImage ? (
                             <>
@@ -3854,7 +3819,7 @@ const ContentView = () => {
                 />
               </div>
 
-              {/* 🆕 CAMPO DE TIPO DE EMPAQUE (CAMBIO SOLICITADO) */}
+              {/* 🆕 CAMPO DE TIPO DE EMPAQUE (CAMBIO SOLICITADO - DINÁMICO DESDE INVENTARIO) */}
               <div>
                 <label className="block text-sm font-bold mb-2">Tipo de Empaque 📦</label>
                 <select
@@ -3862,10 +3827,16 @@ const ContentView = () => {
                   onChange={(e) => setTipoEmpaqueOrder(e.target.value as any)}
                   className="w-full p-2 border rounded"
                 >
-                  <option value="cupula_vidrio">🔮 Cúpula de Vidrio</option>
-                  <option value="caja_carton">📦 Caja de Cartón</option>
-                  <option value="bolsa_organza">👜 Bolsa de Organza</option>
+                  <option value="">Seleccionar empaque...</option>
                   <option value="sin_empaque">❌ Sin Empaque</option>
+                  {inventoryItems
+                    .filter(item => item.category === 'packaging')
+                    .map(pack => (
+                      <option key={pack.id} value={pack.label}>
+                        📦 {pack.label} (${pack.price.toLocaleString()})
+                      </option>
+                    ))
+                  }
                 </select>
               </div>
 
@@ -3906,7 +3877,7 @@ const ContentView = () => {
               <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200">
                 <h4 className="font-bold text-green-800 mb-3 flex items-center gap-2">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893 11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                   </svg>
                   Notificaciones WhatsApp
                 </h4>
@@ -3919,10 +3890,10 @@ const ContentView = () => {
                     className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                     </svg>
                     Notificar Cliente
-                  </button>
+                    </button>
                   
                   {!editingOrderClientPhone && (
                     <p className="text-xs text-red-600 text-center">
@@ -3941,95 +3912,95 @@ const ContentView = () => {
       )}
 
       {/* Modal de inventario */}
-      {isInventoryModalOpen && editingInventoryItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">
-                {inventoryItems.some(i => i.id === editingInventoryItem.id)
-                  ? 'Editar Item'
-                  : 'Nuevo Item'}
-              </h3>
-              <button
-                onClick={() => {
-                  setIsInventoryModalOpen(false);
-                  setEditingInventoryItem(null);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={24}/>
-              </button>
-            </div>
+{isInventoryModalOpen && editingInventoryItem && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold">
+          {inventoryItems.some(i => i.id === editingInventoryItem.id)
+            ? 'Editar Item'
+            : 'Nuevo Item'}
+        </h3>
+        <button
+          onClick={() => {
+            setIsInventoryModalOpen(false);
+            setEditingInventoryItem(null);
+          }}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X size={24}/>
+        </button>
+      </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Categoría
-                </label>
-                <select
-                  value={editingInventoryItem.category}
-                  onChange={e =>
-                    setEditingInventoryItem({
-                      ...editingInventoryItem,
-                      category: e.target.value as 'sizes' | 'packaging' | 'accessories'
-                    })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="sizes">📏 Tamaño</option>
-                  <option value="packaging">📦 Empaque</option>
-                  <option value="accessories">✨ Accesorio</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  value={editingInventoryItem.label}
-                  onChange={e =>
-                    setEditingInventoryItem({
-                      ...editingInventoryItem,
-                      label: e.target.value
-                    })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Ej: 15cm, Caja Premium, Base LED"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Precio ($)
-                </label>
-                <input
-                  type="number"
-                  value={editingInventoryItem.price}
-                  onChange={e =>
-                    setEditingInventoryItem({
-                      ...editingInventoryItem,
-                      price: parseFloat(e.target.value) || 0
-                    })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="0"
-                  min="0"
-                />
-              </div>
-
-              <button
-                onClick={handleSaveInventoryItem}
-                className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 font-bold"
-              >
-                <Save size={20}/>
-                Guardar
-              </button>
-            </div>
-          </div>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Categoría
+          </label>
+          <select
+            value={editingInventoryItem.category}
+            onChange={e =>
+              setEditingInventoryItem({
+                ...editingInventoryItem,
+                category: e.target.value as 'sizes' | 'packaging' | 'accessories'
+              })
+            }
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            <option value="sizes">📏 Tamaño</option>
+            <option value="packaging">📦 Empaque</option>
+            <option value="accessories">✨ Accesorio</option>
+          </select>
         </div>
-      )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Nombre
+          </label>
+          <input
+            type="text"
+            value={editingInventoryItem.label}
+            onChange={e =>
+              setEditingInventoryItem({
+                ...editingInventoryItem,
+                label: e.target.value
+              })
+            }
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            placeholder="Ej: 15cm, Caja Premium, Base LED"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Precio ($)
+          </label>
+          <input
+            type="number"
+            value={editingInventoryItem.price}
+            onChange={e =>
+              setEditingInventoryItem({
+                ...editingInventoryItem,
+                price: parseFloat(e.target.value) || 0
+              })
+            }
+            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            placeholder="0"
+            min="0"
+          />
+        </div>
+
+        <button
+          onClick={handleSaveInventoryItem}
+          className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2 font-bold"
+        >
+          <Save size={20}/>
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Modal de creación de pedido */}
       {isCreateOrderModalOpen && (
@@ -4140,7 +4111,7 @@ const ContentView = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-bold mb-1">Precio Total ($) *</label>
                       <input 
@@ -4164,7 +4135,7 @@ const ContentView = () => {
                     </div>
                   </div>
 
-                  {/* 🆕 CAMPO DE TIPO DE EMPAQUE (CAMBIO SOLICITADO) */}
+                  {/* 🆕 CAMPO DE TIPO DE EMPAQUE (CAMBIO SOLICITADO - DINÁMICO DESDE INVENTARIO) */}
                   <div>
                     <label className="block text-sm font-bold mb-1">Tipo de Empaque 📦</label>
                     <select
@@ -4172,10 +4143,16 @@ const ContentView = () => {
                       onChange={e => setNewOrderData({...newOrderData, tipo_empaque: e.target.value as any})}
                       className="w-full border p-2 rounded-lg"
                     >
-                      <option value="cupula_vidrio">🔮 Cúpula de Vidrio</option>
-                      <option value="caja_carton">📦 Caja de Cartón</option>
-                      <option value="bolsa_organza">👜 Bolsa de Organza</option>
+                      <option value="">Seleccionar empaque...</option>
                       <option value="sin_empaque">❌ Sin Empaque</option>
+                      {inventoryItems
+                        .filter(item => item.category === 'packaging')
+                        .map(pack => (
+                          <option key={pack.id} value={pack.label}>
+                            📦 {pack.label} (${pack.price.toLocaleString()})
+                          </option>
+                        ))
+                      }
                     </select>
                   </div>
 
@@ -4219,7 +4196,7 @@ const ContentView = () => {
                     className="w-full bg-green-600 text-white p-4 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center gap-3"
                   >
                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                     </svg>
                     Enviar por WhatsApp al Cliente
                   </button>
@@ -4229,7 +4206,7 @@ const ContentView = () => {
                     className="w-full bg-blue-600 text-white p-4 rounded-lg font-bold hover:bg-blue-700 flex items-center justify-center gap-3"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002-2z"></path>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2V7a2 2 0 00-2-2z"></path>
                     </svg>
                     Enviar por Email
                   </button>
@@ -4242,7 +4219,7 @@ const ContentView = () => {
                       className="w-full bg-green-600 text-white p-3 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center gap-3"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                       </svg>
                       Sandra (312-491-5127)
                     </button>
@@ -4252,7 +4229,7 @@ const ContentView = () => {
                       className="w-full bg-green-600 text-white p-3 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center gap-3"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                       </svg>
                       Sofi (322-458-9653)
                     </button>
@@ -4290,7 +4267,7 @@ const ContentView = () => {
                 <input 
                   className="w-full border p-2 rounded-lg" 
                   value={editingSupply.name} 
-                  onChange={e => setEditingSupply({...editingSupply, name: e.target.value})} 
+                  onChange={(e) => setEditingSupply({...editingSupply, name: e.target.value})} 
                   required
                 />
               </div>
@@ -4301,7 +4278,7 @@ const ContentView = () => {
                   <input 
                     className="w-full border p-2 rounded-lg" 
                     value={editingSupply.reference} 
-                    onChange={e => setEditingSupply({...editingSupply, reference: e.target.value})} 
+                    onChange={(e) => setEditingSupply({...editingSupply, reference: e.target.value})} 
                     required
                   />
                 </div>
@@ -4310,7 +4287,7 @@ const ContentView = () => {
                   <input 
                     className="w-full border p-2 rounded-lg" 
                     value={editingSupply.number} 
-                    onChange={e => setEditingSupply({...editingSupply, number: e.target.value})}
+                    onChange={(e) => setEditingSupply({...editingSupply, number: e.target.value})}
                   />
                 </div>
               </div>
@@ -4321,7 +4298,7 @@ const ContentView = () => {
                   <input 
                     className="w-full border p-2 rounded-lg" 
                     value={editingSupply.color} 
-                    onChange={e => setEditingSupply({...editingSupply, color: e.target.value})} 
+                    onChange={(e) => setEditingSupply({...editingSupply, color: e.target.value})} 
                     required
                   />
                 </div>
@@ -4331,7 +4308,7 @@ const ContentView = () => {
                     type="number" 
                     className="w-full border p-2 rounded-lg" 
                     value={editingSupply.quantity} 
-                    onChange={e => setEditingSupply({...editingSupply, quantity: Number(e.target.value)})} 
+                    onChange={(e) => setEditingSupply({...editingSupply, quantity: Number(e.target.value)})} 
                     required
                   />
                 </div>
@@ -4344,7 +4321,7 @@ const ContentView = () => {
                     type="number" 
                     className="w-full border p-2 rounded-lg" 
                     value={editingSupply.unitValue} 
-                    onChange={e => setEditingSupply({...editingSupply, unitValue: Number(e.target.value)})} 
+                    onChange={(e) => setEditingSupply({...editingSupply, unitValue: Number(e.target.value)})} 
                     required
                   />
                 </div>
@@ -4354,7 +4331,7 @@ const ContentView = () => {
                     type="number" 
                     className="w-full border p-2 rounded-lg" 
                     value={editingSupply.lowStockThreshold} 
-                    onChange={e => setEditingSupply({...editingSupply, lowStockThreshold: Number(e.target.value)})} 
+                    onChange={(e) => setEditingSupply({...editingSupply, lowStockThreshold: Number(e.target.value)})} 
                     required
                   />
                 </div>
@@ -4499,7 +4476,7 @@ const ContentView = () => {
             type="number"
             placeholder="0"
             value={editingGallery.price || ''}
-            onChange={(e) => setEditingGallery({...editingGallery, price: parseFloat(e.target.value) || 0})}
+            onChange={(e) => setEditingGallery({...editingGallery, price: parseFloat(e.target.value)})}
             className="w-full border p-2 rounded"
           />
         </div>
@@ -4604,257 +4581,282 @@ const ContentView = () => {
       )}
 
       {/* Modal de retos */}
-      {isChallengeModalOpen && editingChallenge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
-            <h3 className="font-bold text-xl mb-4">Editar Reto</h3>
-            <form onSubmit={handleSaveChallenge} className="space-y-4">
-              <div>
-                <label className="text-sm font-bold">Título</label>
-                <input className="w-full border p-2 rounded" value={editingChallenge.title} onChange={e => setEditingChallenge({...editingChallenge, title: e.target.value})} required/>
-              </div>
-              <div>
-                <label className="text-sm font-bold">Descripción</label>
-                <textarea className="w-full border p-2 rounded" value={editingChallenge.description} onChange={e => setEditingChallenge({...editingChallenge, description: e.target.value})} required/>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-  <div>
-    <label className="text-sm font-bold">Inicio</label>
-    <input type="date" className="w-full border p-2 rounded" value={editingChallenge.startDate} onChange={e => setEditingChallenge({...editingChallenge, startDate: e.target.value})} required/>
-  </div>
-  <div>
-    <label className="text-sm font-bold">Fin</label>
-    <input type="date" className="w-full border p-2 rounded" value={editingChallenge.endDate} onChange={e => setEditingChallenge({...editingChallenge, endDate: e.target.value})} required/>
-  </div>
-</div>
-{/* NUEVO CAMPO DE ESTADO */}
-<div>
-  <label className="text-sm font-bold">Estado del Reto</label>
-  <select 
-    className="w-full border p-2 rounded" 
-    value={editingChallenge.status} 
-    onChange={e => setEditingChallenge({...editingChallenge, status: e.target.value as any})}
-  >
-    <option value="upcoming">Próximamente</option>
-    <option value="starting">Por iniciar</option>
-    <option value="active">En proceso</option>
-    <option value="completed">Finalizado</option>
-  </select>
-</div>
-
-              <div>
-                <label className="text-sm font-bold">Imagen</label>
-                {editingChallenge.imageUrl && <img src={editingChallenge.imageUrl} alt="preview" className="w-full h-32 object-cover rounded mb-2"/>}
-                <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setEditingChallenge)}/>
-              </div>
-              <button type="submit" className="w-full bg-purple-600 text-white p-2 rounded font-bold">Guardar</button>
-            </form>
+{isChallengeModalOpen && editingChallenge && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
+      <h3 className="font-bold text-xl mb-4">Editar Reto</h3>
+      <form onSubmit={handleSaveChallenge} className="space-y-4">
+        <div>
+          <label className="text-sm font-bold">Título</label>
+          <input className="w-full border p-2 rounded" value={editingChallenge.title} onChange={e => setEditingChallenge({...editingChallenge, title: e.target.value})} required/>
+        </div>
+        <div>
+          <label className="text-sm font-bold">Descripción</label>
+          <textarea className="w-full border p-2 rounded" value={editingChallenge.description} onChange={e => setEditingChallenge({...editingChallenge, description: e.target.value})} required/>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-bold">Inicio</label>
+            <input type="date" className="w-full border p-2 rounded" value={editingChallenge.startDate} onChange={e => setEditingChallenge({...editingChallenge, startDate: e.target.value})} required/>
+          </div>
+          <div>
+            <label className="text-sm font-bold">Fin</label>
+            <input type="date" className="w-full border p-2 rounded" value={editingChallenge.endDate} onChange={e => setEditingChallenge({...editingChallenge, endDate: e.target.value})} required/>
           </div>
         </div>
-      )}
+        
+        {/* CAMPO DE ESTADO */}
+        <div>
+          <label className="text-sm font-bold">Estado del Reto</label>
+          <select 
+            className="w-full border p-2 rounded" 
+            value={editingChallenge.status} 
+            onChange={e => setEditingChallenge({...editingChallenge, status: e.target.value as any})}
+          >
+            <option value="upcoming">Próximamente</option>
+            <option value="starting">Por iniciar</option>
+            <option value="active">En proceso</option>
+            <option value="completed">Finalizado</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-sm font-bold">Imagen</label>
+          {editingChallenge.imageUrl && <img src={editingChallenge.imageUrl} alt="preview" className="w-full h-32 object-cover rounded mb-2"/>}
+          <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, setEditingChallenge)}/>
+        </div>
+        <button type="submit" className="w-full bg-purple-600 text-white p-2 rounded font-bold">Guardar</button>
+      </form>
+    </div>
+  </div>
+)}
 
       {/* Modal de insumos por amigurumi */}
-      {isAmigurumiModalOpen && editingAmigurumi && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold">
-                {editingAmigurumi.id ? 'Editar Amigurumi' : 'Nuevo Amigurumi'}
-              </h3>
-              <button onClick={() => {
-                setIsAmigurumiModalOpen(false);
-                setEditingAmigurumi(null);
-              }}>
-                <X size={24}/>
-              </button>
-            </div>
+{isAmigurumiModalOpen && editingAmigurumi && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-xl font-bold">
+          {editingAmigurumi.id ? 'Editar Amigurumi' : 'Nuevo Amigurumi'}
+        </h3>
+        <button onClick={() => {
+          setIsAmigurumiModalOpen(false);
+          setEditingAmigurumi(null);
+        }}>
+          <X size={24}/>
+        </button>
+      </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold mb-2">Nombre del Amigurumi *</label>
-                <input
-                  type="text"
-                  value={editingAmigurumi.nombre}
-                  onChange={(e) => setEditingAmigurumi({...editingAmigurumi, nombre: e.target.value})}
-                  className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:border-purple-500"
-                  placeholder="Ej: Osito Teddy, Conejito Rosa, etc."
-                />
-              </div>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-bold mb-2">Nombre del Amigurumi *</label>
+          <input
+            type="text"
+            value={editingAmigurumi.nombre}
+            onChange={(e) => setEditingAmigurumi({...editingAmigurumi, nombre: e.target.value})}
+            className="w-full px-4 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:border-purple-500"
+            placeholder="Ej: Osito Teddy, Conejito Rosa, etc."
+          />
+        </div>
 
-              {editingAmigurumi.insumos.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-3">
-                    Insumos Agregados ({editingAmigurumi.insumos.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {editingAmigurumi.insumos.map((insumo) => (
-                      <div
-                        key={insumo.id}
-                        className="bg-white border-2 border-gray-200 rounded-lg p-3 flex justify-between items-start hover:border-purple-300 transition-colors"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded">
-                              {insumo.tipo}
-                            </span>
-                            <span className="font-semibold text-gray-800">
-                              {insumo.marca}
-                            </span>
-                            {isInsumoInInventory(supplies, insumo) && (
-                              <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">
-                                ✓ En inventario
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            <span className="font-medium">Color:</span> {insumo.color}
-                            {insumo.referencia && (
-                              <span className="ml-3">
-                                <span className="font-medium">Ref:</span> {insumo.referencia}
-                              </span>
-                            )}
-                            {insumo.cantidad && (
-                              <span className="ml-3">
-                                <span className="font-medium">Cantidad:</span> {insumo.cantidad} {insumo.unidad}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveInsumoFromAmigurumi(insumo.id)}
-                          className="text-red-600 hover:text-red-700 p-1"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ))}
+        {editingAmigurumi.insumos.length > 0 && (
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-800 mb-3">
+              Insumos Agregados ({editingAmigurumi.insumos.length})
+            </h4>
+            <div className="space-y-2">
+              {editingAmigurumi.insumos.map((insumo) => (
+                <div
+                  key={insumo.id}
+                  className="bg-white border-2 border-gray-200 rounded-lg p-3 flex justify-between items-start hover:border-purple-300 transition-colors"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-1 rounded">
+                        {insumo.tipo}
+                      </span>
+                      <span className="font-semibold text-gray-800">
+                        {insumo.marca}
+                      </span>
+                      {isInsumoInInventory(supplies, insumo) && (
+                        <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded">
+                          ✓ En inventario
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium">Color:</span> {insumo.color}
+                      {insumo.referencia && (
+                        <span className="ml-3">
+                          <span className="font-medium">Ref:</span> {insumo.referencia}
+                        </span>
+                      )}
+                      {insumo.cantidad && (
+                        <span className="ml-3">
+                          <span className="font-medium">Cantidad:</span> {insumo.cantidad} {insumo.unidad}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  <button
+                    onClick={() => handleRemoveInsumoFromAmigurumi(insumo.id)}
+                    className="text-red-600 hover:text-red-700 p-1"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
-              )}
-
-              <div className="bg-purple-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-800 mb-3">Agregar Nuevo Insumo</h4>
-                <div className="grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Tipo de Material
-                    </label>
-                    <select
-                      value={currentInsumoAmigurumi.tipo}
-                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, tipo: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                    >
-                      <option value="lana">Lana</option>
-                      <option value="hilo">Hilo</option>
-                      <option value="relleno">Relleno</option>
-                      <option value="ojos">Ojos de Seguridad</option>
-                      <option value="fieltro">Fieltro</option>
-                      <option value="botones">Botones</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Marca *
-                    </label>
-                    <input
-                      type="text"
-                      value={currentInsumoAmigurumi.marca}
-                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, marca: e.target.value})}
-                      placeholder="Ej: Copito, Lanasol"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Referencia/Código
-                    </label>
-                    <input
-                      type="text"
-                      value={currentInsumoAmigurumi.referencia}
-                      onChange={(e) => handleReferenciaChangeModal(e.target.value)}
-                      placeholder="Ej: REF-1234"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Color *
-                    </label>
-                    <input
-                      type="text"
-                      value={currentInsumoAmigurumi.color}
-                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, color: e.target.value})}
-                      placeholder="Ej: Blanco hueso, Rosa pastel"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Cantidad
-                    </label>
-                    <input
-                      type="text"
-                      value={currentInsumoAmigurumi.cantidad}
-                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, cantidad: e.target.value})}
-                      placeholder="Ej: 50, 1"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Unidad
-                    </label>
-                    <select
-                      value={currentInsumoAmigurumi.unidad}
-                      onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, unidad: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                    >
-                      <option value="gramos">Gramos</option>
-                      <option value="metros">Metros</option>
-                      <option value="unidades">Unidades</option>
-                      <option value="pares">Pares</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleAddInsumoToAmigurumi}
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  <Plus size={16} />
-                  Agregar Insumo
-                </button>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={handleSaveAmigurumiRecordModal}
-                  className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
-                >
-                  <Save size={20} />
-                  Guardar Amigurumi
-                </button>
-                <button
-                  onClick={() => {
-                    setIsAmigurumiModalOpen(false);
-                    setEditingAmigurumi(null);
-                  }}
-                  className="flex items-center gap-2 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
-                >
-                  <X size={20} />
-                  Cancelar
-                </button>
-              </div>
+              ))}
             </div>
           </div>
+        )}
+
+        <div className="bg-purple-50 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-800 mb-3">Agregar Nuevo Insumo</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+            {/* TIPO */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Tipo de Material
+              </label>
+              <select
+                value={currentInsumoAmigurumi.tipo}
+                onChange={(e) => setCurrentInsumoAmigurumi({ 
+                  ...currentInsumoAmigurumi, 
+                  tipo: e.target.value,
+                  marca: '',
+                  referencia: '',
+                  color: '',
+                  cantidad: '',
+                  unidad: 'gramos'
+                })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+              >
+                <option value="lana">Lana</option>
+                <option value="hilo">Hilo</option>
+                <option value="relleno">Relleno</option>
+                <option value="ojos">Ojos de Seguridad</option>
+                <option value="fieltro">Fieltro</option>
+                <option value="botones">Botones</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+
+            {/* MARCA CON AUTOCOMPLETADO */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Marca * 
+                <span className="text-purple-600 ml-1">↓ Sugerencias</span>
+              </label>
+              <AutocompleteInput
+                value={currentInsumoAmigurumi.marca}
+                onChange={(val) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, marca: val})}
+                suggestions={getMarcasSuggestions(supplies, currentInsumoAmigurumi.tipo)}
+                placeholder="Ej: Copito, Lanasol"
+                field="marca"
+              />
+            </div>
+
+            {/* REFERENCIA CON AUTOCOMPLETADO */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Referencia/Código
+                {currentInsumoAmigurumi.marca && (
+                  <span className="text-purple-600 ml-1">↓ Sugerencias</span>
+                )}
+              </label>
+              <AutocompleteInput
+                value={currentInsumoAmigurumi.referencia}
+                onChange={(val) => handleReferenciaChangeModal(val)}
+                suggestions={getReferenciasSuggestions(supplies, currentInsumoAmigurumi.marca)}
+                placeholder="Ej: REF-1234"
+                field="referencia"
+                disabled={!currentInsumoAmigurumi.marca}
+              />
+            </div>
+
+            {/* COLOR CON AUTOCOMPLETADO */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Color *
+                {currentInsumoAmigurumi.marca && (
+                  <span className="text-purple-600 ml-1">↓ Sugerencias</span>
+                )}
+              </label>
+              <AutocompleteInput
+                value={currentInsumoAmigurumi.color}
+                onChange={(val) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, color: val})}
+                suggestions={getColoresSuggestions(supplies, currentInsumoAmigurumi.marca, currentInsumoAmigurumi.referencia)}
+                placeholder="Ej: Blanco hueso, Rosa pastel"
+                field="color"
+                disabled={!currentInsumoAmigurumi.marca}
+              />
+            </div>
+
+            {/* CANTIDAD */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Cantidad
+              </label>
+              <input
+                type="text"
+                value={currentInsumoAmigurumi.cantidad}
+                onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, cantidad: e.target.value})}
+                placeholder="Ej: 50, 1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+              />
+            </div>
+
+            {/* UNIDAD */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Unidad
+              </label>
+              <select
+                value={currentInsumoAmigurumi.unidad}
+                onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, unidad: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+              >
+                <option value="gramos">Gramos</option>
+                <option value="metros">Metros</option>
+                <option value="unidades">Unidades</option>
+                <option value="pares">Pares</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            onClick={handleAddInsumoToAmigurumi}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+          >
+            <Plus size={16} />
+            Agregar Insumo
+          </button>
         </div>
-      )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={handleSaveAmigurumiRecordModal}
+            disabled={loading}
+            className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50"
+          >
+            <Save size={20} />
+            Guardar Amigurumi
+          </button>
+          <button
+            onClick={() => {
+              setIsAmigurumiModalOpen(false);
+              setEditingAmigurumi(null);
+            }}
+            className="flex items-center gap-2 bg-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+          >
+            <X size={20} />
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

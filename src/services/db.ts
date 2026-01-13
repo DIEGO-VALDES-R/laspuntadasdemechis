@@ -24,6 +24,7 @@ const mapOrder = (o: any): Order => ({
   descripcion: o.descripcion,
   desglose: o.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
   guia_transportadora: o.guia_transportadora,
+  tipo_empaque: o.tipo_empaque, // 🆕 Mapeo desde BD
   puede_reordenar: o.puede_reordenar,
   puede_calificar: o.puede_calificar
 });
@@ -44,7 +45,7 @@ const mapClient = (c: any): Client => ({
   total_invertido: c.total_invertido || 0,
   saldos_pendientes: c.saldos_pendientes || 0,
   ahorro_historico: c.ahorro_historico || 0,
-  compras_para_siguiente: c.compras_para_siguiente || 5,
+  compras_para_siguiente: c.compras_para_siguiente ||5,
   progreso_porcentaje: c.progreso_porcentaje || 0,
   promedio_por_pedido: c.promedio_por_pedido || 0,
   ahorro_descuentos: c.ahorro_descuentos || 0,
@@ -229,6 +230,7 @@ export const db = {
     imagen_url: order.imagen_url,
     final_image_url: order.final_image_url || null,
     descripcion: order.descripcion,
+    tipo_empaque: order.tipo_empaque, // 🆕 Guardado en BD
     desglose: order.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
     guia_transportadora: order.guia_transportadora
   });
@@ -248,6 +250,9 @@ export const db = {
   // ✅ Agregar estos dos campos
   if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName;
   if (updates.clientPhone !== undefined) dbUpdates.client_phone = updates.clientPhone;
+  
+  // 🆕 AGREGAR ACTUALIZACIÓN DE TIPO DE EMPAQUE
+  if (updates.tipo_empaque !== undefined) dbUpdates.tipo_empaque = updates.tipo_empaque;
 
   const { error } = await supabase
     .from('orders')
@@ -446,10 +451,10 @@ export const db = {
       name: s.name || '',
       reference: s.reference || '',
       unitValue: s.unit_value || 0,
-      quantity: s.quantity || 0,
+      quantity: s.quantity ||0,
       color: s.color || '',
       number: s.number || '',
-      lowStockThreshold: s.low_stock_threshold || 5,
+      lowStockThreshold: s.low_stock_threshold ||5,
       imageUrl: s.image_url || ''
     }));
   },
@@ -762,21 +767,19 @@ export const db = {
         card_price7: config.cardPrice7 || '$22.00', // Añadir esta
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
-    // ... resto del código
-
-
-      if (error) {
-        console.error('❌ Error de Supabase:', error);
-        throw error;
-      }
-      
-      console.log('✅ Guardado exitoso:', data);
-      return { data, error: null };
-    } catch (error) {
-      console.error('❌ Error saving home config:', error);
-      return { data: null, error };
+    
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      throw error;
     }
-  },
+    
+    console.log('✅ Guardado exitoso:', data);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error saving home config:', error);
+    return { data: null, error };
+  }
+},
 
   getHomeConfig: async (): Promise<HomeConfig> => {
     try {
@@ -1207,7 +1210,7 @@ export const db = {
         amigurumiCount: 17,
         clientCount: 17,
         rating: 4.9,
-        yearsExperience: 5
+        yearsExperience:5
       };
     }
     

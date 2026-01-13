@@ -37,6 +37,10 @@ export interface Order {
   imagen_url: string;
   final_image_url?: string;
   guia_transportadora?: string;
+  tipo_empaque?: string; // 🆕 Campo agregado
+  fecha_entrega?: string; // 🆕 Para compatibilidad
+  puede_reordenar?: boolean;
+  puede_calificar?: boolean;
   desglose: any;
 }
 
