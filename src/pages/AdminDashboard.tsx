@@ -269,6 +269,9 @@ const AdminDashboard: React.FC = () => {
   const [editingOrderTotal, setEditingOrderTotal] = useState(0);
   const [editingOrderPaid, setEditingOrderPaid] = useState(0);
 
+  // 🆕 ESTADO PARA TIPO DE EMPAQUE (CAMBIO SOLICITADO)
+  const [tipoEmpaqueOrder, setTipoEmpaqueOrder] = useState<'cupula_vidrio' | 'caja_carton' | 'bolsa_organza' | 'sin_empaque'>('cupula_vidrio');
+
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [newOrderData, setNewOrderData] = useState({
     clientEmail: '',
@@ -279,7 +282,8 @@ const AdminDashboard: React.FC = () => {
     total_final: 0,
     monto_pagado: 0,
     imagen: null as File | null,
-    imagenPreview: ''
+    imagenPreview: '',
+    tipo_empaque: 'cupula_vidrio' as 'cupula_vidrio' | 'caja_carton' | 'bolsa_organza' | 'sin_empaque' // 🆕 Inicializado
   });
   const [showNotificationOptions, setShowNotificationOptions] = useState(false);
   const [createdOrderNumber, setCreatedOrderNumber] = useState('');
@@ -642,6 +646,7 @@ const AdminDashboard: React.FC = () => {
     setSelectedOrder(order);
     setStatusUpdate(order.estado);
     setTrackingGuide(order.guia_transportadora || '');
+    setTipoEmpaqueOrder((order as any).tipo_empaque || 'cupula_vidrio'); // ✅ NUEVA LÍNEA
     
     setFinalImageFile(null);
     setFinalImagePreview('');
@@ -782,7 +787,8 @@ const AdminDashboard: React.FC = () => {
       clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '', // ✅
       total_final: editingOrderTotal,
       monto_pagado: editingOrderPaid,
-      saldo_pendiente: editingOrderTotal - editingOrderPaid
+      saldo_pendiente: editingOrderTotal - editingOrderPaid,
+      tipo_empaque: tipoEmpaqueOrder // ✅ NUEVA LÍNEA
     };
 
     console.log('💾 Actualizando pedido con datos:', updateData);
@@ -835,7 +841,6 @@ const sendOrderUpdateNotification = () => {
   
   const formattedPhone = phone.startsWith('57') ? phone : `57${phone}`;
   
-  // Construir mensaje según el estado
   let statusEmoji = '📦';
   let statusMessage = '';
   
@@ -846,15 +851,15 @@ const sendOrderUpdateNotification = () => {
       break;
     case '¡Ya estamos tejiendo tu pedido! Pronto estará listo.':
       statusEmoji = '🧵';
-      statusMessage = '¡Ya estamos tejiendo tu pedido! Pronto estará listo.';
+      statusMessage = '¡Ya estamos tejiendo tu amigurumi! Pronto estará listo.';
       break;
     case 'Tu Amigurumi ya fue tejido.':
       statusEmoji = '✨';
-      statusMessage = '¡Buenas noticias! Tu Amigurumi ya fue tejido y está quedando hermoso.';
+      statusMessage = '¡Tu amigurumi ya fue tejido y está quedando hermoso!';
       break;
     case 'Listo para entregar':
       statusEmoji = '🎁';
-      statusMessage = '¡Tu pedido está *listo*! Ya puedes recogerlo o está en camino.';
+      statusMessage = '¡Tu amigurumi ya fue tejido y está listo! Ya puedes recogerlo.';
       break;
     case 'Entregado':
       statusEmoji = '🎉';
@@ -868,30 +873,83 @@ const sendOrderUpdateNotification = () => {
       statusMessage = `El estado de tu pedido ha cambiado a: *${statusUpdate}*`;
   }
   
+  // 🆕 Mensajes personalizados según el tipo de empaque
+  const tipoEmpaque = (selectedOrder as any).tipo_empaque || tipoEmpaqueOrder || 'cupula_vidrio';
+  let cuidadoProducto = '';
+  
+  switch (tipoEmpaque) {
+    case 'cupula_vidrio':
+      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+Tu artículo cuenta con *cúpula de vidrio delicada*.
+
+Te recomendamos:
+• Manipular con ambas manos al desempacar
+• Evitar movimientos bruscos o golpes
+• Limpiar solo con paño suave y seco`;
+      break;
+      
+    case 'caja_carton':
+      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+Tu amigurumi viene en *caja de cartón*.
+
+Te recomendamos:
+• Guardar en lugar seco y fresco
+• Evitar la exposición directa al sol
+• Manipular con cuidado para mantener su forma`;
+      break;
+      
+    case 'bolsa_organza':
+      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+Tu amigurumi viene en *bolsa de organza*.
+
+Te recomendamos:
+• Guardar en lugar limpio y seco
+• Evitar contacto con líquidos
+• Mantener alejado de mascotas`;
+      break;
+      
+    case 'sin_empaque':
+      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+Te recomendamos:
+• Manipular con las manos limpias
+• Guardar en lugar seco cuando no esté en uso
+• Lavar solo si es necesario, siguiendo instrucciones de cuidado`;
+      break;
+      
+    default:
+      cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+Te recomendamos:
+• Manipular con cuidado
+• Guardar en lugar seco y fresco
+• Evitar la exposición prolongada al sol`;
+  }
+  
+  // 🆕 Mensajes personalizados según el tipo de empaque
+  const infoPago = selectedOrder.saldo_pendiente > 0 ? `
+💳 *DATOS DE PAGO:*
+- *Bre-B:* @sandrab1072
+- *Cuenta de ahorros Bancolombia:* 123-456-789-00
+` : '';
+  
   const message = `
 Hola *${clientName}*, 👋
-${statusEmoji} *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
-${statusMessage}
+
+ ${statusEmoji} *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
+
+ ${statusMessage}
+
 📋 *Detalles:*
 - Producto: ${selectedOrder.nombre_producto}
 - Estado actual: *${statusUpdate}*
-${trackingGuide ? `• 📮 Guía de envío: *${trackingGuide}*` : ''}
-${selectedOrder.saldo_pendiente > 0 ? `• 💰 Saldo pendiente: $${selectedOrder.saldo_pendiente.toLocaleString()}` : ''}
-${statusUpdate === 'Listo para entregar' ? `
-🚚 *INFORMACIÓN DE ENTREGA/RECOGIDA:*
-${selectedOrder.saldo_pendiente > 0 ? `• Pago a domicilio requerido: *$${selectedOrder.saldo_pendiente.toLocaleString()}*` : '• Recogida sin costo adicional'}
-• Por favor, ten el monto exacto disponible si aplica
-• Confirma tu disponibilidad para recibir el pedido
-` : ''}
-${trackingGuide && statusUpdate === 'Listo para entregar' ? `
+ ${trackingGuide ? `• 📮 Guía de envío: *${trackingGuide}*` : ''}
+ ${selectedOrder.saldo_pendiente > 0 ? `• 💰 Saldo pendiente: ${selectedOrder.saldo_pendiente.toLocaleString('es-CO')}` : ''}
+ ${infoPago}
+ ${trackingGuide && statusUpdate === 'Listo para entregar' ? `
 📦 Puedes rastrear tu envío aquí: 👇
 https://www.google.com/search?q=${encodeURIComponent(trackingGuide)}
 ` : ''}
-⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
-Tu artículo cuenta con *cúpula de vidrio delicada*. Te recomendamos:
-• Manipular con ambas manos al desempacar
-• Evitar movimientos bruscos o golpes
-• Limpiar solo con paño suave y seco
+ ${cuidadoProducto}
+
 ¡Gracias por confiar en *Puntadas de Mechis*! ✨
 `.trim();
   
@@ -985,6 +1043,7 @@ Tu artículo cuenta con *cúpula de vidrio delicada*. Te recomendamos:
         monto_pagado: newOrderData.monto_pagado,
         saldo_pendiente: saldo,
         imagen_url: finalImageUrl,
+        tipo_empaque: newOrderData.tipo_empaque, // ✅ AGREGADO
         desglose: { precio_base: newOrderData.total_final, empaque: 0, accesorios: 0, descuento: 0 }
       };
 
@@ -1094,7 +1153,8 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
       total_final: 0, 
       monto_pagado: 0,
       imagen: null,
-      imagenPreview: ''
+      imagenPreview: '',
+      tipo_empaque: 'cupula_vidrio' // ✅ AGREGADO
     });
   };
 
@@ -3794,6 +3854,21 @@ const ContentView = () => {
                 />
               </div>
 
+              {/* 🆕 CAMPO DE TIPO DE EMPAQUE (CAMBIO SOLICITADO) */}
+              <div>
+                <label className="block text-sm font-bold mb-2">Tipo de Empaque 📦</label>
+                <select
+                  value={tipoEmpaqueOrder}
+                  onChange={(e) => setTipoEmpaqueOrder(e.target.value as any)}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="cupula_vidrio">🔮 Cúpula de Vidrio</option>
+                  <option value="caja_carton">📦 Caja de Cartón</option>
+                  <option value="bolsa_organza">👜 Bolsa de Organza</option>
+                  <option value="sin_empaque">❌ Sin Empaque</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-bold mb-2">Estado del Pedido</label>
                 <select 
@@ -4087,6 +4162,21 @@ const ContentView = () => {
                         min="0"
                       />
                     </div>
+                  </div>
+
+                  {/* 🆕 CAMPO DE TIPO DE EMPAQUE (CAMBIO SOLICITADO) */}
+                  <div>
+                    <label className="block text-sm font-bold mb-1">Tipo de Empaque 📦</label>
+                    <select
+                      value={newOrderData.tipo_empaque}
+                      onChange={e => setNewOrderData({...newOrderData, tipo_empaque: e.target.value as any})}
+                      className="w-full border p-2 rounded-lg"
+                    >
+                      <option value="cupula_vidrio">🔮 Cúpula de Vidrio</option>
+                      <option value="caja_carton">📦 Caja de Cartón</option>
+                      <option value="bolsa_organza">👜 Bolsa de Organza</option>
+                      <option value="sin_empaque">❌ Sin Empaque</option>
+                    </select>
                   </div>
 
                   <div className="bg-gray-50 p-4 rounded-lg">
@@ -4652,7 +4742,7 @@ const ContentView = () => {
                     <select
                       value={currentInsumoAmigurumi.tipo}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, tipo: e.target.value})}
-                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     >
                       <option value="lana">Lana</option>
                       <option value="hilo">Hilo</option>
@@ -4673,7 +4763,7 @@ const ContentView = () => {
                       value={currentInsumoAmigurumi.marca}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, marca: e.target.value})}
                       placeholder="Ej: Copito, Lanasol"
-                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
                   </div>
 
@@ -4686,7 +4776,7 @@ const ContentView = () => {
                       value={currentInsumoAmigurumi.referencia}
                       onChange={(e) => handleReferenciaChangeModal(e.target.value)}
                       placeholder="Ej: REF-1234"
-                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
                   </div>
 
@@ -4699,7 +4789,7 @@ const ContentView = () => {
                       value={currentInsumoAmigurumi.color}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, color: e.target.value})}
                       placeholder="Ej: Blanco hueso, Rosa pastel"
-                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
                   </div>
 
@@ -4712,7 +4802,7 @@ const ContentView = () => {
                       value={currentInsumoAmigurumi.cantidad}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, cantidad: e.target.value})}
                       placeholder="Ej: 50, 1"
-                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     />
                   </div>
 
@@ -4723,7 +4813,7 @@ const ContentView = () => {
                     <select
                       value={currentInsumoAmigurumi.unidad}
                       onChange={(e) => setCurrentInsumoAmigurumi({...currentInsumoAmigurumi, unidad: e.target.value})}
-                      className="w-full px-3 py-2 border border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
                     >
                       <option value="gramos">Gramos</option>
                       <option value="metros">Metros</option>
