@@ -1595,28 +1595,45 @@ const openNewGallery = () => {
       return;
     }
     
-    // Mostrar lista de clientes para obtener el ID fácilmente
-    const clientsList = clients.map(c => `${c.nombre_completo} (${c.email})\nID: ${c.id}\n`).join('\n');
-    const referrerId = prompt(`Selecciona un referente copiando su ID:\n\n${clientsList}`);
-    if (!referrerId || !referrerId.trim()) {
+    // 🆕 MEJORADO: Mostrar lista numerada para facilitar la selección
+    let clientsList = '📋 SELECCIONA UN REFERENTE:\n\n';
+    clients.forEach((c, index) => {
+      clientsList += `${index + 1}. ${c.nombre_completo}\n   Email: ${c.email}\n   ID: ${c.id}\n\n`;
+    });
+    clientsList += '\n💡 TIP: Escribe el NÚMERO del cliente (ej: 1, 2, 3...) o copia el ID completo';
+    
+    const userInput = prompt(clientsList);
+    if (!userInput || !userInput.trim()) {
       alert('❌ Debes seleccionar un referente');
       return;
     }
 
+    // 🆕 Permitir selección por número O por ID
+    let referrerId: string;
+    const inputNumber = parseInt(userInput.trim());
+    
+    if (!isNaN(inputNumber) && inputNumber > 0 && inputNumber <= clients.length) {
+      // Usuario ingresó un número
+      referrerId = clients[inputNumber - 1].id;
+    } else {
+      // Usuario ingresó un ID directamente
+      referrerId = userInput.trim();
+    }
+
     // Verificar si el ID existe en la lista de clientes
-    const referrer = clients.find(c => c.id === referrerId.trim());
+    const referrer = clients.find(c => c.id === referrerId);
     if (!referrer) {
-      alert('❌ ID de referente no válido. Por favor copia el ID exacto de la lista.');
+      alert('❌ Selección no válida. Por favor intenta de nuevo.');
       return;
     }
     
     try {
       console.log('📝 Guardando referido en Supabase...');
       console.log('📦 Datos a guardar:', {
-        name: name.trim(),
-        email: email.trim(),
-        referrer_id: referrerId.trim(),
-        status: 'pending',
+        referred_name: name.trim(),
+        referred_email: email.trim(),
+        client_id: referrerId,
+        estado: 'Pendiente',
         discount: config.descuento_referido
       });
 
@@ -1626,7 +1643,7 @@ const openNewGallery = () => {
         .insert([{
           referred_name: name.trim(),
           referred_email: email.trim(),
-          client_id: referrerId.trim(),
+          client_id: referrerId,
           estado: 'Pendiente',
           discount: config.descuento_referido,
           purchases: 0,
@@ -1655,7 +1672,23 @@ const openNewGallery = () => {
       }
 
       console.log('✅ Referido guardado exitosamente:', data[0]);
-      alert(`✅ Referido agregado correctamente\n\nNombre: ${name}\nEmail: ${email}\nReferente: ${referrer.nombre_completo}`);
+      
+      // 🆕 Mensaje mejorado con explicación de estados
+      alert(`✅ Referido agregado correctamente
+
+📋 Datos del referido:
+• Nombre: ${name}
+• Email: ${email}
+• Referido por: ${referrer.nombre_completo}
+• Descuento: ${config.descuento_referido}%
+
+📊 ESTADO INICIAL: Pendiente
+
+ℹ️ GUÍA DE ESTADOS:
+• Pendiente: El referido aún no se ha registrado en el sistema
+• Activo: El referido se registró y ya puede usar su descuento
+• Inactivo: El referido fue desactivado o no completó el registro`);
+      
       await loadData();
       
     } catch (error) {
