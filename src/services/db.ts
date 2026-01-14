@@ -1216,34 +1216,48 @@ export const db = {
     }
   },
 
-  // ========== SITE STATS ==========
+    // ========== SITE STATS ==========
   getSiteStats: async (): Promise<any> => {
     const { data, error } = await supabase
       .from('site_stats')
       .select('*')
+      .eq('id', 1)
       .single();
     
     if (error) {
+      console.error('Error fetching stats:', error);
       return {
-        amigurumiCount: 17,
-        clientCount: 17,
-        rating: 4.9,
-        yearsExperience:5
+        amigurumiCount: 17, clientCount: 17, rating: 4.9, yearsExperience: 5
       };
     }
     
-    return data;
+    // Convertimos de nombres de BD a nombres de Frontend
+    return {
+      amigurumiCount: data.amigurumi_count,
+      clientCount: data.client_count,
+      rating: data.rating,
+      yearsExperience: data.years_experience
+    };
   },
 
   updateSiteStats: async (stats: any): Promise<void> => {
+    // Convertimos de nombres de Frontend a nombres de BD
     const { error } = await supabase
       .from('site_stats')
-      .upsert([{ id: 1, ...stats }]);
+      .upsert([{ 
+        id: 1, 
+        amigurumi_count: Number(stats.amigurumiCount),
+        client_count: Number(stats.clientCount),
+        rating: Number(stats.rating),
+        years_experience: Number(stats.yearsExperience)
+      }]);
     
     if (error) {
       console.error('Error updating site stats:', error);
+      throw error;
     }
   },
+
 
   // ========== TESTIMONIALS ==========
   getActiveTestimonials: async (): Promise<Testimonial[]> => {

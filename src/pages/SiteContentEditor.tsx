@@ -95,15 +95,27 @@ export default class SiteContentEditor extends Component<{}, State> {
     this.loadData();
   }
 
-  loadData = async () => {
-    try {
-      this.setState({ loading: true });
-      
-      const [sectionsData, statsData] = await Promise.all([
-        db.getEditableSections(),
-        db.getSiteStats()
-      ]);
+  // Busca y reemplaza estas funciones en src/pages/SiteContentEditor.tsx
 
+  loadData = async () => {
+  try {
+    this.setState({ loading: true });
+    const statsData = await db.getSiteStats();
+
+    if (statsData) {
+      this.setState({
+        statsData: {
+          amigurumiCount: statsData.amigurumiCount,
+          clientCount: statsData.clientCount,
+          rating: statsData.rating,
+          yearsExperience: statsData.yearsExperience
+        }
+      });
+    }
+    
+    // Cargar también las secciones
+    const sectionsData = await db.getEditableSections();
+    if (sectionsData) {
       this.setState({
         sectionsData: {
           valuePropsTitle: sectionsData.valuePropsTitle || sectionsData.value_props_title || '',
@@ -111,20 +123,33 @@ export default class SiteContentEditor extends Component<{}, State> {
           statsSubtitle: sectionsData.statsSubtitle || sectionsData.stats_subtitle || '',
           testimonialsTitle: sectionsData.testimonialsTitle || sectionsData.testimonials_title || '',
           testimonialsSubtitle: sectionsData.testimonialsSubtitle || sectionsData.testimonials_subtitle || ''
-        },
-        statsData: {
-          amigurumiCount: statsData.amigurumiCount || statsData.amigurumi_count || 0,
-          clientCount: statsData.clientCount || statsData.client_count || 0,
-          rating: statsData.rating || 4.9,
-          yearsExperience: statsData.yearsExperience || statsData.years_experience || 0
-        },
-        loading: false
+        }
       });
+    }
+  } catch (error) {
+    console.error('Error en loadData:', error);
+  } finally {
+    this.setState({ loading: false });
+  }
+}
+
+  handleSaveStats = async () => {
+    try {
+      this.setState({ loading: true });
+      // Enviamos los datos del estado directamente
+      await db.updateSiteStats(this.state.statsData);
+      this.showMessage('✅ Estadísticas guardadas correctamente', 'success');
+      
+      // Opcional: Recargar datos para confirmar
+      await this.loadData();
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error saving stats:', error);
+      this.showMessage('❌ Error al guardar estadísticas', 'error');
+    } finally {
       this.setState({ loading: false });
     }
   }
+
 
   showMessage = (text: string, type: 'success' | 'error') => {
     this.setState({ message: text, messageType: type });
@@ -166,18 +191,23 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
     }
   }
 
-  handleSaveStats = async () => {
+    handleSaveStats = async () => {
     try {
       this.setState({ loading: true });
+      // Enviamos los datos del estado al servicio db
       await db.updateSiteStats(this.state.statsData);
       this.showMessage('✅ Estadísticas guardadas correctamente', 'success');
+      
+      // Forzamos la recarga de datos para confirmar que se guardaron
+      await this.loadData();
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error al guardar estadísticas:', error);
       this.showMessage('❌ Error al guardar estadísticas', 'error');
     } finally {
       this.setState({ loading: false });
     }
   }
+
 
   render() {
     const { message, messageType, sectionsData, statsData, loading } = this.state;

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import CountUp from 'react-countup';
 import { useInView } from 'react-intersection-observer';
 import { Package, Users, Star, Calendar } from 'lucide-react';
@@ -17,11 +17,12 @@ const StatsSection: React.FC = () => {
     threshold: 0.3,
   });
 
+  // Valores iniciales de seguridad para evitar que la página se rompa
   const [statsData, setStatsData] = useState<StatData>({
-    amigurumi_count: 17,
-    client_count: 17,
-    rating: 4.9,
-    years_experience: 2
+    amigurumi_count: 0,
+    client_count: 0,
+    rating: 0,
+    years_experience: 0
   });
 
   const [loading, setLoading] = useState(true);
@@ -32,19 +33,25 @@ const StatsSection: React.FC = () => {
         const { data, error } = await supabase
           .from('site_stats')
           .select('*')
+          .eq('id', 1)
           .single();
 
         if (error) {
           console.error('Error fetching stats:', error);
-          setLoading(false);
+          // Si hay error, mantenemos los valores en 0 o podrías poner unos por defecto
           return;
         }
 
         if (data) {
-          setStatsData(data);
+          setStatsData({
+            amigurumi_count: data.amigurumi_count || 0,
+            client_count: data.client_count || 0,
+            rating: data.rating || 0,
+            years_experience: data.years_experience || 0
+          });
         }
       } catch (err) {
-        console.error('Error:', err);
+        console.error('Error crítico en StatsSection:', err);
       } finally {
         setLoading(false);
       }
@@ -53,24 +60,25 @@ const StatsSection: React.FC = () => {
     fetchStats();
   }, []);
 
+  // Definimos los items de estadísticas asegurándonos de que statsData exista
   const stats = [
     { 
       icon: <Package size={40} />, 
-      number: statsData.amigurumi_count, 
+      number: statsData?.amigurumi_count || 0, 
       suffix: '+', 
       label: 'Amigurumis creados', 
       color: 'text-pink-600' 
     },
     { 
       icon: <Users size={40} />, 
-      number: statsData.client_count, 
+      number: statsData?.client_count || 0, 
       suffix: '+', 
       label: 'Clientes felices', 
       color: 'text-purple-600' 
     },
     { 
       icon: <Star size={40} />, 
-      number: statsData.rating, 
+      number: statsData?.rating || 0, 
       suffix: '', 
       label: 'Rating promedio ⭐', 
       color: 'text-yellow-600', 
@@ -78,7 +86,7 @@ const StatsSection: React.FC = () => {
     },
     { 
       icon: <Calendar size={40} />, 
-      number: statsData.years_experience, 
+      number: statsData?.years_experience || 0, 
       suffix: '', 
       label: 'Años de experiencia', 
       color: 'text-blue-600' 
@@ -119,5 +127,3 @@ const StatsSection: React.FC = () => {
 };
 
 export default StatsSection;
-
-
