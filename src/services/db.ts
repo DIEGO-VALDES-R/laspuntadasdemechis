@@ -1064,48 +1064,66 @@ export const db = {
 
   // --- REFERRALS ---
   getAllReferrals: async (): Promise<any[]> => {
-    try {
-      console.log('🔄 Obteniendo referidos...');
-      
-      const { data, error } = await supabase
-        .from('referrals')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('❌ Error fetching referrals:', error);
-        return [];
-      }
-      
-      if (!data || data.length === 0) {
-        return [];
-      }
-      
-      const referrerIds = [...new Set(data.map(r => r.referrer_id).filter(Boolean))];
-      
-      if (referrerIds.length > 0) {
-        const { data: clientsData } = await supabase
-          .from('clients')
-          .select('id, nombre_completo')
-          .in('id', referrerIds)
-          .order('nombre_completo', { ascending: true });
-        
-        const clientsMap = new Map(
-          (clientsData || []).map(c => [c.id, c.nombre_completo])
-        );
-        
-        return data.map(referral => ({
-          ...referral,
-          referredByName: clientsMap.get(referral.referrer_id) || 'N/A'
-        }));
-      }
-      
-      return data.map(r => ({ ...r, referredByName: 'N/A' }));
-    } catch (error) {
-      console.error('Error en getAllReferrals:', error);
+  try {
+    console.log('🔄 Obteniendo referidos...');
+    
+    const { data, error } = await supabase
+      .from('referrals')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Error fetching referrals:', error);
       return [];
     }
-  },
+    
+    if (!data || data.length === 0) {
+      return [];
+    }
+    
+    // Obtener IDs únicos de referentes
+    const referrerIds = [...new Set(data.map(r => r.client_id).filter(Boolean))];
+    
+    if (referrerIds.length > 0) {
+      const { data: clientsData } = await supabase
+        .from('clients')
+        .select('id, nombre_completo')
+        .in('id', referrerIds)
+        .order('nombre_completo', { ascending: true });
+      
+      const clientsMap = new Map(
+        (clientsData || []).map(c => [c.id, c.nombre_completo])
+      );
+      
+      return data.map(referral => ({
+        id: referral.id,
+        name: referral.referred_name,
+        email: referral.referred_email,
+        referrer_id: referral.client_id,
+        referredByName: clientsMap.get(referral.client_id) || 'N/A',
+        estado: referral.estado || 'Pendiente',
+        discount: referral.discount || 0,
+        purchases: referral.purchases || referral.compras || 0,
+        created_at: referral.created_at
+      }));
+    }
+    
+    return data.map(r => ({ 
+      id: r.id,
+      name: r.referred_name,
+      email: r.referred_email,
+      referrer_id: r.client_id,
+      referredByName: 'N/A',
+      estado: r.estado || 'Pendiente',
+      discount: r.discount || 0,
+      purchases: r.purchases || r.compras || 0,
+      created_at: r.created_at
+    }));
+  } catch (error) {
+    console.error('Error en getAllReferrals:', error);
+    return [];
+  }
+},
 
   getReferralsByReferrerId: async (referrerId: string): Promise<any[]> => {
     const { data, error } = await supabase
