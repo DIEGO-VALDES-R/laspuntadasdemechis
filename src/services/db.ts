@@ -1136,7 +1136,7 @@ export const db = {
     const { error } = await supabase
       .from('referrals')
       .update(updates)
-      .eq('referrer_id', referralId);
+      .eq('id', referralId); // Corregido: Usar 'id' en lugar de 'referrer_id'
     
     if (error) {
       console.error('Error updating referral:', error);
