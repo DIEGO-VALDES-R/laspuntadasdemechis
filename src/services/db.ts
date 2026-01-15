@@ -414,7 +414,7 @@ export const db = {
     if (error) console.error('Error deleting client:', error);
   },
 
-  updateClient: async (clientId: string, updates: Partial<Client>) => {
+    updateClient: async (clientId: string, updates: Partial<Client>) => {
     const dbUpdates: any = {};
     if (updates.nombre_completo !== undefined) dbUpdates.nombre_completo = updates.nombre_completo;
     if (updates.email !== undefined) dbUpdates.email = updates.email;
@@ -428,8 +428,25 @@ export const db = {
       .update(dbUpdates)
       .eq('id', clientId);
 
+    if (error) console.error('Error updating client:', error);
+  },
+
+  addClient: async (clientData: any) => {
+    const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
+  
+    const { error } = await supabase.from('clients').insert({
+      nombre_completo: clientData.nombre_completo,
+      email: clientData.email,
+      cedula: clientData.cedula,
+      telefono: clientData.telefono,
+      direccion: clientData.direccion,
+      password: clientData.password || '123456',
+      codigo_referido: code,
+      descuento_activo: clientData.descuento_activo || 0
+    });
+  
     if (error) {
-      console.error('Error updating client:', error);
+      console.error('Error adding client:', error);
       throw error;
     }
   },

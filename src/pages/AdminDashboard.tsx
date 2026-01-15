@@ -300,6 +300,16 @@ const AdminDashboard: React.FC = () => {
   // Modales de clientes
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [isCreateClientModalOpen, setIsCreateClientModalOpen] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    nombre_completo: '',
+    email: '',
+    telefono: '',
+    cedula: '',
+    direccion: '',
+    descuento_activo: 0,
+    password: ''
+  });
   
   // Modales de galería
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
@@ -1205,6 +1215,28 @@ Puedes hacer seguimiento a tu pedido en nuestro sitio web con tu número de segu
     } catch (error) {
       console.error('Error updating client:', error);
       alert('❌ Error al actualizar el cliente');
+    }
+  };
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await db.addClient(newClientData);
+      setIsCreateClientModalOpen(false);
+      setNewClientData({
+        nombre_completo: '',
+        email: '',
+        telefono: '',
+        cedula: '',
+        direccion: '',
+        descuento_activo: 0,
+        password: ''
+      });
+      loadData();
+      alert('✅ Cliente creado correctamente');
+    } catch (error) {
+      console.error('Error creating client:', error);
+      alert('❌ Error al crear el cliente');
     }
   };
 
@@ -2542,7 +2574,15 @@ const openNewGallery = () => {
 
   const ClientsView = () => (
     <div className="space-y-6 animate-fade-in">
-      <h2 className="text-2xl font-bold text-gray-800">Clientes</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Clientes</h2>
+        <button 
+          onClick={() => setIsCreateClientModalOpen(true)}
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
+        >
+          <Plus size={18}/> Nuevo Cliente
+        </button>
+      </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-50 text-gray-600">
@@ -3681,6 +3721,96 @@ const ContentView = () => {
                   className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
                 >
                   Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de creación de cliente */}
+      {isCreateClientModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">Nuevo Cliente</h3>
+              <button onClick={() => setIsCreateClientModalOpen(false)}><X size={24}/></button>
+            </div>
+            <form onSubmit={handleCreateClient} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                <input
+                  type="text"
+                  required
+                  value={newClientData.nombre_completo}
+                  onChange={(e) => setNewClientData({...newClientData, nombre_completo: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Ej: Juan Pérez"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={newClientData.email}
+                  onChange={(e) => setNewClientData({...newClientData, email: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="ejemplo@correo.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                <input
+                  type="text"
+                  value={newClientData.telefono}
+                  onChange={(e) => setNewClientData({...newClientData, telefono: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Ej: 3001234567"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cédula</label>
+                <input
+                  type="text"
+                  value={newClientData.cedula}
+                  onChange={(e) => setNewClientData({...newClientData, cedula: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                <input
+                  type="text"
+                  value={newClientData.direccion}
+                  onChange={(e) => setNewClientData({...newClientData, direccion: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descuento Inicial (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={newClientData.descuento_activo}
+                  onChange={(e) => setNewClientData({...newClientData, descuento_activo: parseInt(e.target.value) || 0})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateClientModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                >
+                  Crear Cliente
                 </button>
               </div>
             </form>
