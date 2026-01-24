@@ -269,6 +269,9 @@ const AdminDashboard: React.FC = () => {
   const [editingOrderClientPhone, setEditingOrderClientPhone] = useState('');
   const [editingOrderTotal, setEditingOrderTotal] = useState(0);
   const [editingOrderPaid, setEditingOrderPaid] = useState(0);
+  
+  // 🆕 NUEVO ESTADO PARA PRECIO BASE
+  const [editingOrderBasePrice, setEditingOrderBasePrice] = useState(0);
 
   // 🆕 ESTADO PARA TIPO DE EMPAQUE (CAMBIO SOLICITADO)
   const [tipoEmpaqueOrder, setTipoEmpaqueOrder] = useState<'cupula_vidrio' | 'caja_carton' | 'bolsa_organza' | 'sin_empaque'>('cupula_vidrio');
@@ -649,44 +652,82 @@ const AdminDashboard: React.FC = () => {
   // MANEJO DE PEDIDOS
   // ========================================
   
-  const handleOpenOrder = async (order: Order) => {
-    console.log('🔍 Abriendo pedido #', order.numero_seguimiento);
-    console.log('📸 final_image_url en el pedido:', order.final_image_url);
-    console.log('📦 Objeto completo:', order);
-    
-    setSelectedOrder(order);
-    setStatusUpdate(order.estado);
-    setTrackingGuide(order.guia_transportadora || '');
-    setTipoEmpaqueOrder((order as any).tipo_empaque || ''); // ✅ NUEVA LÍNEA
-    
-    setFinalImageFile(null);
-    setFinalImagePreview('');
+    const handleOpenOrder = async (order: Order) => {
+  console.log('🔍 Abriendo pedido #', order.numero_seguimiento);
+  console.log('📦 Objeto completo:', order);
+  
+  setSelectedOrder(order);
+  setStatusUpdate(order.estado);
+  setTrackingGuide(order.guia_transportadora || '');
+  setTipoEmpaqueOrder((order as any).tipo_empaque || '');
+  
+  setFinalImageFile(null);
+  setFinalImagePreview('');
 
-    try {
-      // 🔧 PRIMERO cargar info del cliente de la BD
-      const clientInfo = await db.getClientByEmail(order.clientEmail);
+  let currentClient = null; // Variable local para tener los datos frescos
+
+  try {
+    // 🔧 CARGAR INFO DEL CLIENTE USANDO EL EMAIL
+    console.log('📧 Buscando cliente con email:', order.clientEmail);
+    const clientInfo = await db.getClientByEmail(order.clientEmail);
+    
+    if (clientInfo) {
+      console.log('✅ Cliente encontrado:', clientInfo);
+      console.log('💰 Descuento del cliente:', clientInfo.descuento_activo);
       setOrderClient(clientInfo);
+      currentClient = clientInfo; // Guardamos referencia
       
-      // 🔧 LUEGO inicializar estados con prioridad: datos del pedido > datos del cliente BD > valores por defecto
-      setEditingOrderClientName(order.clientName || clientInfo?.nombre_completo || '');
+      // 🔧 INICIALIZAR CON DATOS DEL CLIENTE
+      setEditingOrderClientName(order.clientName || clientInfo.nombre_completo || '');
       setEditingOrderClientEmail(order.clientEmail || '');
-      setEditingOrderClientPhone(order.clientPhone || clientInfo?.telefono || '');
-      
-    } catch (error) {
-      console.error('Error al cargar información del cliente:', error);
+      setEditingOrderClientPhone(order.clientPhone || clientInfo.telefono || '');
+    } else {
+      console.log('⚠️ Cliente no encontrado en la BD');
       setOrderClient(null);
       
-      // 🔧 Si no hay cliente en BD, usar solo los datos del pedido
+      // 🔧 USAR SOLO DATOS DEL PEDIDO
       setEditingOrderClientName(order.clientName || '');
       setEditingOrderClientEmail(order.clientEmail || '');
       setEditingOrderClientPhone(order.clientPhone || '');
     }
+    
+  } catch (error) {
+    console.error('❌ Error al cargar información del cliente:', error);
+    setOrderClient(null);
+    
+    // 🔧 FALLBACK: usar datos del pedido
+    setEditingOrderClientName(order.clientName || '');
+    setEditingOrderClientEmail(order.clientEmail || '');
+    setEditingOrderClientPhone(order.clientPhone || '');
+  }
 
-    setEditingOrderTotal(order.total_final || 0);
-    setEditingOrderPaid(order.monto_pagado || 0);
+  // 🆕 LÓGICA DE CÁLCULO CORREGIDA
+  // Usamos el precio base guardado o el total actual como referencia
+  const precioBase = order.desglose?.precio_base || order.total_final || 0;
+  setEditingOrderBasePrice(precioBase);
 
-    setIsOrderModalOpen(true);
-  };
+  // Usamos currentClient (descargado arriba) para obtener el descuento real
+  const descuentoPorcentaje = currentClient?.descuento_activo || 0;
+  
+  // Calcular descuento en pesos
+  const descuentoMonto = descuentoPorcentaje > 0 
+    ? Math.round(precioBase * (descuentoPorcentaje / 100)) 
+    : 0;
+
+  // Calcular Accesorios (si existen en el desglose)
+  const accesoriosMonto = order.desglose?.accesorios || 0;
+
+  // Calcular el Total Neto Correcto: Base - Descuento + Accesorios
+  const totalCalculado = precioBase - descuentoMonto + accesoriosMonto;
+
+  // Establecer el estado del total calculado (esto sobrescribe el valor viejo de la BD)
+  setEditingOrderTotal(totalCalculado);
+  setEditingOrderPaid(order.monto_pagado || 0);
+
+  console.log(`💰 Cálculo financiero inicial: Base=${precioBase}, Dcto=${descuentoMonto}, Total=${totalCalculado}`);
+
+  setIsOrderModalOpen(true);
+};
 
   const handleFinalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -791,15 +832,33 @@ const AdminDashboard: React.FC = () => {
   if (!selectedOrder) return;
   
   try {
+    // 🆕 Usar el estado editingOrderBasePrice directamente
+    const precioBase = editingOrderBasePrice || editingOrderTotal;
+    const descuentoPorcentaje = orderClient?.descuento_activo || 0;
+    
+    // Recalculamos el monto de descuento para guardar la coherencia
+    const descuentoMonto = descuentoPorcentaje > 0 
+      ? Math.round(precioBase * (descuentoPorcentaje / 100)) 
+      : 0;
+    
+    const accesorios = selectedOrder.desglose?.accesorios || 0;
+    
     const updateData: any = {
       estado: statusUpdate,
       guia_transportadora: trackingGuide,
-      clientName: editingOrderClientName || selectedOrder.clientName || '',  // ✅
-      clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '', // ✅
+      clientName: editingOrderClientName || selectedOrder.clientName || '',
+      clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '',
       total_final: editingOrderTotal,
       monto_pagado: editingOrderPaid,
       saldo_pendiente: editingOrderTotal - editingOrderPaid,
-      tipo_empaque: tipoEmpaqueOrder // ✅ NUEVA LÍNEA
+      tipo_empaque: tipoEmpaqueOrder,
+      // 🆕 Actualizar el desglose completo
+      desglose: {
+        precio_base: precioBase, // Aquí se guarda el valor editado
+        descuento: descuentoMonto,
+        empaque: 0, // Siempre 0 porque está incluido en precio_base
+        accesorios: accesorios
+      }
     };
 
     console.log('💾 Actualizando pedido con datos:', updateData);
@@ -814,7 +873,8 @@ const AdminDashboard: React.FC = () => {
       guia_transportadora: trackingGuide,
       total_final: updateData.total_final,
       monto_pagado: updateData.monto_pagado,
-      saldo_pendiente: updateData.saldo_pendiente
+      saldo_pendiente: updateData.saldo_pendiente,
+      desglose: updateData.desglose
     });
 
     alert('✅ Pedido actualizado correctamente');
@@ -3884,57 +3944,180 @@ const ContentView = () => {
               </div>
             </div>
             
-            <div className="mb-6 bg-gray-50 p-4 rounded-xl">
-              <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
-                <ShoppingBag size={20} className="text-gray-600"/>
-                Detalles del Pedido
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Producto</p>
-                  <p className="font-medium">{selectedOrder.nombre_producto}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Descripción</p>
-                  <p className="font-medium">{selectedOrder.descripcion || 'Sin descripción'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Fecha de solicitud</p>
-                  <p className="font-medium">{selectedOrder.fecha_solicitud}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Estado actual</p>
-                  <p className="font-medium">{selectedOrder.estado}</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Total</label>
-                  <input
-                    type="number"
-                    value={editingOrderTotal}
-                    onChange={(e) => setEditingOrderTotal(Number(e.target.value))}
-                    className="w-full px-2 py-1 border rounded font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-600 mb-1">Pagado</label>
-                  <input
-                    type="number"
-                    value={editingOrderPaid}
-                    onChange={(e) => setEditingOrderPaid(Number(e.target.value))}
-                    className="w-full px-2 py-1 border rounded font-medium"
-                  />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Saldo pendiente</p>
-                  <p className="font-medium text-red-600">${(editingOrderTotal - editingOrderPaid).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Guía de transportadora</p>
-                  <p className="font-medium">{selectedOrder.guia_transportadora || 'Sin asignar'}</p>
-                </div>
-              </div>
+          <div className="mb-6 bg-gray-50 p-4 rounded-xl">
+  <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+    <ShoppingBag size={20} className="text-gray-600"/>
+    Detalles del Pedido
+  </h4>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div>
+      <p className="text-sm text-gray-600">Producto</p>
+      <p className="font-medium">{selectedOrder.nombre_producto}</p>
+    </div>
+    <div>
+      <p className="text-sm text-gray-600">Descripción</p>
+      <p className="font-medium">{selectedOrder.descripcion || 'Sin descripción'}</p>
+    </div>
+    <div>
+      <p className="text-sm text-gray-600">Fecha de solicitud</p>
+      <p className="font-medium">{selectedOrder.fecha_solicitud}</p>
+    </div>
+    <div>
+      <p className="text-sm text-gray-600">Estado actual</p>
+      <p className="font-medium">{selectedOrder.estado}</p>
+    </div>
+    
+    {/* 📦 TIPO DE EMPAQUE (Solo referencia) */}
+    {tipoEmpaqueOrder && tipoEmpaqueOrder !== 'sin_empaque' && (
+      <div className="md:col-span-2 bg-purple-50 p-3 rounded-lg border border-purple-200">
+        <p className="text-sm text-purple-700 font-medium flex items-center gap-2">
+          <Box size={16}/>
+          Empaque incluido: <span className="font-bold">{tipoEmpaqueOrder}</span>
+        </p>
+        <p className="text-xs text-purple-600 mt-1">
+          ℹ️ El costo del empaque ya está incluido en el precio base
+        </p>
+      </div>
+    )}
+    
+    <div>
+      <p className="text-sm text-gray-600">Guía de transportadora</p>
+      <p className="font-medium">{selectedOrder.guia_transportadora || 'Sin asignar'}</p>
+    </div>
+  </div>
+
+  {/* 💰 DESGLOSE FINANCIERO */}
+  <div className="mt-6 bg-white rounded-lg border-2 border-purple-200 p-4">
+    <h5 className="font-bold text-purple-800 mb-4 flex items-center gap-2">
+      <DollarSign size={20}/>
+      Desglose Financiero
+    </h5>
+    
+    {(() => {
+      // 🆕 LOGICA ACTUALIZADA: Priorizamos el precio base que se está editando
+      const precioBase = editingOrderBasePrice;
+      const descuentoPorcentaje = orderClient?.descuento_activo || 0;
+      
+      // Cálculo del descuento en pesos basado en el Precio Base editado
+      const descuentoMonto = descuentoPorcentaje > 0 
+        ? Math.round(precioBase * (descuentoPorcentaje / 100)) 
+        : 0;
+      
+      const accesoriosMonto = selectedOrder.desglose?.accesorios || 0;
+      
+      // Calculamos el Total Neto: Base - Descuento + Accesorios
+      const totalCalculado = precioBase - descuentoMonto + accesoriosMonto;
+      
+      const montoPagado = editingOrderPaid;
+      const saldoPendiente = editingOrderTotal - montoPagado;
+
+      return (
+        <div className="space-y-3">
+          {/* 🆕 CAMPO EDITABLE PRECIO BASE */}
+          <div className="flex justify-between items-center pb-2">
+            <label className="text-sm font-bold text-gray-700 cursor-pointer" htmlFor="input-base-price">
+              Precio Base {tipoEmpaqueOrder && tipoEmpaqueOrder !== 'sin_empaque' && (
+                <span className="text-xs text-gray-500 font-normal">(incluye empaque)</span>
+              )}:
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 hidden sm:inline">$</span>
+              <input
+                id="input-base-price"
+                type="number"
+                value={editingOrderBasePrice}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setEditingOrderBasePrice(val);
+                  
+                  // 🆕 RECALCULAR AUTOMÁTICAMENTE EL TOTAL AL CAMBIAR LA BASE
+                  const newTotal = val - descuentoMonto + accesoriosMonto;
+                  setEditingOrderTotal(newTotal);
+                }}
+                className="w-32 text-right px-2 py-1 border-2 border-purple-300 rounded focus:outline-none focus:border-purple-500 font-bold text-gray-800"
+              />
             </div>
-            
+          </div>
+
+          {/* Descuento Aplicado (Solo lectura, se recalcula arriba) */}
+          {descuentoMonto > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-green-600">
+                Descuento {descuentoPorcentaje}%:
+              </span>
+              <span className="font-bold text-green-600">
+                - ${descuentoMonto.toLocaleString('es-CO')}
+              </span>
+            </div>
+          )}
+
+          {/* Accesorios */}
+          {accesoriosMonto > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-purple-600">
+                Accesorios:
+              </span>
+              <span className="font-bold text-purple-600">
+                + ${accesoriosMonto.toLocaleString('es-CO')}
+              </span>
+            </div>
+          )}
+
+          <div className="h-px bg-gray-300 my-2"></div>
+
+          {/* Total a Pagar */}
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-bold text-blue-800">Total a Pagar:</label>
+              <span className="text-2xl font-bold text-blue-600">
+                ${editingOrderTotal.toLocaleString('es-CO')}
+              </span>
+            </div>
+            <input
+              type="number"
+              value={editingOrderTotal}
+              onChange={(e) => setEditingOrderTotal(Number(e.target.value))}
+              className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+              placeholder="Editar total si es necesario"
+            />
+            {Math.abs(totalCalculado - editingOrderTotal) > 10 && (
+              <p className="text-xs text-orange-600 mt-1">
+                ℹ️ Sugerencia según base: ${totalCalculado.toLocaleString('es-CO')}
+              </p>
+            )}
+          </div>
+
+          {/* Monto Pagado */}
+          <div className="bg-green-50 p-3 rounded-lg">
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-bold text-green-800">Monto Pagado:</label>
+              <span className="text-xl font-bold text-green-600">
+                ${montoPagado.toLocaleString('es-CO')}
+              </span>
+            </div>
+            <input
+              type="number"
+              value={editingOrderPaid}
+              onChange={(e) => setEditingOrderPaid(Number(e.target.value))}
+              className="w-full px-3 py-2 border-2 border-green-300 rounded-lg text-sm focus:outline-none focus:border-green-500"
+            />
+          </div>
+
+          {/* Saldo Pendiente */}
+          <div className="bg-gradient-to-r from-red-50 to-orange-50 p-4 rounded-lg border-2 border-red-200">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-bold text-red-800">Saldo Pendiente:</span>
+              <span className="text-3xl font-bold text-red-600">
+                ${saldoPendiente.toLocaleString('es-CO')}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+  </div>
+</div>
+
             <div className="space-y-4">
               <div className="bg-purple-50 p-4 rounded-xl space-y-4">
                 <h4 className="font-bold text-lg flex items-center gap-2">

@@ -19,7 +19,6 @@ interface State {
     rating: number;
     yearsExperience: number;
   };
-  // Para las listas desplegables
   valuePropsOptions: string[];
   statsTitleOptions: string[];
   statsSubtitleOptions: string[];
@@ -95,61 +94,40 @@ export default class SiteContentEditor extends Component<{}, State> {
     this.loadData();
   }
 
-  // Busca y reemplaza estas funciones en src/pages/SiteContentEditor.tsx
-
   loadData = async () => {
-  try {
-    this.setState({ loading: true });
-    const statsData = await db.getSiteStats();
-
-    if (statsData) {
-      this.setState({
-        statsData: {
-          amigurumiCount: statsData.amigurumiCount,
-          clientCount: statsData.clientCount,
-          rating: statsData.rating,
-          yearsExperience: statsData.yearsExperience
-        }
-      });
-    }
-    
-    // Cargar también las secciones
-    const sectionsData = await db.getEditableSections();
-    if (sectionsData) {
-      this.setState({
-        sectionsData: {
-          valuePropsTitle: sectionsData.valuePropsTitle || sectionsData.value_props_title || '',
-          statsTitle: sectionsData.statsTitle || sectionsData.stats_title || '',
-          statsSubtitle: sectionsData.statsSubtitle || sectionsData.stats_subtitle || '',
-          testimonialsTitle: sectionsData.testimonialsTitle || sectionsData.testimonials_title || '',
-          testimonialsSubtitle: sectionsData.testimonialsSubtitle || sectionsData.testimonials_subtitle || ''
-        }
-      });
-    }
-  } catch (error) {
-    console.error('Error en loadData:', error);
-  } finally {
-    this.setState({ loading: false });
-  }
-}
-
-  handleSaveStats = async () => {
     try {
       this.setState({ loading: true });
-      // Enviamos los datos del estado directamente
-      await db.updateSiteStats(this.state.statsData);
-      this.showMessage('✅ Estadísticas guardadas correctamente', 'success');
+      const statsData = await db.getSiteStats();
+
+      if (statsData) {
+        this.setState({
+          statsData: {
+            amigurumiCount: statsData.amigurumiCount,
+            clientCount: statsData.clientCount,
+            rating: statsData.rating,
+            yearsExperience: statsData.yearsExperience
+          }
+        });
+      }
       
-      // Opcional: Recargar datos para confirmar
-      await this.loadData();
+      const sectionsData = await db.getEditableSections();
+      if (sectionsData) {
+        this.setState({
+          sectionsData: {
+            valuePropsTitle: sectionsData.valuePropsTitle || sectionsData.value_props_title || '',
+            statsTitle: sectionsData.statsTitle || sectionsData.stats_title || '',
+            statsSubtitle: sectionsData.statsSubtitle || sectionsData.stats_subtitle || '',
+            testimonialsTitle: sectionsData.testimonialsTitle || sectionsData.testimonials_title || '',
+            testimonialsSubtitle: sectionsData.testimonialsSubtitle || sectionsData.testimonials_subtitle || ''
+          }
+        });
+      }
     } catch (error) {
-      console.error('Error saving stats:', error);
-      this.showMessage('❌ Error al guardar estadísticas', 'error');
+      console.error('Error en loadData:', error);
     } finally {
       this.setState({ loading: false });
     }
   }
-
 
   showMessage = (text: string, type: 'success' | 'error') => {
     this.setState({ message: text, messageType: type });
@@ -167,16 +145,14 @@ export default class SiteContentEditor extends Component<{}, State> {
     }));
   }
 
-// Código corregido
-handleStatsChange = (field: keyof State['statsData'], value: string | number) => {
-  this.setState(prevState => ({
-    statsData: {
-      ...prevState.statsData,
-      [field]: value // Ahora guarda el valor como string o number sin conversión prematura
-    }
-  }));
-}
-
+  handleStatsChange = (field: keyof State['statsData'], value: string | number) => {
+    this.setState(prevState => ({
+      statsData: {
+        ...prevState.statsData,
+        [field]: typeof value === 'string' ? parseFloat(value) || 0 : value
+      }
+    }));
+  }
 
   handleSaveTitles = async () => {
     try {
@@ -191,14 +167,12 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
     }
   }
 
-    handleSaveStats = async () => {
+  // ✅ SOLO UNA VERSIÓN DEL MÉTODO
+  handleSaveStats = async () => {
     try {
       this.setState({ loading: true });
-      // Enviamos los datos del estado al servicio db
       await db.updateSiteStats(this.state.statsData);
       this.showMessage('✅ Estadísticas guardadas correctamente', 'success');
-      
-      // Forzamos la recarga de datos para confirmar que se guardaron
       await this.loadData();
     } catch (error) {
       console.error('Error al guardar estadísticas:', error);
@@ -207,7 +181,6 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
       this.setState({ loading: false });
     }
   }
-
 
   render() {
     const { message, messageType, sectionsData, statsData, loading } = this.state;
@@ -236,7 +209,6 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
           </h3>
           
           <div className="space-y-6">
-            {/* Título "¿Por Qué Elegirnos?" */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Título Principal
@@ -255,12 +227,8 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Este es el título principal de la sección de valores
-              </p>
             </div>
 
-            {/* Título "Nuestro Impacto" */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Título de Estadísticas
@@ -279,12 +247,8 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Título que aparece sobre las estadísticas
-              </p>
             </div>
 
-            {/* Subtítulo de Estadísticas */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Subtítulo de Estadísticas
@@ -303,12 +267,8 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Texto descriptivo debajo del título de estadísticas
-              </p>
             </div>
 
-            {/* Título de Testimonios */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Título de Testimonios
@@ -327,12 +287,8 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Título de la sección de testimonios
-              </p>
             </div>
 
-            {/* Subtítulo de Testimonios */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Subtítulo de Testimonios
@@ -351,15 +307,12 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Texto complementario de la sección de testimonios
-              </p>
             </div>
 
             <button
               onClick={this.handleSaveTitles}
               disabled={loading}
-              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 to-purple-800 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? (
                 <>
@@ -383,105 +336,69 @@ handleStatsChange = (field: keyof State['statsData'], value: string | number) =>
           </h3>
           
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Amigurumis Creados */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 🧸 Amigurumis Creados
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={statsData.amigurumiCount}
-                  onChange={(e) => this.handleStatsChange('amigurumiCount', e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
-                  min="0"
-                  disabled={loading}
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  🧸
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Total de amigurumis creados
-              </p>
+              <input
+                type="number"
+                value={statsData.amigurumiCount}
+                onChange={(e) => this.handleStatsChange('amigurumiCount', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                min="0"
+                disabled={loading}
+              />
             </div>
 
-            {/* Clientes Felices */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 😊 Clientes Felices
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={statsData.clientCount}
-                  onChange={(e) => this.handleStatsChange('clientCount', e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
-                  min="0"
-                  disabled={loading}
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  😊
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Clientes satisfechos
-              </p>
+              <input
+                type="number"
+                value={statsData.clientCount}
+                onChange={(e) => this.handleStatsChange('clientCount', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                min="0"
+                disabled={loading}
+              />
             </div>
 
-            {/* Rating Promedio */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 ⭐ Rating Promedio
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={statsData.rating}
-                  onChange={(e) => this.handleStatsChange('rating', e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
-                  min="1"
-                  max="5"
-                  step="0.1"
-                  disabled={loading}
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  ⭐
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Calificación promedio (1.0 - 5.0)
-              </p>
+              <input
+                type="number"
+                value={statsData.rating}
+                onChange={(e) => this.handleStatsChange('rating', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                min="1"
+                max="5"
+                step="0.1"
+                disabled={loading}
+              />
             </div>
 
-            {/* Años de Experiencia */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 📅 Años de Experiencia
               </label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={statsData.yearsExperience}
-                  onChange={(e) => this.handleStatsChange('yearsExperience', e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
-                  min="0"
-                  disabled={loading}
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                  📅
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Años en el mercado
-              </p>
+              <input
+                type="number"
+                value={statsData.yearsExperience}
+                onChange={(e) => this.handleStatsChange('yearsExperience', e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                min="0"
+                disabled={loading}
+              />
             </div>
           </div>
 
           <button
             onClick={this.handleSaveStats}
             disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            className="mt-6 w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
           >
             {loading ? (
               <>
