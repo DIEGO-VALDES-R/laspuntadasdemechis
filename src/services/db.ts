@@ -31,21 +31,21 @@ const mapOrder = (o: any): Order => ({
 
 const mapClient = (c: any): Client => ({
   id: c.id,
-  nombre_completo: c.nombre_completo,
+  nombre_completo: c.name || '',              // ✅ Leer desde 'name'
   email: c.email,
-  telefono: c.telefono,
+  telefono: c.phone || '',                    // ✅ Leer desde 'phone'
   cedula: c.cedula,
-  direccion: c.direccion,
+  direccion: c.address || '',                 // ✅ Leer desde 'address'
   password: c.password,
   compras_totales: c.compras_totales || 0,
-  descuento_activo: c.descuento_activo || 0,
+  descuento_activo: c.descuento_inicial || 0, // ✅ Leer desde 'descuento_inicial'
   cantidad_referidos: c.cantidad_referidos || 0,
   codigo_referido: c.codigo_referido,
   nivel: c.nivel || 'Nuevo',
   total_invertido: c.total_invertido || 0,
   saldos_pendientes: c.saldos_pendientes || 0,
   ahorro_historico: c.ahorro_historico || 0,
-  compras_para_siguiente: c.compras_para_siguiente ||5,
+  compras_para_siguiente: c.compras_para_siguiente || 5,
   progreso_porcentaje: c.progreso_porcentaje || 0,
   promedio_por_pedido: c.promedio_por_pedido || 0,
   ahorro_descuentos: c.ahorro_descuentos || 0,
@@ -384,26 +384,26 @@ export const db = {
   },
 
   registerClient: async (clientData: any) => {
-    const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
-  
-    const { error } = await supabase.from('clients').insert({
-      nombre_completo: clientData.nombre_completo,
-      email: clientData.email,
-      cedula: clientData.cedula,
-      telefono: clientData.telefono,
-      direccion: clientData.direccion,
-      password: clientData.password,
-      codigo_referido: code
-    });
-  
-    if (error) {
-      console.error('Error registering client:', error);
-      throw error;
-    }
-  
-    localStorage.setItem('puntadas_user', clientData.email);
-    localStorage.setItem('puntadas_role', 'client');
-  },
+  const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
+
+  const { error } = await supabase.from('clients').insert({
+    name: clientData.nombre_completo,              // ✅
+    email: clientData.email,
+    cedula: clientData.cedula,
+    phone: clientData.telefono,                    // ✅
+    address: clientData.direccion,                 // ✅
+    password: clientData.password,
+    codigo_referido: code
+  });
+
+  if (error) {
+    console.error('Error registering client:', error);
+    throw error;
+  }
+
+  localStorage.setItem('puntadas_user', clientData.email);
+  localStorage.setItem('puntadas_role', 'client');
+},
 
   deleteClient: async (clientId: string) => {
     const { error } = await supabase
@@ -415,41 +415,41 @@ export const db = {
   },
 
     updateClient: async (clientId: string, updates: Partial<Client>) => {
-    const dbUpdates: any = {};
-    if (updates.nombre_completo !== undefined) dbUpdates.nombre_completo = updates.nombre_completo;
-    if (updates.email !== undefined) dbUpdates.email = updates.email;
-    if (updates.telefono !== undefined) dbUpdates.telefono = updates.telefono;
-    if (updates.cedula !== undefined) dbUpdates.cedula = updates.cedula;
-    if (updates.direccion !== undefined) dbUpdates.direccion = updates.direccion;
-    if (updates.descuento_activo !== undefined) dbUpdates.descuento_activo = updates.descuento_activo;
+  const dbUpdates: any = {};
+  if (updates.nombre_completo !== undefined) dbUpdates.name = updates.nombre_completo;              // ✅
+  if (updates.email !== undefined) dbUpdates.email = updates.email;
+  if (updates.telefono !== undefined) dbUpdates.phone = updates.telefono;                          // ✅
+  if (updates.cedula !== undefined) dbUpdates.cedula = updates.cedula;
+  if (updates.direccion !== undefined) dbUpdates.address = updates.direccion;                      // ✅
+  if (updates.descuento_activo !== undefined) dbUpdates.descuento_inicial = updates.descuento_activo; // ✅
 
-    const { error } = await supabase
-      .from('clients')
-      .update(dbUpdates)
-      .eq('id', clientId);
+  const { error } = await supabase
+    .from('clients')
+    .update(dbUpdates)
+    .eq('id', clientId);
 
-    if (error) console.error('Error updating client:', error);
-  },
+  if (error) console.error('Error updating client:', error);
+},
 
   addClient: async (clientData: any) => {
-    const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
-  
-    const { error } = await supabase.from('clients').insert({
-      nombre_completo: clientData.nombre_completo,
-      email: clientData.email,
-      cedula: clientData.cedula,
-      telefono: clientData.telefono,
-      direccion: clientData.direccion,
-      password: clientData.password || '123456',
-      codigo_referido: code,
-      descuento_activo: clientData.descuento_activo || 0
-    });
-  
-    if (error) {
-      console.error('Error adding client:', error);
-      throw error;
-    }
-  },
+  const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
+
+  const { error } = await supabase.from('clients').insert({
+    name: clientData.nombre_completo,              // ✅
+    email: clientData.email,
+    cedula: clientData.cedula,
+    phone: clientData.telefono,                    // ✅
+    address: clientData.direccion,                 // ✅
+    password: clientData.password || '123456',
+    codigo_referido: code,
+    descuento_inicial: clientData.descuento_activo || 0  // ✅
+  });
+
+  if (error) {
+    console.error('Error adding client:', error);
+    throw error;
+  }
+},
 
   // --- SUPPLIES ---
   getSupplies: async (): Promise<Supply[]> => {
