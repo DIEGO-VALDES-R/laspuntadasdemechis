@@ -652,7 +652,7 @@ const AdminDashboard: React.FC = () => {
   // MANEJO DE PEDIDOS
   // ========================================
   
-    const handleOpenOrder = async (order: Order) => {
+  const handleOpenOrder = async (order: Order) => {
   console.log('🔍 Abriendo pedido #', order.numero_seguimiento);
   console.log('📦 Objeto completo:', order);
   
@@ -895,98 +895,100 @@ const AdminDashboard: React.FC = () => {
   }
 };
 
-// Nueva función para enviar notificación de actualización
-const sendOrderUpdateNotification = () => {
-  if (!selectedOrder) return;
+  // ========================================
+  // FUNCIÓN DE NOTIFICACIÓN WHATSAPP (ACTUALIZADA)
+  // ========================================
+
+      const sendOrderUpdateNotification = () => {
+    if (!selectedOrder) return;
+    
+    // Usar los datos editados actuales para notificar
+    const clientName = editingOrderClientName || orderClient?.nombre_completo || 'Cliente';
+    const clientPhone = editingOrderClientPhone || orderClient?.telefono || '';
+    const clientEmail = editingOrderClientEmail || selectedOrder.clientEmail;
+    
+    // 🔧 AGREGADO: TU LINK DE PAGO DE EJEMPLO
+    const PAYMENT_LINK = "https://checkout.bold.co/payment/LNK_EXBI7L6EK8";
+
+    const phone = clientPhone.replace(/\D/g, '') || '';
+    if (!phone) {
+      alert('❌ El cliente no tiene teléfono registrado');
+      return;
+    }
+    
+    const formattedPhone = phone.startsWith('57') ? phone : `57${phone}`;
+    
+    // Determinar estado y mensaje
+    let statusEmoji = '📦';
+    let statusMessage = statusUpdate;
+
+    switch (statusUpdate) {
+      case 'Agendado': statusEmoji = '✅'; break;
+      case '¡Ya estamos tejiendo tu pedido! Pronto estará listo.': statusEmoji = '🧵'; break;
+      case 'Tu Amigurumi ya fue tejido.': statusEmoji = '✨'; break;
+      case 'Listo para entregar': statusEmoji = '🎁'; break;
+      case 'Entregado': statusEmoji = '🎉'; break;
+      case 'Cancelado': statusEmoji = '❌'; break;
+    }
   
-  // Usar los datos editados actuales para notificar
-  const clientName = editingOrderClientName || orderClient?.nombre_completo || 'Cliente';
-  const clientPhone = editingOrderClientPhone || orderClient?.telefono || '';
-  const clientEmail = editingOrderClientEmail || selectedOrder.clientEmail;
-  
-  const phone = clientPhone.replace(/\D/g, '') || '';
-  if (!phone) {
-    alert('❌ El cliente no tiene teléfono registrado');
-    return;
-  }
-  
-  const formattedPhone = phone.startsWith('57') ? phone : `57${phone}`;
-  
-  let statusEmoji = '📦';
-  let statusMessage = '';
-  
-  switch (statusUpdate) {
-    case 'Agendado':
-      statusEmoji = '✅';
-      statusMessage = 'Tu pedido ha sido *agendado* y pronto comenzaremos a trabajar en él.';
-      break;
-    case '¡Ya estamos tejiendo tu pedido! Pronto estará listo.':
-      statusEmoji = '🧵';
-      statusMessage = '¡Ya estamos tejiendo tu amigurumi! Pronto estará listo.';
-      break;
-    case 'Tu Amigurumi ya fue tejido.':
-      statusEmoji = '✨';
-      statusMessage = '¡Tu amigurumi ya fue tejido y está quedando hermoso!';
-      break;
-    case 'Listo para entregar':
-      statusEmoji = '🎁';
-      statusMessage = '¡Tu amigurumi ya fue tejido y está listo! Ya puedes recogerlo.';
-      break;
-    case 'Entregado':
-      statusEmoji = '🎉';
-      statusMessage = 'Tu pedido ha sido *entregado*. ¡Esperamos que lo disfrutes!';
-      break;
-    case 'Cancelado':
-      statusEmoji = '❌';
-      statusMessage = 'Tu pedido ha sido cancelado. Si tienes dudas, contáctanos.';
-      break;
-    default:
-      statusMessage = `El estado de tu pedido ha cambiado a: *${statusUpdate}*`;
-  }
-  
-  // 🆕 Mensajes personalizados según el tipo de empaque
+  // 🆕 MENSAJE PERSONALIZADO SEGÚN EL TIPO DE EMPAQUE
   const tipoEmpaque = tipoEmpaqueOrder || '';
   let cuidadoProducto = '';
   
   if (tipoEmpaque && tipoEmpaque !== 'sin_empaque') {
-    // Tiene empaque específico - mostrar nombre sin precio
     cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
 Tu pedido viene empacado en: *${tipoEmpaque}*
 Te recomendamos:
-- Manipular con cuidado
-- Guardar en lugar seco cuando no esté en uso`;
+• Manipular con cuidado
+• Guardar en lugar seco cuando no esté en uso`;
   } else if (tipoEmpaque === 'sin_empaque') {
-    // Sin empaque
     cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
 Te recomendamos:
-- Manipular con las manos limpias
-- Guardar en lugar seco cuando no esté en uso`;
+• Manipular con las manos limpias
+• Guardar en lugar seco cuando no esté en uso`;
   }
 
-  const infoPago = selectedOrder.saldo_pendiente > 0 ? `
-💳 *DATOS DE PAGO:*
-- *Bre-B:* @sandrab1072
-- *Cuenta de ahorros Bancolombia:* 123-456-789-00
+  // 🆕 DATOS FINANCIEROS
+  const totalAPagar = editingOrderTotal;
+  const abonos = editingOrderPaid;
+  const saldoPendiente = totalAPagar - abonos;
+  const descuento = orderClient?.descuento_activo || 0;
+  const referralCode = orderClient?.referral_code || 'Aún no tienes código. Genera uno en la web para obtener descuentos.';
+
+  // 🆕 BLOQUE DE INFORMACIÓN DE PAGO (Formateado exacto como lo pediste)
+  const infoPago = saldoPendiente > 0 ? `
+💳 *DETALLE DE PAGO*
+Valor total: $${totalAPagar.toLocaleString('es-CO')}
+Descuento por cliente recurrente o referidos: ${descuento}%
+Abonos:
+• Pagado: $${abonos.toLocaleString('es-CO')}
+⏳ Saldo pendiente: $${saldoPendiente.toLocaleString('es-CO')}
+
+💰 *DATOS PARA PAGO:*
+• *Bre-B:* @sandrab1072
+• *Cuenta de ahorros Bancolombia:* 617-454347-92
+Link de pago bold: ${PAYMENT_LINK}
 ` : '';
-  
+
+  // 🆕 ESTRUCTURA COMPLETA DEL MENSAJE
   const message = `
 Hola *${clientName}*, 👋
 
- ${statusEmoji} *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
+🔍 *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
 
- ${statusMessage}
+El estado de tu pedido ha cambiado a: *${statusMessage}*
 
 📋 *Detalles:*
-- Producto: ${selectedOrder.nombre_producto}
-- Estado actual: *${statusUpdate}*
- ${trackingGuide ? `• 📮 Guía de envío: *${trackingGuide}*` : ''}
- ${selectedOrder.saldo_pendiente > 0 ? `• 💰 Saldo pendiente: ${selectedOrder.saldo_pendiente.toLocaleString('es-CO')}` : ''}
+• Producto: ${selectedOrder.nombre_producto}
+• Estado actual: *${statusUpdate}*
+
  ${infoPago}
- ${trackingGuide && statusUpdate === 'Listo para entregar' ? `
-📦 Puedes rastrear tu envío aquí: 👇
-https://www.google.com/search?q=${encodeURIComponent(trackingGuide)}
-` : ''}
+
  ${cuidadoProducto}
+
+🎁 *¡Benefíciate de más descuentos!*
+Aumenta tu porcentaje de descuento a través de referidos o pedidos recurrentes.
+Tu código de referido es : ${referralCode}
 
 ¡Gracias por confiar en *Puntadas de Mechis*! ✨
 `.trim();
@@ -994,6 +996,7 @@ https://www.google.com/search?q=${encodeURIComponent(trackingGuide)}
   const whatsappLink = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
   window.open(whatsappLink, '_blank');
 };
+
   const handleDeleteOrder = async (e: React.MouseEvent, orderId: string) => {
     e.stopPropagation();
     if (window.confirm('¿Eliminar este pedido?')) {
