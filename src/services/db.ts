@@ -31,16 +31,16 @@ const mapOrder = (o: any): Order => ({
 
 const mapClient = (c: any): Client => ({
   id: c.id,
-  nombre_completo: c.name || '',              // ✅ Leer desde 'name'
+  nombre_completo: c.name || '',              
   email: c.email,
-  telefono: c.phone || '',                    // ✅ Leer desde 'phone'
+  telefono: c.phone || '',                    
   cedula: c.cedula,
-  direccion: c.address || '',                 // ✅ Leer desde 'address'
+  direccion: c.address || '',                 
   password: c.password,
   compras_totales: c.compras_totales || 0,
-  descuento_activo: c.descuento_inicial || 0, // ✅ Leer desde 'descuento_inicial'
+  descuento_activo: c.descuento_inicial || 0,
   cantidad_referidos: c.cantidad_referidos || 0,
-  codigo_referido: c.codigo_referido,
+  codigo_referido: c.codigo_referido || '', // ✅ AGREGAR ESTA LÍNEA
   nivel: c.nivel || 'Nuevo',
   total_invertido: c.total_invertido || 0,
   saldos_pendientes: c.saldos_pendientes || 0,
@@ -387,13 +387,13 @@ export const db = {
   const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
 
   const { error } = await supabase.from('clients').insert({
-    name: clientData.nombre_completo,              // ✅
+    name: clientData.nombre_completo,              
     email: clientData.email,
     cedula: clientData.cedula,
-    phone: clientData.telefono,                    // ✅
-    address: clientData.direccion,                 // ✅
+    phone: clientData.telefono,                    
+    address: clientData.direccion,                 
     password: clientData.password,
-    codigo_referido: code
+    codigo_referido: code // ✅ GUARDAR CÓDIGO GENERADO
   });
 
   if (error) {
@@ -416,12 +416,13 @@ export const db = {
 
     updateClient: async (clientId: string, updates: Partial<Client>) => {
   const dbUpdates: any = {};
-  if (updates.nombre_completo !== undefined) dbUpdates.name = updates.nombre_completo;              // ✅
+  if (updates.nombre_completo !== undefined) dbUpdates.name = updates.nombre_completo;              
   if (updates.email !== undefined) dbUpdates.email = updates.email;
-  if (updates.telefono !== undefined) dbUpdates.phone = updates.telefono;                          // ✅
+  if (updates.telefono !== undefined) dbUpdates.phone = updates.telefono;                          
   if (updates.cedula !== undefined) dbUpdates.cedula = updates.cedula;
-  if (updates.direccion !== undefined) dbUpdates.address = updates.direccion;                      // ✅
-  if (updates.descuento_activo !== undefined) dbUpdates.descuento_inicial = updates.descuento_activo; // ✅
+  if (updates.direccion !== undefined) dbUpdates.address = updates.direccion;                      
+  if (updates.descuento_activo !== undefined) dbUpdates.descuento_inicial = updates.descuento_activo;
+  if (updates.codigo_referido !== undefined) dbUpdates.codigo_referido = updates.codigo_referido; // ✅ AGREGAR ESTA LÍNEA
 
   const { error } = await supabase
     .from('clients')
@@ -435,14 +436,14 @@ export const db = {
   const code = (clientData.nombre_completo.substring(0,3) + Date.now().toString().substring(9)).toUpperCase();
 
   const { error } = await supabase.from('clients').insert({
-    name: clientData.nombre_completo,              // ✅
+    name: clientData.nombre_completo,              
     email: clientData.email,
     cedula: clientData.cedula,
-    phone: clientData.telefono,                    // ✅
-    address: clientData.direccion,                 // ✅
+    phone: clientData.telefono,                    
+    address: clientData.direccion,                 
     password: clientData.password || '123456',
-    codigo_referido: code,
-    descuento_inicial: clientData.descuento_activo || 0  // ✅
+    codigo_referido: code, // ✅ GUARDAR CÓDIGO GENERADO
+    descuento_inicial: clientData.descuento_activo || 0  
   });
 
   if (error) {

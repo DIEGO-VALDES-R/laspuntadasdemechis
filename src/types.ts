@@ -10,6 +10,7 @@ export interface Client {
   descuento_activo: number;
   cantidad_referidos: number;
   codigo_referido: string;
+  referral_code?: string;
   nivel: 'Nuevo' | 'Frecuente' | 'VIP';
   ahorro_historico: number;
   compras_para_siguiente: number;
@@ -37,8 +38,8 @@ export interface Order {
   imagen_url: string;
   final_image_url?: string;
   guia_transportadora?: string;
-  tipo_empaque?: string; // 🆕 Campo agregado
-  fecha_entrega?: string; // 🆕 Para compatibilidad
+  tipo_empaque?: string;
+  fecha_entrega?: string;
   puede_reordenar?: boolean;
   puede_calificar?: boolean;
   desglose: any;
@@ -111,23 +112,22 @@ export interface Tejedora {
   imageUrl: string;
 }
 
-// 🆕 ACTUALIZADO CON 8 TARJETAS
 export interface HomeConfig {
   heroImage1: string;
   heroImage2: string;
   cardImage3?: string;
   cardImage4?: string;
   cardImage5?: string;
-  cardImage6?: string;  // 🆕 Nueva tarjeta 6
-  cardImage7?: string;  // 🆕 Nueva tarjeta 7
-  cardImage8?: string;  // 🆕 Nueva tarjeta 8
+  cardImage6?: string;
+  cardImage7?: string;
+  cardImage8?: string;
   cardPrice1?: string;
   cardPrice2?: string;
   cardPrice3?: string;
   cardPrice4?: string;
-  cardPrice5?: string;  // 🆕 Precio tarjeta 5
-  cardPrice6?: string;  // 🆕 Precio tarjeta 6
-  cardPrice7?: string;  // 🆕 Precio tarjeta 7
+  cardPrice5?: string;
+  cardPrice6?: string;
+  cardPrice7?: string;
 }
 
 export interface Post {

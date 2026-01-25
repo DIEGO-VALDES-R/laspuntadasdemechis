@@ -828,47 +828,75 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleUpdateStatusAndGuide = async () => {
+  // 🔧 FUNCIÓN CORREGIDA - Sustituye la función handleUpdateStatusAndGuide en AdminDashboard.tsx
+
+const handleUpdateStatusAndGuide = async () => {
   if (!selectedOrder) return;
   
   try {
-    // 🆕 Usar el estado editingOrderBasePrice directamente
+    // 🔑 PASO 1: Usar SIEMPRE editingOrderBasePrice como referencia principal
     const precioBase = editingOrderBasePrice || editingOrderTotal;
+    
+    // 🔑 PASO 2: Obtener el descuento del cliente (si existe)
     const descuentoPorcentaje = orderClient?.descuento_activo || 0;
     
-    // Recalculamos el monto de descuento para guardar la coherencia
+    // 🔑 PASO 3: Calcular montos
     const descuentoMonto = descuentoPorcentaje > 0 
       ? Math.round(precioBase * (descuentoPorcentaje / 100)) 
       : 0;
     
     const accesorios = selectedOrder.desglose?.accesorios || 0;
     
+    // 🔑 PASO 4: Calcular el total CORRECTO
+    const totalCalculado = precioBase - descuentoMonto + accesorios;
+    
+    // 🔑 PASO 5: Usar el total que el usuario editó (si es diferente)
+    const totalFinal = editingOrderTotal > 0 ? editingOrderTotal : totalCalculado;
+    
+    // 🔑 PASO 6: Calcular saldo pendiente
+    const saloPendiente = totalFinal - editingOrderPaid;
+    
+    // 🔑 PASO 7: Construir updateData con desglose COMPLETO y CORRECTO
     const updateData: any = {
       estado: statusUpdate,
       guia_transportadora: trackingGuide,
       clientName: editingOrderClientName || selectedOrder.clientName || '',
       clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '',
-      total_final: editingOrderTotal,
+      clientEmail: editingOrderClientEmail || selectedOrder.clientEmail || '',
+      total_final: totalFinal, // ✅ Total final correcto
       monto_pagado: editingOrderPaid,
-      saldo_pendiente: editingOrderTotal - editingOrderPaid,
+      saldo_pendiente: Math.max(0, saloPendiente), // ✅ No negativos
       tipo_empaque: tipoEmpaqueOrder,
-      // 🆕 Actualizar el desglose completo
+      
+      // ✅ DESGLOSE CORRECTO - Todos los componentes
       desglose: {
-        precio_base: precioBase, // Aquí se guarda el valor editado
-        descuento: descuentoMonto,
-        empaque: 0, // Siempre 0 porque está incluido en precio_base
-        accesorios: accesorios
+        precio_base: precioBase,        // El precio base SIN descuento
+        descuento: descuentoMonto,      // Monto del descuento en pesos
+        empaque: 0,                     // Ya está incluido en precio_base
+        accesorios: accesorios,         // Montos adicionales
+        descuento_porcentaje: descuentoPorcentaje // Guardar el % para referencia
       }
     };
 
-    console.log('💾 Actualizando pedido con datos:', updateData);
+    console.log('💾 Guardando pedido con desglose correcto:', {
+      precioBase,
+      descuentoPorcentaje,
+      descuentoMonto,
+      totalCalculado,
+      totalFinal,
+      editingOrderPaid,
+      saloPendiente,
+      desglose: updateData.desglose
+    });
 
     await db.updateOrder(selectedOrder.id, updateData);
     
+    // ✅ Actualizar estado local
     setSelectedOrder({
       ...selectedOrder,
       clientName: updateData.clientName,
       clientPhone: updateData.clientPhone,
+      clientEmail: updateData.clientEmail,
       estado: statusUpdate,
       guia_transportadora: trackingGuide,
       total_final: updateData.total_final,
@@ -877,8 +905,15 @@ const AdminDashboard: React.FC = () => {
       desglose: updateData.desglose
     });
 
-    alert('✅ Pedido actualizado correctamente');
+    alert('✅ Pedido actualizado correctamente\n\n' +
+      `Precio Base: $${precioBase.toLocaleString('es-CO')}\n` +
+      `Descuento ${descuentoPorcentaje}%: -$${descuentoMonto.toLocaleString('es-CO')}\n` +
+      `Total Final: $${totalFinal.toLocaleString('es-CO')}\n` +
+      `Pagado: $${editingOrderPaid.toLocaleString('es-CO')}\n` +
+      `Saldo: $${Math.max(0, saloPendiente).toLocaleString('es-CO')}`
+    );
     
+    // Preguntar si enviar notificación
     const shouldNotify = window.confirm(
       '¿Deseas enviar una notificación por WhatsApp al cliente sobre esta actualización?'
     );
@@ -889,108 +924,168 @@ const AdminDashboard: React.FC = () => {
     
     setIsOrderModalOpen(false);
     await loadData();
+    
   } catch (error) {
-    console.error('Error updating order:', error);
-    alert('❌ Error al actualizar el pedido');
+    console.error('❌ Error actualizando pedido:', error);
+    alert('❌ Error al actualizar el pedido: ' + (error as Error).message);
   }
+};
+
+// 🔧 TAMBIÉN CORRIGE handleOpenOrder para inicializar correctamente
+const handleOpenOrderFixed = async (order: Order) => {
+  console.log('🔍 Abriendo pedido #', order.numero_seguimiento);
+  
+  setSelectedOrder(order);
+  setStatusUpdate(order.estado);
+  setTrackingGuide(order.guia_transportadora || '');
+  setTipoEmpaqueOrder((order as any).tipo_empaque || '');
+  setFinalImageFile(null);
+  setFinalImagePreview('');
+
+  let currentClient = null;
+
+  try {
+    // Cargar info del cliente
+    const clientInfo = await db.getClientByEmail(order.clientEmail);
+    
+    if (clientInfo) {
+      setOrderClient(clientInfo);
+      currentClient = clientInfo;
+      setEditingOrderClientName(order.clientName || clientInfo.nombre_completo || '');
+      setEditingOrderClientEmail(order.clientEmail || '');
+      setEditingOrderClientPhone(order.clientPhone || clientInfo.telefono || '');
+    } else {
+      setOrderClient(null);
+      setEditingOrderClientName(order.clientName || '');
+      setEditingOrderClientEmail(order.clientEmail || '');
+      setEditingOrderClientPhone(order.clientPhone || '');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error al cargar información del cliente:', error);
+    setOrderClient(null);
+    setEditingOrderClientName(order.clientName || '');
+    setEditingOrderClientEmail(order.clientEmail || '');
+    setEditingOrderClientPhone(order.clientPhone || '');
+  }
+
+  // ✅ INICIALIZAR CORRECTAMENTE - Usar el desglose guardado
+  const precioBase = order.desglose?.precio_base || order.total_final || 0;
+  setEditingOrderBasePrice(precioBase);
+  setEditingOrderTotal(order.total_final || 0);
+  setEditingOrderPaid(order.monto_pagado || 0);
+
+  console.log(`✅ Pedido cargado correctamente:
+    - Precio Base: $${precioBase.toLocaleString('es-CO')}
+    - Descuento: ${order.desglose?.descuento_porcentaje || 0}%
+    - Total: $${order.total_final.toLocaleString('es-CO')}
+    - Pagado: $${order.monto_pagado.toLocaleString('es-CO')}
+    - Saldo: $${order.saldo_pendiente.toLocaleString('es-CO')}`);
+
+  setIsOrderModalOpen(true);
 };
 
   // ========================================
   // FUNCIÓN DE NOTIFICACIÓN WHATSAPP (ACTUALIZADA)
   // ========================================
 
-      const sendOrderUpdateNotification = () => {
-    if (!selectedOrder) return;
-    
-    // Usar los datos editados actuales para notificar
-    const clientName = editingOrderClientName || orderClient?.nombre_completo || 'Cliente';
-    const clientPhone = editingOrderClientPhone || orderClient?.telefono || '';
-    const clientEmail = editingOrderClientEmail || selectedOrder.clientEmail;
-    
-    // 🔧 AGREGADO: TU LINK DE PAGO DE EJEMPLO
-    const PAYMENT_LINK = "https://checkout.bold.co/payment/LNK_EXBI7L6EK8";
+      // 🔧 FUNCIÓN ACTUALIZADA - Reemplaza sendOrderUpdateNotification en AdminDashboard.tsx
 
-    const phone = clientPhone.replace(/\D/g, '') || '';
-    if (!phone) {
-      alert('❌ El cliente no tiene teléfono registrado');
-      return;
-    }
-    
-    const formattedPhone = phone.startsWith('57') ? phone : `57${phone}`;
-    
-    // Determinar estado y mensaje
-    let statusEmoji = '📦';
-    let statusMessage = statusUpdate;
-
-    switch (statusUpdate) {
-      case 'Agendado': statusEmoji = '✅'; break;
-      case '¡Ya estamos tejiendo tu pedido! Pronto estará listo.': statusEmoji = '🧵'; break;
-      case 'Tu Amigurumi ya fue tejido.': statusEmoji = '✨'; break;
-      case 'Listo para entregar': statusEmoji = '🎁'; break;
-      case 'Entregado': statusEmoji = '🎉'; break;
-      case 'Cancelado': statusEmoji = '❌'; break;
-    }
+const sendOrderUpdateNotification = () => {
+  if (!selectedOrder) return;
   
-  // 🆕 MENSAJE PERSONALIZADO SEGÚN EL TIPO DE EMPAQUE
+  // Usar los datos editados actuales para notificar
+  const clientName = editingOrderClientName || orderClient?.nombre_completo || 'Cliente';
+  const clientPhone = editingOrderClientPhone || orderClient?.telefono || '';
+  const clientEmail = editingOrderClientEmail || selectedOrder.clientEmail;
+  
+  // 🔧 LINK DE PAGO
+  const PAYMENT_LINK = "https://checkout.bold.co/payment/LNK_EXBI7L6EK8";
+
+  const phone = clientPhone.replace(/\D/g, '') || '';
+  if (!phone) {
+    alert('❌ El cliente no tiene teléfono registrado');
+    return;
+  }
+  
+  const formattedPhone = phone.startsWith('57') ? phone : `57${phone}`;
+  
+  // 🆕 CÁLCULO FINANCIERO CORREGIDO
+  const precioBase = editingOrderBasePrice || editingOrderTotal;
+  const descuentoPorcentaje = orderClient?.descuento_activo || 0;
+  const descuentoMonto = descuentoPorcentaje > 0 
+    ? Math.round(precioBase * (descuentoPorcentaje / 100)) 
+    : 0;
+  const accesoriosMonto = selectedOrder.desglose?.accesorios || 0;
+  const totalAPagar = editingOrderTotal;
+  const abonos = editingOrderPaid;
+  const saldoPendiente = totalAPagar - abonos;
+  
+  // 🆕 CÓDIGO DE REFERIDO
+  const referralCode = orderClient?.referral_code || 'No generado aún. Regístrate en nuestra web para obtenerlo.';
+  
+  // 🆕 TIPO DE EMPAQUE
   const tipoEmpaque = tipoEmpaqueOrder || '';
   let cuidadoProducto = '';
   
   if (tipoEmpaque && tipoEmpaque !== 'sin_empaque') {
     cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+
 Tu pedido viene empacado en: *${tipoEmpaque}*
+
 Te recomendamos:
-• Manipular con cuidado
-• Guardar en lugar seco cuando no esté en uso`;
+- Manipular con cuidado
+- Guardar en lugar seco cuando no esté en uso`;
   } else if (tipoEmpaque === 'sin_empaque') {
     cuidadoProducto = `⚠️ *IMPORTANTE - CUIDADO DEL PRODUCTO:*
+
 Te recomendamos:
-• Manipular con las manos limpias
-• Guardar en lugar seco cuando no esté en uso`;
+- Manipular con las manos limpias
+- Guardar en lugar seco cuando no esté en uso`;
   }
-
-  // 🆕 DATOS FINANCIEROS
-  const totalAPagar = editingOrderTotal;
-  const abonos = editingOrderPaid;
-  const saldoPendiente = totalAPagar - abonos;
-  const descuento = orderClient?.descuento_activo || 0;
-  const referralCode = orderClient?.referral_code || 'Aún no tienes código. Genera uno en la web para obtener descuentos.';
-
-  // 🆕 BLOQUE DE INFORMACIÓN DE PAGO (Formateado exacto como lo pediste)
-  const infoPago = saldoPendiente > 0 ? `
-💳 *DETALLE DE PAGO*
-Valor total: $${totalAPagar.toLocaleString('es-CO')}
-Descuento por cliente recurrente o referidos: ${descuento}%
-Abonos:
-• Pagado: $${abonos.toLocaleString('es-CO')}
-⏳ Saldo pendiente: $${saldoPendiente.toLocaleString('es-CO')}
-
-💰 *DATOS PARA PAGO:*
-• *Bre-B:* @sandrab1072
-• *Cuenta de ahorros Bancolombia:* 617-454347-92
-Link de pago bold: ${PAYMENT_LINK}
-` : '';
 
   // 🆕 ESTRUCTURA COMPLETA DEL MENSAJE
   const message = `
-Hola *${clientName}*, 👋
+Hola *${clientName}*,
 
 🔍 *Actualización de tu Pedido #${selectedOrder.numero_seguimiento}*
 
-El estado de tu pedido ha cambiado a: *${statusMessage}*
+El estado de tu pedido ha cambiado a: *${statusUpdate}*
+
+*Estado actual:* ${statusUpdate}
 
 📋 *Detalles:*
-• Producto: ${selectedOrder.nombre_producto}
-• Estado actual: *${statusUpdate}*
 
- ${infoPago}
+- Producto: ${selectedOrder.nombre_producto}
+- Descripción: ${selectedOrder.descripcion || 'Sin descripción adicional'}
 
- ${cuidadoProducto}
+💳 *DETALLE DE PAGO*
 
-🎁 *¡Benefíciate de más descuentos!*
-Aumenta tu porcentaje de descuento a través de referidos o pedidos recurrentes.
-Tu código de referido es : ${referralCode}
+Valor base: *$${precioBase.toLocaleString('es-CO')}*
+Valor total: *$${totalAPagar.toLocaleString('es-CO')}*
+
+Descuento por cliente recurrente o referidos: *${descuentoPorcentaje}%*
+
+*Abonos:*
+
+- ⏳ Saldo pendiente: *$${saldoPendiente.toLocaleString('es-CO')}*
+
+💰 *DATOS PARA PAGO:*
+
+- *Bre-B:* @sandrab1072
+- *Cuenta de ahorros Bancolombia:* 617-454347-92
+- *Link de pago bold:* ${PAYMENT_LINK}
+
+${cuidadoProducto}
+
+*¡Benefíciate de más descuento!*
+Aumenta tu porcentaje de descuentos a través de referidos o pedidos recurrentes.
+
+*Tu código de referido es:* ${referralCode}
 
 ¡Gracias por confiar en *Puntadas de Mechis*! ✨
+
+Te invitamos a seguir nuestra página en Instagram https://www.instagram.com/puntadasdemechis?igsh=aXpkMHdqMzZ1Mnk= y visitar nuestra página web https://laspuntadasdemechis.vercel.app/
 `.trim();
   
   const whatsappLink = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
@@ -2635,150 +2730,194 @@ const openNewGallery = () => {
     </div>
   );
 
-  const ClientsView = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Clientes</h2>
-        <button 
-          onClick={() => setIsCreateClientModalOpen(true)}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
-        >
-          <Plus size={18}/> Nuevo Cliente
-        </button>
-      </div>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="p-4">Nombre</th>
-              <th className="p-4">Email</th>
-              <th className="p-4">Teléfono</th>
-              <th className="p-4">Descuento</th>
-              <th className="p-4">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients.map((c) => (
-              <tr key={c.id} className="hover:bg-gray-50 border-t border-gray-100">
-                <td className="p-4 font-bold">{c.nombre_completo}</td>
-                <td className="p-4">{c.email}</td>
-                <td className="p-4">{c.telefono || 'N/A'}</td>
-                <td className="p-4">{c.descuento_activo}%</td>
-                <td className="p-4">
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={() => handleEditClient(c)} 
-                      className="text-blue-600 hover:text-blue-800"
-                      title="Editar cliente"
-                    >
-                      <Edit2 size={16}/>
-                    </button>
-                    <button 
-                      onClick={(e) => handleDeleteClient(e, c.id)} 
-                      className="text-red-600 hover:text-red-800"
-                      title="Eliminar cliente"
-                    >
-                      <Trash2 size={16}/>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  // ========================================
+// ACTUALIZAR ClientsView EN AdminDashboard.tsx
+// ========================================
 
-  const ReferralsView = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Gestión de Referidos</h2>
-        <button 
-          onClick={handleAddReferral}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
-        >
-          <Plus size={18}/> Nuevo Referido
-        </button>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-3 rounded-full bg-purple-100"><Users className="text-purple-600"/></div>
-          <div>
-            <p className="text-gray-500 text-sm">Total Referidos</p>
-            <p className="text-2xl font-bold">{referrals.length}</p>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-3 rounded-full bg-green-100"><DollarSign className="text-green-600"/></div>
-          <div>
-            <p className="text-gray-500 text-sm">Referidos Activos</p>
-            <p className="text-2xl font-bold">{referrals.filter(r => r.status === 'active').length}</p>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-3 rounded-full bg-yellow-100"><Trophy className="text-yellow-600"/></div>
-          <div>
-            <p className="text-gray-500 text-sm">Referidos Pendientes</p>
-            <p className="text-2xl font-bold">{referrals.filter(r => r.status === 'pending').length}</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="p-4">Referido</th>
-              <th className="p-4">Email</th>
-              <th className="p-4">Referido por</th>
-              <th className="p-4">Descuento</th>
-              <th className="p-4">Compras</th>
-              <th className="p-4">Estado</th>
-              <th className="p-4">Fecha de Registro</th>
-              <th className="p-4">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {referrals.map(referral => (
-              <tr key={referral.id} className="hover:bg-gray-50">
-                <td className="p-4 font-bold">{referral.name}</td>
-                <td className="p-4">{referral.email}</td>
-                <td className="p-4">{referral.referredByName || 'N/A'}</td>
-                <td className="p-4">{referral.discount}%</td>
-                <td className="p-4">{referral.purchases || 0}</td>
-                <td className="p-4">
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${
-                    referral.status === 'active' ? 'bg-green-100 text-green-700' : 
-                    referral.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                    'bg-gray-200 text-gray-600'
-                  }`}>
-                    {referral.status === 'active' ? 'Activo' : 
-                     referral.status === 'pending' ? 'Pendiente' : 
-                     'Inactivo'}
-                  </span>
-                </td>
-                <td className="p-4">{referral.created_at ? new Date(referral.created_at).toLocaleDateString() : 'N/A'}</td>
-                <td className="p-4 flex gap-2">
-                  <button className="text-blue-500 hover:bg-blue-50 p-2 rounded">
-                    <Eye size={16}/>
+const ClientsView = () => (
+  <div className="space-y-6 animate-fade-in">
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-bold text-gray-800">Clientes</h2>
+      <button 
+        onClick={() => setIsCreateClientModalOpen(true)}
+        className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
+      >
+        <Plus size={18}/> Nuevo Cliente
+      </button>
+    </div>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-gray-50 text-gray-600">
+          <tr>
+            <th className="p-4">Nombre</th>
+            <th className="p-4">Email</th>
+            <th className="p-4">Teléfono</th>
+            <th className="p-4">Código Referido</th>
+            <th className="p-4">Descuento</th>
+            <th className="p-4">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clients.map((c) => (
+            <tr key={c.id} className="hover:bg-gray-50 border-t border-gray-100">
+              <td className="p-4 font-bold">{c.nombre_completo}</td>
+              <td className="p-4">{c.email}</td>
+              <td className="p-4">{c.telefono || 'N/A'}</td>
+              <td className="p-4">
+                <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono">
+                  {c.codigo_referido || 'N/A'}
+                </code>
+              </td>
+              <td className="p-4">{c.descuento_activo}%</td>
+              <td className="p-4">
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleEditClient(c)} 
+                    className="text-blue-600 hover:text-blue-800"
+                    title="Editar cliente"
+                  >
+                    <Edit2 size={16}/>
                   </button>
-                  <button className="text-green-500 hover:bg-green-50 p-2 rounded">
-                    <Users size={16}/>
-                  </button>
-                  <button onClick={() => handleDeleteReferral(referral.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                  <button 
+                    onClick={(e) => handleDeleteClient(e, c.id)} 
+                    className="text-red-600 hover:text-red-800"
+                    title="Eliminar cliente"
+                  >
                     <Trash2 size={16}/>
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+// ========================================
+// AGREGAR ESTA FUNCIÓN ANTES DE ReferralsView
+// ========================================
+
+const handleViewReferralDetails = (referral: any) => {
+  const details = `
+📋 DETALLES DEL REFERIDO
+
+👤 Nombre: ${referral.name}
+📧 Email: ${referral.email}
+💼 Referido por: ${referral.referredByName || 'N/A'}
+📊 Compras realizadas: ${referral.purchases || 0}
+💰 Descuento: ${referral.discount}%
+📅 Fecha de registro: ${referral.created_at ? new Date(referral.created_at).toLocaleDateString('es-CO') : 'N/A'}
+🔄 Estado: ${referral.estado}
+  `.trim();
+
+  alert(details);
+};
+
+// ========================================
+// REEMPLAZA COMPLETAMENTE LA FUNCIÓN ReferralsView
+// ========================================
+
+const ReferralsView = () => (
+  <div className="space-y-6 animate-fade-in">
+    <div className="flex justify-between items-center">
+      <h2 className="text-2xl font-bold text-gray-800">Gestión de Referidos</h2>
+      <button 
+        onClick={handleAddReferral}
+        className="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
+      >
+        <Plus size={18}/> Nuevo Referido
+      </button>
+    </div>
+    
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+        <div className="p-3 rounded-full bg-purple-100"><Users className="text-purple-600"/></div>
+        <div>
+          <p className="text-gray-500 text-sm">Total Referidos</p>
+          <p className="text-2xl font-bold">{referrals.length}</p>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+        <div className="p-3 rounded-full bg-green-100"><DollarSign className="text-green-600"/></div>
+        <div>
+          <p className="text-gray-500 text-sm">Referidos Activos</p>
+          <p className="text-2xl font-bold">{referrals.filter(r => r.estado === 'Activo').length}</p>
+        </div>
+      </div>
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+        <div className="p-3 rounded-full bg-yellow-100"><Trophy className="text-yellow-600"/></div>
+        <div>
+          <p className="text-gray-500 text-sm">Referidos Pendientes</p>
+          <p className="text-2xl font-bold">{referrals.filter(r => r.estado === 'Pendiente').length}</p>
+        </div>
       </div>
     </div>
-  );
-
+    
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-gray-50 text-gray-600">
+          <tr>
+            <th className="p-4">Referido</th>
+            <th className="p-4">Email</th>
+            <th className="p-4">Referido por</th>
+            <th className="p-4">Descuento</th>
+            <th className="p-4">Compras</th>
+            <th className="p-4">Estado</th>
+            <th className="p-4">Fecha Registro</th>
+            <th className="p-4">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {referrals.map(referral => (
+            <tr key={referral.id} className="hover:bg-gray-50">
+              <td className="p-4 font-bold">{referral.name}</td>
+              <td className="p-4 text-xs">{referral.email}</td>
+              <td className="p-4 text-xs">{referral.referredByName || 'N/A'}</td>
+              <td className="p-4">{referral.discount}%</td>
+              <td className="p-4">{referral.purchases || 0}</td>
+              <td className="p-4">
+                <select
+                  value={referral.estado || 'Pendiente'}
+                  onChange={(e) => handleUpdateReferralStatus(referral.id, e.target.value)}
+                  className={`px-2 py-1 rounded text-xs font-bold border cursor-pointer ${
+                    referral.estado === 'Activo' ? 'bg-green-100 text-green-700 border-green-300' : 
+                    referral.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 
+                    'bg-gray-200 text-gray-600 border-gray-300'
+                  }`}
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Activo">Activo</option>
+                  <option value="Inactivo">Inactivo</option>
+                </select>
+              </td>
+              <td className="p-4 text-xs">{referral.created_at ? new Date(referral.created_at).toLocaleDateString() : 'N/A'}</td>
+              <td className="p-4 flex gap-2">
+                {/* ✅ BOTÓN DE OJO CON FUNCIÓN ASIGNADA */}
+                <button 
+                  onClick={() => handleViewReferralDetails(referral)}
+                  className="text-blue-500 hover:bg-blue-50 p-2 rounded transition-colors"
+                  title="Ver detalles del referido"
+                >
+                  <Eye size={16}/>
+                </button>
+                {/* BOTÓN DE ELIMINAR */}
+                <button 
+                  onClick={() => handleDeleteReferral(referral.id)} 
+                  className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors"
+                  title="Eliminar referido"
+                >
+                  <Trash2 size={16}/>
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
   const GalleryView = () => (
   <div className="space-y-6 animate-fade-in">
     <div className="flex justify-between items-center">
