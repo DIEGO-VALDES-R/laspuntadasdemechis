@@ -834,64 +834,62 @@ const handleUpdateStatusAndGuide = async () => {
   if (!selectedOrder) return;
   
   try {
-    // 🔑 PASO 1: Usar SIEMPRE editingOrderBasePrice como referencia principal
+    const statusUpdate = statusUpdate;
     const precioBase = editingOrderBasePrice || editingOrderTotal;
-    
-    // 🔑 PASO 2: Obtener el descuento del cliente (si existe)
     const descuentoPorcentaje = orderClient?.descuento_activo || 0;
-    
-    // 🔑 PASO 3: Calcular montos
     const descuentoMonto = descuentoPorcentaje > 0 
       ? Math.round(precioBase * (descuentoPorcentaje / 100)) 
       : 0;
-    
     const accesorios = selectedOrder.desglose?.accesorios || 0;
-    
-    // 🔑 PASO 4: Calcular el total CORRECTO
     const totalCalculado = precioBase - descuentoMonto + accesorios;
-    
-    // 🔑 PASO 5: Usar el total que el usuario editó (si es diferente)
     const totalFinal = editingOrderTotal > 0 ? editingOrderTotal : totalCalculado;
-    
-    // 🔑 PASO 6: Calcular saldo pendiente
     const saloPendiente = totalFinal - editingOrderPaid;
-    
-    // 🔑 PASO 7: Construir updateData con desglose COMPLETO y CORRECTO
+
     const updateData: any = {
       estado: statusUpdate,
       guia_transportadora: trackingGuide,
       clientName: editingOrderClientName || selectedOrder.clientName || '',
       clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '',
       clientEmail: editingOrderClientEmail || selectedOrder.clientEmail || '',
-      total_final: totalFinal, // ✅ Total final correcto
+      total_final: totalFinal,
       monto_pagado: editingOrderPaid,
-      saldo_pendiente: Math.max(0, saloPendiente), // ✅ No negativos
+      saldo_pendiente: Math.max(0, saloPendiente),
       tipo_empaque: tipoEmpaqueOrder,
-      
-      // ✅ DESGLOSE CORRECTO - Todos los componentes
       desglose: {
-        precio_base: precioBase,        // El precio base SIN descuento
-        descuento: descuentoMonto,      // Monto del descuento en pesos
-        empaque: 0,                     // Ya está incluido en precio_base
-        accesorios: accesorios,         // Montos adicionales
-        descuento_porcentaje: descuentoPorcentaje // Guardar el % para referencia
+        precio_base: precioBase,
+        descuento: descuentoMonto,
+        empaque: 0,
+        accesorios: accesorios,
+        descuento_porcentaje: descuentoPorcentaje
       }
     };
 
-    console.log('💾 Guardando pedido con desglose correcto:', {
-      precioBase,
-      descuentoPorcentaje,
-      descuentoMonto,
-      totalCalculado,
-      totalFinal,
-      editingOrderPaid,
-      saloPendiente,
-      desglose: updateData.desglose
-    });
+    console.log('💾 Guardando pedido:', updateData);
 
     await db.updateOrder(selectedOrder.id, updateData);
     
-    // ✅ Actualizar estado local
+    // 🆕 SI EL ESTADO ES "ENTREGADO", INCREMENTAR COMPRAS DEL CLIENTE
+    if (statusUpdate === 'Entregado' && selectedOrder.estado !== 'Entregado' && orderClient) {
+      console.log('✅ Pedido entregado - incrementando compras del cliente');
+      
+      const newPurchaseCount = (orderClient.compras_totales || 0) + 1;
+      
+      const { error } = await supabase
+        .from('clients')
+        .update({ 
+          compras_totales: newPurchaseCount,
+          total_invertido: (orderClient.total_invertido || 0) + totalFinal,
+          ahorro_historico: (orderClient.ahorro_historico || 0) + descuentoMonto
+        })
+        .eq('id', orderClient.id);
+
+      if (error) {
+        console.error('⚠️ Aviso: No se pudo actualizar compras del cliente:', error);
+      } else {
+        console.log('✅ Estadísticas del cliente actualizadas');
+      }
+    }
+
     setSelectedOrder({
       ...selectedOrder,
       clientName: updateData.clientName,
@@ -905,17 +903,10 @@ const handleUpdateStatusAndGuide = async () => {
       desglose: updateData.desglose
     });
 
-    alert('✅ Pedido actualizado correctamente\n\n' +
-      `Precio Base: $${precioBase.toLocaleString('es-CO')}\n` +
-      `Descuento ${descuentoPorcentaje}%: -$${descuentoMonto.toLocaleString('es-CO')}\n` +
-      `Total Final: $${totalFinal.toLocaleString('es-CO')}\n` +
-      `Pagado: $${editingOrderPaid.toLocaleString('es-CO')}\n` +
-      `Saldo: $${Math.max(0, saloPendiente).toLocaleString('es-CO')}`
-    );
+    alert('✅ Pedido actualizado correctamente');
     
-    // Preguntar si enviar notificación
     const shouldNotify = window.confirm(
-      '¿Deseas enviar una notificación por WhatsApp al cliente sobre esta actualización?'
+      '¿Deseas enviar una notificación por WhatsApp al cliente?'
     );
     
     if (shouldNotify) {
@@ -1124,80 +1115,145 @@ Te invitamos a seguir nuestra página en Instagram https://www.instagram.com/pun
   };
 
   const handleCreateOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newOrderData.clientEmail || !newOrderData.nombre_producto || newOrderData.total_final <= 0) {
-      alert("Completa los campos obligatorios");
-      return;
+  e.preventDefault();
+  if (!newOrderData.clientEmail || !newOrderData.nombre_producto || newOrderData.total_final <= 0) {
+    alert("Completa los campos obligatorios");
+    return;
+  }
+
+  try {
+    console.log('🔍 Buscando cliente con email:', newOrderData.clientEmail);
+    
+    // PASO 1: Buscar cliente existente
+    const { data: existingClient, error: searchError } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('email', newOrderData.clientEmail)
+      .single();
+
+    let clientToUse = existingClient;
+
+    if (searchError && searchError.code !== 'PGRST116') {
+      // Error real (no es "no encontrado")
+      console.error('❌ Error buscando cliente:', searchError);
+      throw searchError;
     }
 
-    try {
-      console.log('🔍 Verificando si el cliente existe:', newOrderData.clientEmail);
-      let clientExists = await db.getClientByEmail(newOrderData.clientEmail);
+    if (!existingClient) {
+      // PASO 2: Cliente NO existe - Crear
+      console.log('📝 Cliente no existe, creando...');
       
-      if (!clientExists) {
-        console.log('📝 Cliente no existe, creando automáticamente...');
-        
-        await db.registerClient({
+      const { data: newClient, error: createError } = await supabase
+        .from('clients')
+        .insert([{
           nombre_completo: newOrderData.clientName || 'Cliente Manual',
           email: newOrderData.clientEmail,
           telefono: newOrderData.clientPhone || '',
           cedula: '',
           direccion: '',
-          password: `temp${Date.now()}`
-        });
-        
-        console.log('✅ Cliente creado exitosamente');
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } else {
-        console.log('✅ Cliente ya existe en la base de datos');
+          password: `temp${Date.now()}`,
+          compras_totales: 0,
+          descuento_activo: 0,
+          cantidad_referidos: 0,
+          codigo_referido: `REF-${Date.now()}`,
+          nivel: 'Nuevo',
+          ahorro_historico: 0,
+          compras_para_siguiente: 0,
+          progreso_porcentaje: 0,
+          total_invertido: 0,
+          promedio_por_pedido: 0,
+          saldos_pendientes: 0,
+          ahorro_descuentos: 0,
+          porcentaje_ahorro: 0
+        }])
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('❌ Error creando cliente:', createError);
+        throw createError;
       }
 
-      const saldo = newOrderData.total_final - newOrderData.monto_pagado;
-      
-      let finalImageUrl = 'https://placehold.co/400x400/e8e8e8/666666?text=Pedido+Manual';
-      if (newOrderData.imagen) {
-        setUploadingImage(true);
-        const uploadedUrl = await uploadImage(newOrderData.imagen, 'orders');
-        if (uploadedUrl) {
-          finalImageUrl = uploadedUrl;
-        }
-        setUploadingImage(false);
-      }
-
-      const newOrder = {
-        numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
-        clientEmail: newOrderData.clientEmail,
-        clientName: newOrderData.clientName, // ✅ Agregado
-        clientPhone: newOrderData.clientPhone, // ✅ Agregado
-        nombre_producto: newOrderData.nombre_producto,
-        descripcion: newOrderData.descripcion || 'Pedido creado manualmente',
-        estado: (saldo === 0 ? 'Agendado' : 'En espera de agendar') as any,
-        fecha_solicitud: new Date().toISOString().split('T')[0],
-        total_final: newOrderData.total_final,
-        monto_pagado: newOrderData.monto_pagado,
-        saldo_pendiente: saldo,
-        imagen_url: finalImageUrl,
-        tipo_empaque: newOrderData.tipo_empaque, // ✅ AGREGADO
-        desglose: { precio_base: newOrderData.total_final, empaque: 0, accesorios: 0, descuento: 0 }
-      };
-
-      console.log('💾 Guardando pedido:', newOrder.numero_seguimiento);
-      await db.addOrder(newOrder as any);
-      console.log('✅ Pedido guardado exitosamente');
-      
-      setCreatedOrderNumber(newOrder.numero_seguimiento);
-      setShowNotificationOptions(true);
-      
-      await loadData();
-      
-      alert('✅ Pedido creado exitosamente');
-      
-    } catch (error) {
-      console.error('❌ Error al crear pedido:', error);
-      alert(`Error al crear el pedido: ${(error as Error).message}`);
+      console.log('✅ Cliente creado:', newClient);
+      clientToUse = newClient;
+    } else {
+      console.log('✅ Cliente EXISTENTE encontrado:', existingClient.nombre_completo);
+      clientToUse = existingClient;
     }
-  };
+
+    // PASO 3: Crear el pedido
+    const saldo = newOrderData.total_final - newOrderData.monto_pagado;
+    
+    let finalImageUrl = 'https://placehold.co/400x400/e8e8e8/666666?text=Pedido+Manual';
+    if (newOrderData.imagen) {
+      setUploadingImage(true);
+      const uploadedUrl = await uploadImage(newOrderData.imagen, 'orders');
+      if (uploadedUrl) {
+        finalImageUrl = uploadedUrl;
+      }
+      setUploadingImage(false);
+    }
+
+    const newOrder = {
+      numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
+      clientEmail: newOrderData.clientEmail,
+      clientName: newOrderData.clientName,
+      clientPhone: newOrderData.clientPhone,
+      nombre_producto: newOrderData.nombre_producto,
+      descripcion: newOrderData.descripcion || 'Pedido creado manualmente',
+      estado: (saldo === 0 ? 'Agendado' : 'En espera de agendar') as any,
+      fecha_solicitud: new Date().toISOString().split('T')[0],
+      total_final: newOrderData.total_final,
+      monto_pagado: newOrderData.monto_pagado,
+      saldo_pendiente: saldo,
+      imagen_url: finalImageUrl,
+      tipo_empaque: newOrderData.tipo_empaque,
+      desglose: { precio_base: newOrderData.total_final, empaque: 0, accesorios: 0, descuento: 0 }
+    };
+
+    console.log('💾 Creando pedido:', newOrder.numero_seguimiento);
+    
+    const { data: createdOrder, error: orderError } = await supabase
+      .from('orders')
+      .insert([newOrder])
+      .select()
+      .single();
+
+    if (orderError) {
+      console.error('❌ Error creando pedido:', orderError);
+      throw orderError;
+    }
+
+    console.log('✅ Pedido creado:', createdOrder);
+
+    // PASO 4: Actualizar compras_totales del cliente (IMPORTANTE!)
+    const newPurchaseCount = (clientToUse?.compras_totales || 0) + 1;
+    console.log('📊 Incrementando compras de cliente a:', newPurchaseCount);
+    
+    const { error: updateError } = await supabase
+      .from('clients')
+      .update({ compras_totales: newPurchaseCount })
+      .eq('id', clientToUse.id);
+
+    if (updateError) {
+      console.error('⚠️ Aviso: Pedido creado pero no se pudo actualizar compras:', updateError);
+      // No fallar aquí, el pedido se creó
+    } else {
+      console.log('✅ Compras del cliente actualizadas');
+    }
+
+    setCreatedOrderNumber(newOrder.numero_seguimiento);
+    setShowNotificationOptions(true);
+    
+    await loadData();
+    
+    alert('✅ Pedido creado exitosamente');
+    
+  } catch (error) {
+    console.error('❌ Error al crear pedido:', error);
+    alert(`Error al crear el pedido: ${(error as Error).message}`);
+  }
+};
 
   const sendEmailNotification = () => {
     const saldo = newOrderData.total_final - newOrderData.monto_pagado;
@@ -1755,15 +1811,35 @@ const openNewGallery = () => {
   // ========================================
   
   const handleUpdateReferralStatus = async (referralId: string, status: string) => {
-    try {
-      await db.updateReferral(referralId, { status });
-      alert('Estado del referido actualizado');
-      loadData();
-    } catch (error) {
-      console.error('Error al actualizar estado del referido:', error);
-      alert('Error al actualizar estado del referido');
+  try {
+    console.log('🔄 Cambiar estado de referido:', { referralId, status });
+    
+    // Actualizar en Supabase directamente
+    const { data, error } = await supabase
+      .from('referrals')
+      .update({ 
+        estado: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', referralId)
+      .select();
+
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      alert(`❌ Error al actualizar: ${error.message}`);
+      return;
     }
-  };
+
+    console.log('✅ Estado actualizado:', data);
+    
+    // Recargar datos
+    await loadData();
+    alert('✅ Estado del referido actualizado correctamente');
+  } catch (error) {
+    console.error('❌ Error:', error);
+    alert(`❌ Error: ${(error as Error).message}`);
+  }
+};
 
     const handleAddReferral = async () => {
     const name = prompt('Ingrese el nombre del referido:');

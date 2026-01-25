@@ -197,6 +197,64 @@ function calculateQuoteTotal(quoteData: QuoteData, inventoryItems?: InventoryIte
 }
 
 // =====================================================
+// NUEVAS FUNCIONES DE SERVICIO (SOLUCIÓN 1 Y 2)
+// =====================================================
+
+// 🔧 SOLUCIÓN 1: Actualizar estado de referido (Sin updated_at según esquema SQL)
+export const updateReferralStatusInSupabase = async (referralId: string, newStatus: string) => {
+  try {
+    console.log('🔄 Actualizando referido:', { referralId, newStatus });
+    
+    const { data, error } = await supabase
+      .from('referrals')
+      .update({ 
+        estado: newStatus
+        // ❌ ELIMINADO: updated_at (No existe en la tabla referrals según tu esquema SQL)
+      })
+      .eq('id', referralId)
+      .select();
+
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      throw new Error(`Error al actualizar: ${error.message}`);
+    }
+
+    console.log('✅ Referido actualizado:', data);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error al actualizar referral:', error);
+    return { data: null, error };
+  }
+};
+
+// 🔧 SOLUCIÓN 2: Actualizar compras_totales del cliente
+export const updateClientPurchaseCount = async (clientId: string, newCount: number) => {
+  try {
+    console.log('📊 Actualizando compras del cliente:', { clientId, newCount });
+    
+    const { data, error } = await supabase
+      .from('clients')
+      .update({ 
+        compras_totales: newCount
+        // ❌ ELIMINADO: updated_at (Por consistencia con updateClient original)
+      })
+      .eq('id', clientId)
+      .select();
+
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      throw new Error(`Error al actualizar: ${error.message}`);
+    }
+
+    console.log('✅ Cliente actualizado:', data);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error al actualizar cliente:', error);
+    return { data: null, error };
+  }
+};
+
+// =====================================================
 // DATABASE SERVICE
 // =====================================================
 
