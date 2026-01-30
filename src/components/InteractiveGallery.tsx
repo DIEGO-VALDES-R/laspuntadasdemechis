@@ -96,18 +96,18 @@ const InteractiveGallery: React.FC<InteractiveGalleryProps> = ({ items }) => {
 
   // 🆕 Función para solicitar corregida (Elimina el "undefined")
   const handleBuy = (e: React.MouseEvent, item: GalleryItem) => {
-    e.stopPropagation();
-    navigate('/request', { 
-      state: { 
-        reorderOrder: { 
-          nombre_producto: item.title,
-          descripcion: item.description,
-          imagen_url: item.imageUrl,
-          numero_seguimiento: 'GALERIA' // 👈 Esto evita el "undefined"
-        } 
+  e.stopPropagation();
+  navigate('/request', { 
+    state: { 
+      galleryItem: {  // ✅ CORRECTO
+        title: item.title,
+        description: item.description,
+        imageUrl: item.imageUrl,
+        price: item.price
       } 
-    });
-  };
+    } 
+  });
+};
 
   return (
     <section className="py-16 bg-white" id="gallery">

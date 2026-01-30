@@ -200,7 +200,8 @@ function calculateQuoteTotal(quoteData: QuoteData, inventoryItems?: InventoryIte
 // NUEVAS FUNCIONES DE SERVICIO (SOLUCIÓN 1 Y 2)
 // =====================================================
 
-// 🔧 SOLUCIÓN 1: Actualizar estado de referido (Sin updated_at según esquema SQL)
+
+// 🔧 SOLUCIÓN 1: Actualizar estado de referido (Sin updated_at)
 export const updateReferralStatusInSupabase = async (referralId: string, newStatus: string) => {
   try {
     console.log('🔄 Actualizando referido:', { referralId, newStatus });
@@ -209,16 +210,13 @@ export const updateReferralStatusInSupabase = async (referralId: string, newStat
       .from('referrals')
       .update({ 
         estado: newStatus
-        // ❌ ELIMINADO: updated_at (No existe en la tabla referrals según tu esquema SQL)
       })
       .eq('id', referralId)
       .select();
-
     if (error) {
       console.error('❌ Error de Supabase:', error);
       throw new Error(`Error al actualizar: ${error.message}`);
     }
-
     console.log('✅ Referido actualizado:', data);
     return { data, error: null };
   } catch (error) {
@@ -227,7 +225,7 @@ export const updateReferralStatusInSupabase = async (referralId: string, newStat
   }
 };
 
-// 🔧 SOLUCIÓN 2: Actualizar compras_totales del cliente
+// 🔧 SOLUCIÓN 2: Actualizar compras_totales del cliente (Sin updated_at)
 export const updateClientPurchaseCount = async (clientId: string, newCount: number) => {
   try {
     console.log('📊 Actualizando compras del cliente:', { clientId, newCount });
@@ -236,16 +234,13 @@ export const updateClientPurchaseCount = async (clientId: string, newCount: numb
       .from('clients')
       .update({ 
         compras_totales: newCount
-        // ❌ ELIMINADO: updated_at (Por consistencia con updateClient original)
       })
       .eq('id', clientId)
       .select();
-
     if (error) {
       console.error('❌ Error de Supabase:', error);
       throw new Error(`Error al actualizar: ${error.message}`);
     }
-
     console.log('✅ Cliente actualizado:', data);
     return { data, error: null };
   } catch (error) {
@@ -355,26 +350,23 @@ export const db = {
   },
 
   getOrdersByClientEmail: async (email: string): Promise<Order[]> => {
-    console.log('🔍 Buscando pedidos para:', email);
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('client_email', email)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ Error al cargar pedidos:', error);
-      return [];
-    }
-
-    if (!data) {
-      console.log('ℹ️ No se encontraron pedidos para este cliente');
-      return [];
-    }
-
-    console.log(`✅ ${data.length} pedidos encontrados`);
-    return data.map(mapOrder);
-  },
+  console.log('🔍 Buscando pedidos para:', email);
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('client_email', email)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('❌ Error al cargar pedidos:', error);
+    return [];
+  }
+  if (!data) {
+    console.log('ℹ️ No se encontraron pedidos para este cliente');
+    return [];
+  }
+  console.log(`✅ ${data.length} pedidos encontrados`);
+  return data.map(mapOrder);
+},
 
   getOrderByNumberAndEmail: async (orderNumber: string, email: string): Promise<Order | null> => {
     console.log('🔍 Buscando pedido:', orderNumber, 'para email:', email);
@@ -1226,24 +1218,29 @@ export const db = {
     }
   },
 
-  updateReferral: async (referralId: string, updates: any) => {
-    const { error } = await supabase
+  // 🔧 SOLUCIÓN 3: En la sección updateReferral del db object
+updateReferral: async (referralId: string, updates: any) => {
+  try {
+    console.log('🔄 Actualizando referido en BD:', { referralId, updates });
+    
+    const { data, error } = await supabase
       .from('referrals')
       .update(updates)
-      .eq('id', referralId); // Corregido: Usar 'id' en lugar de 'referrer_id'
-    
-    if (error) {
-      console.error('Error updating referral:', error);
-    }
-  },
+      .eq('id', referralId)
+      .select();
 
-  addReferral: async (referral: any) => {
-    const { error } = await supabase.from('referrals').insert(referral);
-    
     if (error) {
-      console.error('Error adding referral:', error);
+      console.error('❌ Error de Supabase:', error);
+      throw error;
     }
-  },
+
+    console.log('✅ Referido actualizado:', data);
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ Error en updateReferral:', error);
+    return { data: null, error };
+  }
+},
 
   // ========== VALUE PROPS ==========
   getValueProps: async (): Promise<any[]> => {
@@ -1382,97 +1379,97 @@ export const db = {
   },
 
   createTestimonial: async (testimonial: Omit<Testimonial, 'id' | 'created_at' | 'updated_at'>) => {
-    try {
-      console.log('➕ Creando nuevo testimonio:', testimonial);
-      
-      const { data, error } = await supabase
-        .from('testimonials')
-        .insert([{
-          ...testimonial,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('❌ Error de Supabase:', error);
-        throw new Error(`Error al crear testimonio: ${error.message}`);
-      }
-      
-      console.log('✅ Testimonio creado correctamente:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Error en createTestimonial:', error);
-      throw error;
+  try {
+    console.log('➕ Creando nuevo testimonio:', testimonial);
+    
+    const { data, error } = await supabase
+      .from('testimonials')
+      .insert([{
+        ...testimonial,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      throw new Error(`Error al crear testimonio: ${error.message}`);
     }
-  },
+    
+    console.log('✅ Testimonio creado correctamente:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error en createTestimonial:', error);
+    throw error;
+  }
+},
 
   updateTestimonial: async (id: string, updates: Partial<Testimonial>) => {
-    try {
-      console.log('🔄 Actualizando testimonio:', { id, updates });
-      
-      const { data: existingTestimonial, error: fetchError } = await supabase
-        .from('testimonials')
-        .select('*')
-        .eq('id', id)
-        .single();
-      
-      if (fetchError) {
-        console.error('❌ Error al buscar testimonio:', fetchError);
-        throw new Error(`No se encontró el testimonio con ID ${id}: ${fetchError.message}`);
-      }
-      
-      if (!existingTestimonial) {
-        console.error('❌ Testimonio no encontrado');
-        throw new Error(`No se encontró el testimonio con ID ${id}`);
-      }
-      
-      console.log('✅ Testimonio encontrado:', existingTestimonial);
-      
-      const { data, error } = await supabase
-        .from('testimonials')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .select();
-      
-      if (error) {
-        console.error('❌ Error de Supabase:', error);
-        throw new Error(`Error al actualizar testimonio: ${error.message}`);
-      }
-      
-      console.log('✅ Testimonio actualizado correctamente:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Error en updateTestimonial:', error);
-      throw error;
+  try {
+    console.log('🔄 Actualizando testimonio:', { id, updates });
+    
+    const { data: existingTestimonial, error: fetchError } = await supabase
+      .from('testimonials')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError) {
+      console.error('❌ Error al buscar testimonio:', fetchError);
+      throw new Error(`No se encontró el testimonio con ID ${id}: ${fetchError.message}`);
     }
-  },
+    
+    if (!existingTestimonial) {
+      console.error('❌ Testimonio no encontrado');
+      throw new Error(`No se encontró el testimonio con ID ${id}`);
+    }
+    
+    console.log('✅ Testimonio encontrado:', existingTestimonial);
+    
+    const { data, error } = await supabase
+      .from('testimonials')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select();
+    
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      throw new Error(`Error al actualizar testimonio: ${error.message}`);
+    }
+    
+    console.log('✅ Testimonio actualizado correctamente:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error en updateTestimonial:', error);
+    throw error;
+  }
+},
 
   deleteTestimonial: async (id: string) => {
-    try {
-      console.log('🗑️ Eliminando testimonio:', id);
-      
-      const { error } = await supabase
-        .from('testimonials')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('❌ Error de Supabase:', error);
-        throw new Error(`Error al eliminar el testimonio: ${error.message}`);
-      }
-      
-      console.log('✅ Testimonio eliminado correctamente');
-      return { error: null };
-    } catch (error) {
-      console.error('❌ Error en deleteTestimonial:', error);
-      return { error: null };
+  try {
+    console.log('🗑️ Eliminando testimonio:', id);
+    
+    const { error } = await supabase
+      .from('testimonials')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      throw new Error(`Error al eliminar el testimonio: ${error.message}`);
     }
-  },
+    
+    console.log('✅ Testimonio eliminado correctamente');
+    return { error: null };
+  } catch (error) {
+    console.error('❌ Error en deleteTestimonial:', error);
+    return { error: null };
+  }
+},
 
   // ========== EDITABLE SECTIONS ==========
   getEditableSections: async (): Promise<any> => {
@@ -1649,34 +1646,34 @@ export const db = {
 
   // --- QUOTES ---
   saveQuote: async (quoteData: QuoteData) => {
-    const inventoryItems = await db.getInventoryItems();
-    
-    const { data, error } = await supabase
-      .from('quotes')
-      .insert([{
-        client_name: quoteData.clientName,
-        client_email: quoteData.clientEmail,
-        client_phone: quoteData.clientPhone,
-        product_name: quoteData.productName,
-        description: quoteData.description,
-        base_price: quoteData.basePrice,
-        selected_size_id: quoteData.selectedSizeId,
-        selected_packaging_id: quoteData.selectedPackagingId,
-        selected_accessories: quoteData.selectedAccessories,
-        image_url: quoteData.imageUrl,
-        notes: quoteData.notes,
-        total_amount: calculateQuoteTotal(quoteData, inventoryItems),
-        status: quoteData.status || 'pending'
-      }])
-      .select();
-    
-    if (error) {
-      console.error('❌ Error saving quote:', error);
-      throw new Error(`Error al guardar la cotización: ${error.message}`);
-    }
-    
-    return data;
-  },
+  const inventoryItems = await db.getInventoryItems();
+  
+  const { data, error } = await supabase
+    .from('quotes')
+    .insert([{
+      client_name: quoteData.clientName,
+      client_email: quoteData.clientEmail,
+      client_phone: quoteData.clientPhone,
+      product_name: quoteData.productName,
+      description: quoteData.description,
+      base_price: quoteData.basePrice,
+      selected_size_id: quoteData.selectedSizeId,
+      selected_packaging_id: quoteData.selectedPackagingId,
+      selected_accessories: quoteData.selectedAccessories,
+      image_url: quoteData.imageUrl,
+      notes: quoteData.notes,
+      total_amount: calculateQuoteTotal(quoteData, inventoryItems),
+      status: quoteData.status || 'pending'
+    }])
+    .select();
+  
+  if (error) {
+    console.error('❌ Error saving quote:', error);
+    throw new Error(`Error al guardar la cotización: ${error.message}`);
+  }
+  
+  return data;
+},
 
   getQuotes: async () => {
     const { data, error } = await supabase
@@ -1708,35 +1705,36 @@ export const db = {
   },
 
   updateQuote: async (id: string, updates: Partial<QuoteData>) => {
-    const dbUpdates: any = {};
-    
-    if (updates.client_name !== undefined) dbUpdates.client_name = updates.client_name;
-    if (updates.client_email !== undefined) dbUpdates.client_email = updates.client_email;
-    if (updates.client_phone !== undefined) dbUpdates.client_phone = updates.client_phone;
-    if (updates.product_name !== undefined) dbUpdates.product_name = updates.product_name;
-    if (updates.description !== undefined) dbUpdates.description = updates.description;
-    if (updates.base_price !== undefined) dbUpdates.base_price = updates.base_price;
-    if (updates.selected_size_id !== undefined) dbUpdates.selected_size_id = updates.selected_size_id;
-    if (updates.selected_packaging_id !== undefined) dbUpdates.selected_packaging_id = updates.selected_packaging_id;
-    if (updates.selected_accessories !== undefined) dbUpdates.selected_accessories = updates.selected_accessories;
-    if (updates.image_url !== undefined) dbUpdates.image_url = updates.image_url;
-    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
-    if (updates.total_amount !== undefined) dbUpdates.total_amount = updates.total_amount;
-    if (updates.status !== undefined) dbUpdates.status = updates.status;
-    
-    const { data, error } = await supabase
-      .from('quotes')
-      .update(dbUpdates)
-      .eq('id', id)
-      .select();
-    
-    if (error) {
-      console.error('❌ Error al actualizar cotización:', error);
-      throw new Error(`Error al actualizar la cotización: ${error.message}`);
-    }
-    
-    return data;
-  },
+  const dbUpdates: any = {};
+  
+  // ✅ CORRECCIÓN: Usar las propiedades correctas de QuoteData
+  if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName;
+  if (updates.clientEmail !== undefined) dbUpdates.client_email = updates.clientEmail;
+  if (updates.clientPhone !== undefined) dbUpdates.client_phone = updates.clientPhone;
+  if (updates.productName !== undefined) dbUpdates.product_name = updates.productName;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.basePrice !== undefined) dbUpdates.base_price = updates.basePrice;
+  if (updates.selectedSizeId !== undefined) dbUpdates.selected_size_id = updates.selectedSizeId;
+  if (updates.selectedPackagingId !== undefined) dbUpdates.selected_packaging_id = updates.selectedPackagingId;
+  if (updates.selectedAccessories !== undefined) dbUpdates.selected_accessories = updates.selectedAccessories;
+  if (updates.imageUrl !== undefined) dbUpdates.image_url = updates.imageUrl;
+  if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+  if (updates.totalAmount !== undefined) dbUpdates.total_amount = updates.totalAmount;
+  if (updates.status !== undefined) dbUpdates.status = updates.status;
+  
+  const { data, error } = await supabase
+    .from('quotes')
+    .update(dbUpdates)
+    .eq('id', id)
+    .select();
+  
+  if (error) {
+    console.error('❌ Error al actualizar cotización:', error);
+    throw new Error(`Error al actualizar la cotización: ${error.message}`);
+  }
+  
+  return data;
+},
 
   deleteQuote: async (id: string) => {
     const { error } = await supabase
