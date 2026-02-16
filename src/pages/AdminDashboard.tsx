@@ -834,7 +834,11 @@ const handleUpdateStatusAndGuide = async () => {
   if (!selectedOrder) return;
   
   try {
-    const statusUpdate = statusUpdate;
+    // ✅ Capturar el estado ANTES de usarlo
+    const currentStatus = statusUpdate;
+    const currentTrackingGuide = trackingGuide;
+    const currentTipoEmpaque = tipoEmpaqueOrder;
+    
     const precioBase = editingOrderBasePrice || editingOrderTotal;
     const descuentoPorcentaje = orderClient?.descuento_activo || 0;
     const descuentoMonto = descuentoPorcentaje > 0 
@@ -843,18 +847,18 @@ const handleUpdateStatusAndGuide = async () => {
     const accesorios = selectedOrder.desglose?.accesorios || 0;
     const totalCalculado = precioBase - descuentoMonto + accesorios;
     const totalFinal = editingOrderTotal > 0 ? editingOrderTotal : totalCalculado;
-    const saloPendiente = totalFinal - editingOrderPaid;
+    const saldoPendiente = totalFinal - editingOrderPaid;
 
     const updateData: any = {
-      estado: statusUpdate,
-      guia_transportadora: trackingGuide,
-      clientName: editingOrderClientName || selectedOrder.clientName || '',
-      clientPhone: editingOrderClientPhone || selectedOrder.clientPhone || '',
-      clientEmail: editingOrderClientEmail || selectedOrder.clientEmail || '',
+      estado: currentStatus,
+      guia_transportadora: currentTrackingGuide,
+      client_name: editingOrderClientName || selectedOrder.clientName || '',
+      client_phone: editingOrderClientPhone || selectedOrder.clientPhone || '',
+      client_email: editingOrderClientEmail || selectedOrder.clientEmail || '',
       total_final: totalFinal,
       monto_pagado: editingOrderPaid,
-      saldo_pendiente: Math.max(0, saloPendiente),
-      tipo_empaque: tipoEmpaqueOrder,
+      saldo_pendiente: Math.max(0, saldoPendiente),
+      tipo_empaque: currentTipoEmpaque,
       desglose: {
         precio_base: precioBase,
         descuento: descuentoMonto,
@@ -868,8 +872,8 @@ const handleUpdateStatusAndGuide = async () => {
 
     await db.updateOrder(selectedOrder.id, updateData);
     
-    // 🆕 SI EL ESTADO ES "ENTREGADO", INCREMENTAR COMPRAS DEL CLIENTE
-    if (statusUpdate === 'Entregado' && selectedOrder.estado !== 'Entregado' && orderClient) {
+    // Incrementar compras si el estado cambió a "Entregado"
+    if (currentStatus === 'Entregado' && selectedOrder.estado !== 'Entregado' && orderClient) {
       console.log('✅ Pedido entregado - incrementando compras del cliente');
       
       const newPurchaseCount = (orderClient.compras_totales || 0) + 1;
@@ -884,23 +888,22 @@ const handleUpdateStatusAndGuide = async () => {
         .eq('id', orderClient.id);
 
       if (error) {
-        console.error('⚠️ Aviso: No se pudo actualizar compras del cliente:', error);
-      } else {
-        console.log('✅ Estadísticas del cliente actualizadas');
+        console.error('⚠️ No se pudo actualizar compras del cliente:', error);
       }
     }
 
     setSelectedOrder({
       ...selectedOrder,
-      clientName: updateData.clientName,
-      clientPhone: updateData.clientPhone,
-      clientEmail: updateData.clientEmail,
-      estado: statusUpdate,
-      guia_transportadora: trackingGuide,
+      clientName: updateData.client_name,
+      clientPhone: updateData.client_phone,
+      clientEmail: updateData.client_email,
+      estado: currentStatus,
+      guia_transportadora: currentTrackingGuide,
       total_final: updateData.total_final,
       monto_pagado: updateData.monto_pagado,
       saldo_pendiente: updateData.saldo_pendiente,
-      desglose: updateData.desglose
+      desglose: updateData.desglose,
+      tipo_empaque: currentTipoEmpaque
     });
 
     alert('✅ Pedido actualizado correctamente');
@@ -1134,26 +1137,24 @@ Te invitamos a seguir nuestra página en Instagram https://www.instagram.com/pun
     let clientToUse = existingClient;
 
     if (searchError && searchError.code !== 'PGRST116') {
-      // Error real (no es "no encontrado")
       console.error('❌ Error buscando cliente:', searchError);
       throw searchError;
     }
 
     if (!existingClient) {
-      // PASO 2: Cliente NO existe - Crear
       console.log('📝 Cliente no existe, creando...');
       
       const { data: newClient, error: createError } = await supabase
         .from('clients')
         .insert([{
-          nombre_completo: newOrderData.clientName || 'Cliente Manual',
+          name: newOrderData.clientName || 'Cliente Manual',
           email: newOrderData.clientEmail,
-          telefono: newOrderData.clientPhone || '',
+          phone: newOrderData.clientPhone || '',
           cedula: '',
-          direccion: '',
+          address: '',
           password: `temp${Date.now()}`,
           compras_totales: 0,
-          descuento_activo: 0,
+          descuento_inicial: 0,
           cantidad_referidos: 0,
           codigo_referido: `REF-${Date.now()}`,
           nivel: 'Nuevo',
@@ -1177,13 +1178,11 @@ Te invitamos a seguir nuestra página en Instagram https://www.instagram.com/pun
       console.log('✅ Cliente creado:', newClient);
       clientToUse = newClient;
     } else {
-      console.log('✅ Cliente EXISTENTE encontrado:', existingClient.nombre_completo);
+      console.log('✅ Cliente EXISTENTE encontrado:', existingClient.name);
       clientToUse = existingClient;
     }
 
-    // PASO 3: Crear el pedido
-    const saldo = newOrderData.total_final - newOrderData.monto_pagado;
-    
+    // PASO 2: Subir imagen si existe
     let finalImageUrl = 'https://placehold.co/400x400/e8e8e8/666666?text=Pedido+Manual';
     if (newOrderData.imagen) {
       setUploadingImage(true);
@@ -1194,39 +1193,39 @@ Te invitamos a seguir nuestra página en Instagram https://www.instagram.com/pun
       setUploadingImage(false);
     }
 
+    // PASO 3: Crear el pedido usando db.addOrder() ✅
+    const saldo = newOrderData.total_final - newOrderData.monto_pagado;
+    
     const newOrder = {
       numero_seguimiento: Math.floor(100000 + Math.random() * 900000).toString(),
-      clientEmail: newOrderData.clientEmail,
-      clientName: newOrderData.clientName,
-      clientPhone: newOrderData.clientPhone,
+      clientEmail: newOrderData.clientEmail,        // ✅ camelCase (TypeScript)
+      clientName: newOrderData.clientName,          // ✅ camelCase (TypeScript)
+      clientPhone: newOrderData.clientPhone,        // ✅ camelCase (TypeScript)
       nombre_producto: newOrderData.nombre_producto,
       descripcion: newOrderData.descripcion || 'Pedido creado manualmente',
-      estado: (saldo === 0 ? 'Agendado' : 'En espera de agendar') as any,
+      estado: (saldo === 0 ? 'Agendado' : 'En espera de agendar'),
       fecha_solicitud: new Date().toISOString().split('T')[0],
       total_final: newOrderData.total_final,
       monto_pagado: newOrderData.monto_pagado,
       saldo_pendiente: saldo,
       imagen_url: finalImageUrl,
       tipo_empaque: newOrderData.tipo_empaque,
-      desglose: { precio_base: newOrderData.total_final, empaque: 0, accesorios: 0, descuento: 0 }
+      desglose: { 
+        precio_base: newOrderData.total_final, 
+        empaque: 0, 
+        accesorios: 0, 
+        descuento: 0 
+      }
     };
 
-    console.log('💾 Creando pedido:', newOrder.numero_seguimiento);
+    console.log('💾 Creando pedido con db.addOrder()...');
     
-    const { data: createdOrder, error: orderError } = await supabase
-      .from('orders')
-      .insert([newOrder])
-      .select()
-      .single();
+    // ✅ USAR db.addOrder() EN LUGAR DE INSERCIÓN DIRECTA
+    await db.addOrder(newOrder);
+    
+    console.log('✅ Pedido creado exitosamente');
 
-    if (orderError) {
-      console.error('❌ Error creando pedido:', orderError);
-      throw orderError;
-    }
-
-    console.log('✅ Pedido creado:', createdOrder);
-
-    // PASO 4: Actualizar compras_totales del cliente (IMPORTANTE!)
+    // PASO 4: Actualizar compras_totales del cliente
     const newPurchaseCount = (clientToUse?.compras_totales || 0) + 1;
     console.log('📊 Incrementando compras de cliente a:', newPurchaseCount);
     
@@ -1237,7 +1236,6 @@ Te invitamos a seguir nuestra página en Instagram https://www.instagram.com/pun
 
     if (updateError) {
       console.error('⚠️ Aviso: Pedido creado pero no se pudo actualizar compras:', updateError);
-      // No fallar aquí, el pedido se creó
     } else {
       console.log('✅ Compras del cliente actualizadas');
     }
@@ -4477,18 +4475,19 @@ const ContentView = () => {
               <div>
                 <label className="block text-sm font-bold mb-2">Estado del Pedido</label>
                 <select 
-                  value={statusUpdate} 
-                  onChange={(e) => setStatusUpdate(e.target.value)} 
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="En espera de agendar">En espera de agendar</option>
-                  <option value="Agendado">Agendado</option>
-                  <option value="¡Ya estamos tejiendo tu pedido! Pronto estará listo.">¡Ya estamos tejiendo tu pedido! Pronto estará listo.</option>
-                  <option value="Tu Amigurumi ya fue tejido.">Tu Amigurumi ya fue tejido.</option>
-                  <option value="Listo para entregar">Listo para entregar</option>
-                  <option value="Entregado">Entregado</option>
-                  <option value="Cancelado">Cancelado</option>
-                </select>
+  value={statusUpdate} 
+  onChange={(e) => setStatusUpdate(e.target.value)} 
+  className="w-full p-2 border rounded"
+>
+  <option value="En espera de agendar">En espera de agendar</option>
+  <option value="Agendado">Agendado</option>
+  <option value="En proceso">En proceso</option>
+  <option value="¡Ya estamos tejiendo tu pedido! Pronto estará listo.">¡Ya estamos tejiendo tu pedido! Pronto estará listo.</option>
+  <option value="Tu Amigurumi ya fue tejido.">Tu Amigurumi ya fue tejido.</option>
+  <option value="Listo para entregar">Listo para entregar</option>
+  <option value="Entregado">Entregado</option>
+  <option value="Cancelado">Cancelado</option>
+</select>
               </div>
 
               {selectedOrder.saldo_pendiente > 0 && (

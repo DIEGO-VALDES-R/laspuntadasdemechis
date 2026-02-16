@@ -9,9 +9,9 @@ import { getPublicImageUrl, extractStoragePath } from './imageHelpers';
 const mapOrder = (o: any): Order => ({
   id: o.id,
   numero_seguimiento: o.numero_seguimiento,
-  clientEmail: o.client_email,
-  clientName: o.client_name || '',      // ✅ Agregar
-  clientPhone: o.client_phone || '',    // ✅ Agregar
+  clientEmail: o.client_email,      // ✅ Mapeo correcto
+  clientName: o.client_name || '',  // ✅ Mapeo correcto
+  clientPhone: o.client_phone || '', // ✅ Mapeo correcto
   nombre_producto: o.nombre_producto,
   estado: o.estado,
   fecha_solicitud: o.fecha_solicitud,
@@ -24,7 +24,7 @@ const mapOrder = (o: any): Order => ({
   descripcion: o.descripcion,
   desglose: o.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
   guia_transportadora: o.guia_transportadora,
-  tipo_empaque: o.tipo_empaque, // 🆕 Mapeo desde BD
+  tipo_empaque: o.tipo_empaque,
   puede_reordenar: o.puede_reordenar,
   puede_calificar: o.puede_calificar
 });
@@ -269,50 +269,93 @@ export const db = {
   },
 
   addOrder: async (order: Omit<Order, 'id' | 'created_at'>) => {
-  const { error } = await supabase.from('orders').insert({
-    numero_seguimiento: order.numero_seguimiento,
-    client_email: order.clientEmail,
-    client_name: order.clientName,          // ✅ Agregar
-    client_phone: order.clientPhone,        // ✅ Agregar
-    nombre_producto: order.nombre_producto,
-    estado: order.estado,
-    fecha_solicitud: order.fecha_solicitud,
-    total_final: order.total_final,
-    monto_pagado: order.monto_pagado,
-    saldo_pendiente: order.saldo_pendiente,
-    imagen_url: order.imagen_url,
-    final_image_url: order.final_image_url || null,
-    descripcion: order.descripcion,
-    tipo_empaque: order.tipo_empaque, // 🆕 Guardado en BD
-    desglose: order.desglose || { precio_base: 0, empaque: 0, accesorios: 0, descuento: 0 },
-    guia_transportadora: order.guia_transportadora
-  });
-  
-  if (error) console.error('Error adding order:', error);
+  try {
+    console.log('📦 Creando pedido con datos:', order);
+
+    const orderData = {
+      numero_seguimiento: order.numero_seguimiento,
+      client_email: order.clientEmail,
+      client_name: order.clientName || '',
+      client_phone: order.clientPhone || '',
+      nombre_producto: order.nombre_producto,
+      estado: order.estado,
+      fecha_solicitud: order.fecha_solicitud,
+      total_final: order.total_final,
+      monto_pagado: order.monto_pagado,
+      saldo_pendiente: order.saldo_pendiente,
+      imagen_url: order.imagen_url,
+      final_image_url: order.final_image_url || null,
+      descripcion: order.descripcion || '',
+      tipo_empaque: order.tipo_empaque || null,
+      desglose: order.desglose || { 
+        precio_base: 0, 
+        empaque: 0, 
+        accesorios: 0, 
+        descuento: 0 
+      },
+      guia_transportadora: order.guia_transportadora || null
+    };
+
+    console.log('💾 Insertando en BD:', orderData);
+
+    const { data, error } = await supabase
+      .from('orders')
+      .insert(orderData)
+      .select();
+    
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      throw new Error(`Error al crear pedido: ${error.message}`);
+    }
+
+    console.log('✅ Pedido creado exitosamente:', data);
+    return data;
+    
+  } catch (error) {
+    console.error('❌ Excepción en addOrder:', error);
+    throw error;
+  }
 },
 
+
   updateOrder: async (orderId: string, updates: Partial<Order>) => {
-  const dbUpdates: any = {};
-  if (updates.estado) dbUpdates.estado = updates.estado;
-  if (updates.guia_transportadora) dbUpdates.guia_transportadora = updates.guia_transportadora;
-  if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
-  if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
-  if (updates.final_image_url !== undefined) dbUpdates.final_image_url = updates.final_image_url;
-  if (updates.fecha_entrega !== undefined) dbUpdates.fecha_entrega = updates.fecha_entrega;
-  
-  // ✅ Agregar estos dos campos
-  if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName;
-  if (updates.clientPhone !== undefined) dbUpdates.client_phone = updates.clientPhone;
-  
-  // 🆕 AGREGAR ACTUALIZACIÓN DE TIPO DE EMPAQUE
-  if (updates.tipo_empaque !== undefined) dbUpdates.tipo_empaque = updates.tipo_empaque;
+  try {
+    const dbUpdates: any = {};
+    
+    if (updates.estado !== undefined) dbUpdates.estado = updates.estado;
+    if (updates.guia_transportadora !== undefined) dbUpdates.guia_transportadora = updates.guia_transportadora;
+    if (updates.saldo_pendiente !== undefined) dbUpdates.saldo_pendiente = updates.saldo_pendiente;
+    if (updates.monto_pagado !== undefined) dbUpdates.monto_pagado = updates.monto_pagado;
+    if (updates.final_image_url !== undefined) dbUpdates.final_image_url = updates.final_image_url;
+    if (updates.fecha_entrega !== undefined) dbUpdates.fecha_entrega = updates.fecha_entrega;
+    if (updates.clientName !== undefined) dbUpdates.client_name = updates.clientName;
+    if (updates.clientPhone !== undefined) dbUpdates.client_phone = updates.clientPhone;
+    if (updates.clientEmail !== undefined) dbUpdates.client_email = updates.clientEmail;
+    if (updates.total_final !== undefined) dbUpdates.total_final = updates.total_final;
+    if (updates.tipo_empaque !== undefined) dbUpdates.tipo_empaque = updates.tipo_empaque;
+    if (updates.desglose !== undefined) dbUpdates.desglose = updates.desglose;
 
-  const { error } = await supabase
-    .from('orders')
-    .update(dbUpdates)
-    .eq('id', orderId);
+    console.log('🔄 Actualizando pedido:', orderId);
+    console.log('📝 Cambios a aplicar:', dbUpdates);
 
-  if (error) console.error('Error updating order:', error);
+    const { data, error } = await supabase
+      .from('orders')
+      .update(dbUpdates)
+      .eq('id', orderId)
+      .select();
+
+    if (error) {
+      console.error('❌ Error de Supabase:', error);
+      throw new Error(`Error al actualizar: ${error.message}`);
+    }
+
+    console.log('✅ Pedido actualizado:', data);
+    return data;
+    
+  } catch (error) {
+    console.error('❌ Excepción en updateOrder:', error);
+    throw error;
+  }
 },
 
   deleteOrder: async (orderId: string) => {
